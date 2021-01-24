@@ -1,0 +1,18 @@
+I"Y<p>Social media is an internet-based form of communication. Social media platforms allow users to have conversations, share information and create web content. University Place, Social Media Web app is for students for their communication with friends. There will be two different platforms to access this application one is used by students i.e.) Users and other is Admin. They both will have different functionalities. Each university will have different web pages and they are not interlinked. Students from the same university can chat and share their photos, project ideas, videos.</p>
+
+<p><a href="https://www.youtube.com/embed/h-h5wpoygWw"><img src="https://sajivfrancis.github.io/img/portfolio/aspnet-thumbnail.png" alt="Watch the video" /></a></p>
+
+<h2 id="university-place">University Place</h2>
+
+<ul>
+  <li>2.0 Functional Requirements</li>
+  <li>2.1 User Functionality</li>
+  <li>2.2 Admin User Functionality</li>
+  <li>3.1 Scalability	10</li>
+  <li>3.2 Security	10</li>
+  <li>3.3 Reliability	10</li>
+  <li>3.4 Availability	11</li>
+  <li>3.5 Maintainability	11</li>
+  <li>3.6 Portability	11</li>
+</ul>
+:ET

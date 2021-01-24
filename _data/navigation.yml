@@ -1,0 +1,13 @@
+# main links links
+main:
+  - title: "Blog Posts"
+    url: /social/blog/
+
+  - title: "Guide"
+    url: /markdown/
+
+  - title: "Code Snippets"
+    url: /codesnippets/
+
+  - title: "Docs"
+    url: /docs/#/

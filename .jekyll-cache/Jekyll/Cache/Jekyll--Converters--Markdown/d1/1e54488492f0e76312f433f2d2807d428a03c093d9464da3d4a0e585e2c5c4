@@ -1,0 +1,136 @@
+I"b<p>The purpose of this project was to create a system that would save time when assigning nursing students clinical hours as well as allowing those students the freedom and ability to pick clinical hours that fit with their schedule. According to the client, it is one of its kind in a sense that it is the only program that allows students to choose their hours rather than having them assigned by their mentors/supervisors. In addition, it was designed to be a simple way for administrators at the school of nursing, the hospital or other medical organization to communicate and share contracts instead of having to use email, phone numbers, or other means of communication. It drastically simplifies this process and saves loads of time on all ends.</p>
+
+<p><a href="https://www.youtube.com/embed/W5umG4a3R4Y"><img src="https://sajivfrancis.github.io/img/portfolio/scpt-thumbnail.png" alt="Watch the video" /></a></p>
+
+<h2 id="technologies">Technologies:</h2>
+
+<p>The code was primarily written in PHP, Javascript, and MySQL, with some HTML and CSS to hold everything together and create user friendly interfaces.</p>
+
+<h2 id="software-development-tools">Software Development Tools</h2>
+
+<p>This section should list the tools chosen to assist software development, including testing.  The actual software chosen will be heavily dependent upon the language in which the system will be implemented.</p>
+
+<p>The list includes:</p>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="nx">an</span> <span class="nx">application</span> <span class="nx">development</span> <span class="nx">tool</span> <span class="o">-</span> <span class="nx">IDE</span><span class="p">;</span>
+<span class="nx">a</span> <span class="nx">configuration</span> <span class="nx">manager</span> <span class="o">/</span> <span class="nx">builder</span><span class="p">;</span>
+<span class="nx">HTML</span><span class="p">,</span> <span class="nx">CSS</span><span class="p">,</span> <span class="nx">JavaScript</span> <span class="o">&amp;</span> <span class="nx">PHP</span> <span class="nx">editors</span><span class="p">;</span>
+<span class="nx">MS</span> <span class="nx">word</span>  <span class="k">for</span> <span class="nx">documentation</span><span class="p">;</span>
+<span class="nx">Pencil</span> <span class="nx">tool</span> <span class="k">for</span> <span class="nx">drawing</span> <span class="nx">diagrams</span><span class="p">;</span>
+<span class="nx">IDE</span> <span class="nx">automated</span> <span class="nx">testing</span> <span class="nx">tools</span><span class="p">.</span></code></pre></figure>
+
+<h2 id="deployment">Deployment:</h2>
+
+<p>LAMP stack will be the ideal environment to deploy the SCPT application, it stands for linux (Ubuntu or CentOS - Server Operating Environments), Web-server (Apache or Nginx), MySQL for the database end and PHP 7.0 installation.</p>
+
+<h2 id="create-a-mysql-instance-with-a-database-name-and-run-the-following-sql-query">Create a MySQL Instance with a database name and run the following SQL Query:</h2>
+
+<figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="o">--</span> <span class="nx">phpMyAdmin</span> <span class="nx">SQL</span> <span class="nx">Dump</span>
+<span class="o">--</span> <span class="nx">version</span> <span class="mf">4.7</span><span class="p">.</span><span class="mi">8</span>
+<span class="o">--</span> <span class="nx">https</span><span class="p">:</span><span class="c1">//www.phpmyadmin.net/</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">Host</span><span class="p">:</span> <span class="nx">localhost</span><span class="p">:</span><span class="mi">3306</span>
+<span class="o">--</span> <span class="nx">Generation</span> <span class="nx">Time</span><span class="p">:</span> <span class="nx">Aug</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">2018</span> <span class="nx">at</span> <span class="mi">03</span><span class="p">:</span><span class="mi">29</span> <span class="nx">AM</span>
+<span class="o">--</span> <span class="nx">Server</span> <span class="nx">version</span><span class="p">:</span> <span class="mf">10.1</span><span class="p">.</span><span class="mi">35</span><span class="o">-</span><span class="nx">MariaDB</span><span class="o">-</span><span class="mi">1</span><span class="o">~</span><span class="nx">xenial</span>
+<span class="o">--</span> <span class="nx">PHP</span> <span class="nx">Version</span><span class="p">:</span> <span class="mf">7.1</span><span class="p">.</span><span class="mi">14</span>
+<span class="nx">SET</span> <span class="nx">SQL_MODE</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">NO_AUTO_VALUE_ON_ZERO</span><span class="dl">"</span><span class="p">;</span>
+<span class="nx">SET</span> <span class="nx">AUTOCOMMIT</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="nx">START</span> <span class="nx">TRANSACTION</span><span class="p">;</span>
+<span class="nx">SET</span> <span class="nx">time_zone</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">+00:00</span><span class="dl">"</span><span class="p">;</span>
+<span class="cm">/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */</span><span class="p">;</span>
+<span class="cm">/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */</span><span class="p">;</span>
+<span class="cm">/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */</span><span class="p">;</span>
+<span class="cm">/*!40101 SET NAMES utf8mb4 */</span><span class="p">;</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">Database</span><span class="p">:</span> <span class="s2">`scpt`</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="o">--------------------------------------------------------</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">Table</span> <span class="nx">structure</span> <span class="k">for</span> <span class="nx">table</span> <span class="s2">`users`</span>
+<span class="o">--</span>
+<span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="s2">`users`</span> <span class="p">(</span>
+  <span class="s2">`id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`username`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`resetmd5`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="dl">''</span><span class="p">,</span>
+  <span class="s2">`password`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`email`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`role`</span> <span class="kr">enum</span><span class="p">(</span><span class="dl">'</span><span class="s1">students</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">sonadmin</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">hospadmin</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">superadmin</span><span class="dl">'</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="dl">'</span><span class="s1">students</span><span class="dl">'</span><span class="p">,</span>
+  <span class="s2">`created`</span> <span class="nx">datetime</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="nx">CURRENT_TIMESTAMP</span><span class="p">,</span>
+  <span class="s2">`firstname`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`lastname`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span>
+<span class="p">)</span> <span class="nx">ENGINE</span><span class="o">=</span><span class="nx">InnoDB</span> <span class="nx">DEFAULT</span> <span class="nx">CHARSET</span><span class="o">=</span><span class="nx">latin1</span><span class="p">;</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">Dumping</span> <span class="nx">data</span> <span class="k">for</span> <span class="nx">table</span> <span class="s2">`users`</span>
+<span class="o">--</span>
+<span class="nx">INSERT</span> <span class="nx">INTO</span> <span class="s2">`users`</span> <span class="p">(</span><span class="s2">`id`</span><span class="p">,</span> <span class="s2">`username`</span><span class="p">,</span> <span class="s2">`name`</span><span class="p">,</span> <span class="s2">`resetmd5`</span><span class="p">,</span> <span class="s2">`password`</span><span class="p">,</span> <span class="s2">`email`</span><span class="p">,</span> <span class="s2">`role`</span><span class="p">,</span> <span class="s2">`created`</span><span class="p">,</span> <span class="s2">`firstname`</span><span class="p">,</span> <span class="s2">`lastname`</span><span class="p">)</span> <span class="nx">VALUES</span>
+<span class="p">(</span><span class="mi">27</span><span class="p">,</span> <span class="dl">'</span><span class="s1">sajiv.francis</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="se">\'\'</span><span class="dl">'</span><span class="p">,</span> <span class="dl">''</span><span class="p">,</span> <span class="dl">'</span><span class="s1">$2y$12$a2Hc/mroonzwOZb.sZCf4eq6XWx.fe7bCgfbG.OC3YySXcJkv3412</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">sajiv.francis@student.fairfield.edu</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">students</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">2018-07-24 05:17:08</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Sajiv</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">Francis</span><span class="dl">'</span><span class="p">),</span>
+<span class="p">(</span><span class="mi">28</span><span class="p">,</span> <span class="dl">'</span><span class="s1">hospadmin</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="se">\'\'</span><span class="dl">'</span><span class="p">,</span> <span class="dl">''</span><span class="p">,</span> <span class="dl">'</span><span class="s1">$2y$12$gXZoyH64DNDWsBMdi5RUjujYw1wvS.4422i5lL.opMK8rweFeFkEi</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">hospadmin@scpt.gwiddle.co.uk</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">hospadmin</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">2018-07-24 15:05:01</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">HOSP</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">ADMIN</span><span class="dl">'</span><span class="p">),</span>
+<span class="p">(</span><span class="mi">29</span><span class="p">,</span> <span class="dl">'</span><span class="s1">sonadmin</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="se">\'\'</span><span class="dl">'</span><span class="p">,</span> <span class="dl">''</span><span class="p">,</span> <span class="dl">'</span><span class="s1">$2y$12$L2dg9DK2DtXkXQ/8BAgtKOH1Pe6GRTUEP24AJsQ.X0ZLPrYcryfy2</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">sonadmin@scpt.gwiddle.co.uk</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">sonadmin</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">2018-07-24 15:05:01</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">SON</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">ADMIN</span><span class="dl">'</span><span class="p">),</span>
+<span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="dl">'</span><span class="s1">superadmin</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="se">\'\'</span><span class="dl">'</span><span class="p">,</span> <span class="dl">''</span><span class="p">,</span> <span class="dl">'</span><span class="s1">$2y$12$yD5IPUvyJBmzp7lX9qBwSeP9mW.ZDJ1TE.NidrDC7uQTDmu3FLaPC</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">superadmin@scpt.gwiddle.co.uk</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">superadmin</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">2018-07-24 15:07:05</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">SUPER</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">ADMIN</span><span class="dl">'</span><span class="p">);</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">Indexes</span> <span class="k">for</span> <span class="nx">dumped</span> <span class="nx">tables</span>
+<span class="o">--</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">Indexes</span> <span class="k">for</span> <span class="nx">table</span> <span class="s2">`users`</span>
+<span class="o">--</span>
+<span class="nx">ALTER</span> <span class="nx">TABLE</span> <span class="s2">`users`</span>
+  <span class="nx">ADD</span> <span class="nx">PRIMARY</span> <span class="nx">KEY</span> <span class="p">(</span><span class="s2">`id`</span><span class="p">);</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">AUTO_INCREMENT</span> <span class="k">for</span> <span class="nx">dumped</span> <span class="nx">tables</span>
+<span class="o">--</span>
+<span class="o">--</span>
+<span class="o">--</span> <span class="nx">AUTO_INCREMENT</span> <span class="k">for</span> <span class="nx">table</span> <span class="s2">`users`</span>
+<span class="o">--</span>
+<span class="nx">ALTER</span> <span class="nx">TABLE</span> <span class="s2">`users`</span>
+  <span class="nx">MODIFY</span> <span class="s2">`id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span> <span class="nx">AUTO_INCREMENT</span><span class="o">=</span><span class="mi">14</span><span class="p">;</span>
+<span class="o">--</span> <span class="nx">user_id</span> <span class="nx">links</span> <span class="nx">to</span> <span class="nx">the</span> <span class="nx">users</span><span class="o">-</span><span class="nx">table</span> <span class="p">(</span><span class="k">in</span> <span class="nx">code</span><span class="p">)</span>
+  <span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="s2">`events`</span> <span class="p">(</span>
+  <span class="s2">`id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+  <span class="s2">`user_id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span>
+  <span class="s2">`title`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`desc`</span> <span class="nx">text</span><span class="p">,</span>
+  <span class="s2">`start`</span> <span class="nx">DATETIME</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`startColor`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span> <span class="nx">DEFAULT</span> <span class="dl">'</span><span class="s1">blue</span><span class="dl">'</span><span class="p">,</span>
+  <span class="s2">`end`</span> <span class="nx">DATETIME</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`endColor`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span> <span class="nx">DEFAULT</span> <span class="dl">'</span><span class="s1">red</span><span class="dl">'</span><span class="p">,</span>
+  <span class="s2">`created_at`</span> <span class="nx">TIMESTAMP</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="nx">CURRENT_TIMESTAMP</span><span class="p">,</span>
+  <span class="nx">PRIMARY</span> <span class="nx">KEY</span> <span class="p">(</span><span class="s2">`id`</span><span class="p">)</span>
+<span class="p">)</span> <span class="nx">ENGINE</span><span class="o">=</span><span class="nx">InnoDB</span> <span class="nx">AUTO_INCREMENT</span><span class="o">=</span><span class="mi">8</span> <span class="nx">DEFAULT</span> <span class="nx">CHARSET</span><span class="o">=</span><span class="nx">utf8</span><span class="p">;</span>
+<span class="o">--</span> <span class="k">if</span> <span class="nx">the</span> <span class="nx">status</span> <span class="k">of</span> <span class="nx">a</span> <span class="nx">reservation</span> <span class="nx">is</span> <span class="nx">confirmed</span><span class="p">,</span> <span class="nx">then</span> <span class="nx">the</span> <span class="nx">event</span> <span class="nx">is</span> <span class="nx">closed</span> <span class="k">for</span> <span class="nx">additional</span> <span class="nx">reservations</span>
+<span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="s2">`reservations`</span> <span class="p">(</span>
+  <span class="s2">`id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+  <span class="s2">`event_id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span>
+  <span class="s2">`user_id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span>
+  <span class="s2">`title`</span> <span class="nx">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span><span class="p">,</span>
+  <span class="s2">`desc`</span> <span class="nx">text</span><span class="p">,</span>
+  <span class="s2">`created_at`</span> <span class="nx">TIMESTAMP</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="nx">CURRENT_TIMESTAMP</span><span class="p">,</span>
+  <span class="s2">`hosp_confirm_id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="nx">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+  <span class="s2">`hosp_confirm_timestamp`</span> <span class="nx">TIMESTAMP</span> <span class="nx">DEFAULT</span> <span class="nx">CURRENT_TIMESTAMP</span><span class="p">,</span>
+  <span class="s2">`sona_confirm_timestamp`</span> <span class="nx">TIMESTAMP</span> <span class="nx">DEFAULT</span> <span class="nx">CURRENT_TIMESTAMP</span><span class="p">,</span>
+  <span class="s2">`sona_confirm_id`</span> <span class="nx">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="nx">DEFAULT</span> <span class="mi">0</span><span class="p">,</span>
+  <span class="s2">`status`</span> <span class="kr">enum</span><span class="p">(</span><span class="dl">'</span><span class="s1">pending</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">sonaconfirmed</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">hospconfirmed</span><span class="dl">'</span><span class="p">,</span><span class="dl">'</span><span class="s1">confirmed</span><span class="dl">'</span><span class="p">)</span> <span class="nx">NOT</span> <span class="nx">NULL</span> <span class="nx">DEFAULT</span> <span class="dl">'</span><span class="s1">pending</span><span class="dl">'</span><span class="p">,</span>
+  <span class="nx">PRIMARY</span> <span class="nx">KEY</span> <span class="p">(</span><span class="s2">`id`</span><span class="p">)</span>
+<span class="p">)</span> <span class="nx">ENGINE</span><span class="o">=</span><span class="nx">InnoDB</span> <span class="nx">AUTO_INCREMENT</span><span class="o">=</span><span class="mi">8</span> <span class="nx">DEFAULT</span> <span class="nx">CHARSET</span><span class="o">=</span><span class="nx">utf8</span><span class="p">;</span>
+<span class="o">--</span> <span class="nx">phpMyAdmin</span> <span class="nx">SQL</span> <span class="nx">Dump</span>
+<span class="o">--</span></code></pre></figure>
+
+<h2 id="design-method-and-standards">DESIGN METHOD AND STANDARDS</h2>
+
+<p>The design method used should be named and referenced.  A brief description may be added to aid readers not familiar with the method.  Any deviations and extensions of the method should be explained and justified.
+In this paper we give an example of how client-server technologies can be developed on the basis of a given design paradigm that enables web technologies to be applied to SCPT projects offering ease of maintenance and savings in life cycle costs.</p>
+
+<p>The design standard might need to be different if more than one method or programming language is involved: for example, if some JavaScript design and programming takes place in an HTML project.
+A key feature of the design process is to attempt to isolate the various ‘layers’ that make up the overall architecture to ensure that changes in one layer have a minimal effect upon other layers in the system, such as for example in the business layer.</p>
+
+<p>In following an OOD-based approach it is vital that the design process is able to discriminate between ‘objects’ and ‘classes’. An ‘object’ is a specific instance, containing a set of data and the methods to process the data. A ‘class’ is a generalized description of a group of objects that have the same data item(s) and method organization.</p>
+
+<p>In designing objects there are four important ‘cardinal points’ to be remembered. These are:
+attributes – what the object knows
+methods – what the object does
+states – the changes that occur due to process flow
+events – responses to the outside world.</p>
+
+<p>Object definitions should be annotated with these items. This will provide the beginnings of a detailed specification document. In addition, each object should be put into a UML diagram set, as this helps summarize the information into small, tight representations of each object in a standard format – in effect a blueprint for the structure of the business objects.</p>
+
+<p>One area where careful attention to design can reap rewards in the longer term is in the interface between the client and the presentation layer. From its earliest inception in projects using the Smalltalk language the Model View Controller (MVC) paradigm has been one of the most implemented solutions in client-server computing.  In implementations based on web technologies, such as PHP Pages (PHP) there is much to be gained from separating out elements of the application server architecture. One approach to this is given in an implementation of the MVC paradigm using PHP.</p>
+:ET

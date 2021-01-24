@@ -1,0 +1,59 @@
+[
+  
+    {
+      "title"    : "ASP DOTNET",
+      "category" : "",
+      "tags"     : "ASPDOTNET, JavaScript, HTML5, CSS3, and MVC Architecture",
+      "url"      : "/blog/2020/03/17/project-7",
+      "date"     : "17 Mar 2020"
+    } ,
+  
+    {
+      "title"    : "Jira Project Management",
+      "category" : "",
+      "tags"     : "Jira, Project Management, Scrum Boards, Kanban Boards, Backlogs, Features, and Reports",
+      "url"      : "/blog/2019/12/18/project-3",
+      "date"     : "18 Dec 2019"
+    } ,
+  
+    {
+      "title"    : "BPMN 2",
+      "category" : "",
+      "tags"     : "BPMN, Modeling Best Practices, Naming Conventions, Gateway, Data, and Artifact",
+      "url"      : "/blog/2019/05/07/project-6",
+      "date"     : "07 May 2019"
+    } ,
+  
+    {
+      "title"    : "SAP Lumira",
+      "category" : "",
+      "tags"     : "SAP, Lumira, Data Visualization, and Analytics Software",
+      "url"      : "/blog/2019/04/22/project-4",
+      "date"     : "22 Apr 2019"
+    } ,
+  
+    {
+      "title"    : "Optey Learning Tool",
+      "category" : "",
+      "tags"     : "Python, JavaScript, HTML5, CSS3, and Django Framework",
+      "url"      : "/blog/2019/02/15/project-2",
+      "date"     : "15 Feb 2019"
+    } ,
+  
+    {
+      "title"    : "BPMN 1",
+      "category" : "",
+      "tags"     : "BPMN, Modeling, Event, Activity, Flow, and Swim lane",
+      "url"      : "/blog/2018/11/21/project-5",
+      "date"     : "21 Nov 2018"
+    } ,
+  
+    {
+      "title"    : "SCPT",
+      "category" : "",
+      "tags"     : "PHP, JavaScript, HTML, and CSS",
+      "url"      : "/blog/2018/01/27/project-1",
+      "date"     : "27 Jan 2018"
+    } 
+  
+]

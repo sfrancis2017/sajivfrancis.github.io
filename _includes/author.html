@@ -1,0 +1,30 @@
+<section class="author" itemprop="author">
+  <div class="details" itemscope itemtype="http://schema.org/Person">
+    {% if site.data.authors %}
+      {% assign user = site.data.authors %}
+      {% assign pathToUserImage = site.baseurl | append: '/img/authors/sajivfrancis.jpg' | append: user.profile_picture %}
+      {% assign name = user.name %}
+      {% assign description = user.description %}
+      {% assign main_website = user.main_website %}
+    {% endif %}
+    <img itemprop="image" class="img-rounded" src="{{pathToUserImage}}" alt="{{name}}">
+    <p class="def">
+      Author:
+    </p>
+    <h2 class="name">
+      {% if site.data.authors %}
+        <a itemprop="name" href="{{main_website}}" target="_blank">
+          Sajiv Francis
+        </a>
+      {% else %}
+        <a itemprop="name">{{name}}</a>
+      {% endif %}
+    </h2>
+    <p class="desc">
+      SAP Solutions Consultant / Software Engineer
+    </p>
+    <p class="contact">
+      <a href="https://sajivfrancis.github.io/#contact" class="btn btn-info">CONTACT</a>
+    </p>
+  </div>
+</section>

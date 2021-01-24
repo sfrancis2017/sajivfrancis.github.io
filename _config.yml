@@ -1,0 +1,91 @@
+#Defaults
+defaults:
+ - url: https://sajivfrancis.com
+   values:
+     author: sajiv-francis
+
+# Site settings
+title: Sajiv Francis
+email: connectsfrancis@gmail.com
+description: "Welcome to my personal webpage and blog - by Sajiv Francis, glad that you are here. In this site, we have brought in a few projects worked on in GitHub as well as added a blog and documents page for visitors. Please add in your suggestions as we look forward add more useful content "
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "https://sajivfrancis.com/"
+
+# User settings
+username: Sajiv Francis
+user_description: SAP Solutions Consultant / Software Engineer
+user_title: SAP Solutions Consultant / Software Engineer
+email: connectsfrancis@gmail.com
+twitter_username: sajivfrancis
+github_username: sajivfrancis
+disqus_username: sajivfrancis
+
+# Team names, titles and social links
+people:
+- name: Sajiv Francis
+  pic: 1
+  position: Software Engineer/Architect
+  social:
+    - title: github
+      url: http://github.com/sajivfrancis
+    - title: linkedin
+      url: https://www.linkedin.com/in/sajiv-francis
+
+# Social networks usernames (many more available: google-plus, flickr, dribbble, pinterest, instagram, tumblr, linkedin, etc.)
+social:
+  - title: github
+    url: http://github.com/sajivfrancis
+  - title: linkedin
+    url: https://www.linkedin.com/in/sajiv-francis
+
+# Postal address (add as many lines as necessary)
+address:
+  - line: 91 Strawberry Hill Avenue, Unit#830
+  - line: Stamford, CT 06902
+
+# Build settings
+markdown: kramdown
+permalink: pretty
+permalink: /blog/:year/:month/:day/:title # trailing slash for now
+incremental: true # regenerate _site pages when changes detected
+livereload: true # refresh pages when new changes detected
+
+# html minify
+compress_html:
+  clippings: all
+  comments: all
+  endings: []
+  profile: false
+
+plugins:
+  - jekyll-sitemap
+  # - wdm # to avoid polling for changes
+
+# Links to include in menu navigation
+# For external links add external: true
+links:
+  - title: Sajiv Francis
+    url: /
+  - title: Docs
+    url: /docs/#/
+  - title: Blog
+    url: /blog
+  - title: CodeSnippets
+    url: /codesnippets
+  - title: Tags
+    url: /tags
+
+relative_links:
+  enabled:     true
+  collections: false
+
+# exclude node related stuff
+exclude:
+  - package.json
+  - node_modules
+  - src
+  - gulpfile.js
+  - initpost.sh
+  - LICENSE
+  - package-lock.json
+  - README.md

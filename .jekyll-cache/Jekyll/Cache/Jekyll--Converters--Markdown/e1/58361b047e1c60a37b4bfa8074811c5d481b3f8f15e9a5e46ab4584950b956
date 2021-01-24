@@ -1,0 +1,82 @@
+I"�<p>Optey® is a technological solution based upon the Interactive Learning Model (ILM), a pedagogical theory influenced by the “trilogy of mind” classification of mental activities.  The ILM defines patterns comprised by three mental processes of learning:</p>
+
+<p>Cognition:  Forming thoughts and acquiring knowledge through observation and experience.<br />
+Conation:  The intentionality to perform actions in pursuit of goal achievement.
+Affectation:  The emotional response to learning based on personal value judgement.</p>
+
+<p>The purpose of the system is to consider these patterns, either as a singular or complementary whole, in order to restructure and present educational content in a variety of formats.  Doing so results in a learning experience that is more enjoyable and measurably more efficient than what is available through conventional means.</p>
+
+<p>Several conceptual outcomes have been identified as effective learning schemata.  These are automatically generated based on written and/or audible inputs to the system that are parsed by machine learning technology with minimal administration.  These outcomes compile information in ways that are compelling to the learner and are proven to improve uptake time, retention rate, and emotional connection to the material.</p>
+
+<p><a href="https://www.youtube.com/embed/uzxuCmjRxRs"><img src="https://sajivfrancis.github.io/img/portfolio/olt-thumbnail.png" alt="Watch the video" /></a></p>
+
+<h2 id="optey---ai-based-teaching-tool">Optey - AI based Teaching Tool</h2>
+
+<h2 id="functional-requirements--srs">FUNCTIONAL REQUIREMENTS – SRS</h2>
+
+<p>#User Management:</p>
+
+<ul>
+  <li>Login Administration: (Dependency – User Functions &amp; Authorization)
+(Users: Administrator, Curator and Learner)</li>
+  <li>Manage User Account (Create/Read/Update/Delete)</li>
+  <li>Login &amp; Logout</li>
+  <li>Forgot Password</li>
+</ul>
+
+<h1 id="portal-ui-operations">Portal UI Operations:</h1>
+
+<ul>
+  <li>Content Processing</li>
+  <li>Input</li>
+  <li>Output</li>
+  <li>AI Component Integration</li>
+</ul>
+
+<h1 id="report">Report:</h1>
+
+<ul>
+  <li>Print Output</li>
+  <li>Email Output</li>
+  <li>User Profile: (Dependency – User Functions &amp; Authorization)</li>
+  <li>Create/Read/Update/Delete Profile</li>
+  <li>Subscription</li>
+  <li>Create/Read/Update/Delete Subscription Information (tied to payment profile)</li>
+</ul>
+
+<h1 id="database-schema">Database Schema:</h1>
+
+<ul>
+  <li>Create Database Schema</li>
+  <li>Review</li>
+  <li>Share</li>
+  <li>AI Engine Framework:</li>
+  <li>AI component</li>
+</ul>
+
+<p><a href="https://pythontips.com/2013/08/08/storing-and-loading-data-with-json/" target="_blank">Python Tips</a></p>
+
+<h1 id="customer-support">Customer Support:</h1>
+
+<ul>
+  <li>Support</li>
+  <li>FAQ</li>
+</ul>
+
+<h1 id="settings-functionality">Settings Functionality:</h1>
+
+<ul>
+  <li>Monitor Usage</li>
+  <li>Customize Site</li>
+</ul>
+
+<h1 id="payment-functionality">Payment Functionality</h1>
+
+<ul>
+  <li>Create/Read/Update/Delete Payment Information</li>
+  <li>Framework Development and Review</li>
+  <li>Framework (MVC) development needed for UI and DB Operations</li>
+  <li>Review</li>
+  <li>Installation</li>
+</ul>
+:ET

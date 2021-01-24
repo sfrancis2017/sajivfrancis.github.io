@@ -1,0 +1,19 @@
+<header class="header-post" role="banner">
+  <div class="content">
+    {% if page.date %}
+    <time itemprop="datePublished" datetime="{{ page.date }}" class="date">{{ page.date | date_to_string }}</time>
+    {% endif %}
+    <h1 class="post-title" itemprop="name">{{ page.title }}</h1>
+    {% if page.layout == 'post' %}
+    {% include post-stats.html %}
+    {% endif %}
+    <p itemprop="description" class="subtitle">{{ page.description }}</p>
+  </div>
+  <a class="down" data-scroll href="#scroll"><svg class="icon icon-angle-down">
+      <use xlink:href="#icon-angle-down"></use>
+    </svg></a>
+  {% include menu-search.html %}
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NT2946X" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+</header>
