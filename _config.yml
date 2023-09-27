@@ -40,8 +40,8 @@ social:
 
 # Postal address (add as many lines as necessary)
 address:
-  - line: 91 Strawberry Hill Avenue, Unit#830
-  - line: Stamford, CT 06902
+  - line: 2935 W White Canyon Rd
+  - line: San Tan Valley, AZ 85144
 
 # Build settings
 markdown: kramdown
