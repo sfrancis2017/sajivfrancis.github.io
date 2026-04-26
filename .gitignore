@@ -4,3 +4,19 @@ _drafts
 .jekyll-metadata
 app
 .publish
+
+# Astro
+dist/
+.astro/
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Local-only Claude tooling (do not commit)
+CLAUDE.md
+SKILL.md
+skill.md

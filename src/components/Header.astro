@@ -1,0 +1,78 @@
+---
+const navLinks = [
+  { href: '/', label: 'Home' },
+  { href: '/blog/', label: 'Writing' },
+  { href: '/about/', label: 'About' },
+  { href: 'https://docs.sajivfrancis.com/', label: 'Docs', external: true },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<header
+  class="border-b border-[var(--color-border)] sticky top-0 z-10 backdrop-blur"
+  style="background-color: color-mix(in oklab, var(--color-bg) 90%, transparent);"
+>
+  <div class="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
+    <a
+      href="/"
+      class="font-semibold tracking-tight text-[var(--color-fg)] no-underline hover:no-underline"
+    >
+      Sajiv Francis
+    </a>
+    <nav class="flex items-center gap-6 text-sm">
+      {
+        navLinks.map(({ href, label, external }) => {
+          const isActive =
+            !external &&
+            (href === '/' ? currentPath === '/' : currentPath.startsWith(href));
+          return (
+            <a
+              href={href}
+              target={external ? '_blank' : undefined}
+              rel={external ? 'noopener noreferrer' : undefined}
+              class={`no-underline hover:no-underline transition-colors ${
+                isActive
+                  ? 'text-[var(--color-fg)] font-medium'
+                  : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+              }`}
+            >
+              {label}
+            </a>
+          );
+        })
+      }
+      <button
+        type="button"
+        id="theme-toggle"
+        aria-label="Toggle dark mode"
+        class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+      >
+        <span class="theme-icon-light" aria-hidden="true">☾</span>
+        <span class="theme-icon-dark hidden" aria-hidden="true">☀</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<script>
+  const toggle = document.getElementById('theme-toggle');
+  const lightIcon = document.querySelector('.theme-icon-light');
+  const darkIcon = document.querySelector('.theme-icon-dark');
+
+  function syncIcons() {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    lightIcon?.classList.toggle('hidden', isDark);
+    darkIcon?.classList.toggle('hidden', !isDark);
+  }
+
+  syncIcons();
+
+  toggle?.addEventListener('click', () => {
+    const next =
+      document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('theme', next);
+    syncIcons();
+  });
+</script>
