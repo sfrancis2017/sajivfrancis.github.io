@@ -67,11 +67,10 @@ links:
   - title: Sajiv Francis
     url: /
   - title: Docs
-    url: /docs/#/
+    url: https://docs.sajivfrancis.com/
+    external: true
   - title: Blog
     url: /blog
-  - title: CodeSnippets
-    url: /codesnippets
   - title: Tags
     url: /tags
 
