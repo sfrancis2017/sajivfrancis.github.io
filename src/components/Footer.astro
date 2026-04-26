@@ -1,0 +1,32 @@
+---
+const year = new Date().getFullYear();
+const social = [
+  { href: 'https://github.com/sfrancis2017', label: 'GitHub' },
+  { href: 'https://www.linkedin.com/in/sajiv-francis', label: 'LinkedIn' },
+  { href: '/rss.xml', label: 'RSS' },
+];
+---
+
+<footer class="border-t border-[var(--color-border)] mt-24">
+  <div
+    class="max-w-3xl mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-sm text-[var(--color-fg-muted)]"
+  >
+    <p>© {year} Sajiv Francis</p>
+    <ul class="flex gap-5">
+      {
+        social.map(({ href, label }) => (
+          <li>
+            <a
+              href={href}
+              target={href.startsWith('http') ? '_blank' : undefined}
+              rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
+              class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline hover:no-underline transition-colors"
+            >
+              {label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</footer>

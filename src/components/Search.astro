@@ -1,0 +1,103 @@
+---
+// Pagefind-backed search modal. Opens on header button click or "/" key.
+// The Pagefind index is generated post-build by `npx pagefind --site dist`
+// (see GitHub Action). In `npm run dev` the index doesn't exist yet, so
+// the modal will show "no results" until the first prod build.
+---
+
+<dialog
+  id="search-dialog"
+  class="bg-[var(--color-bg-elevated)] text-[var(--color-fg)] backdrop:bg-black/50 backdrop:backdrop-blur-sm w-full max-w-2xl mx-auto mt-[10vh] rounded-lg border border-[var(--color-border)] shadow-xl p-0"
+>
+  <form method="dialog" class="flex justify-end p-2">
+    <button
+      type="submit"
+      class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] text-sm px-3 py-1"
+      aria-label="Close search"
+    >
+      Esc ✕
+    </button>
+  </form>
+  <div id="pagefind-root" class="p-4 pt-0"></div>
+</dialog>
+
+<script>
+  // Lazy-load Pagefind UI only when the modal opens (keeps initial JS small)
+  let pagefindLoaded = false;
+
+  async function ensurePagefind(root: HTMLElement) {
+    if (pagefindLoaded) return;
+    pagefindLoaded = true;
+    try {
+      // Pagefind UI is generated post-build at /pagefind/. Use an indirect
+      // string so Vite/Rollup don't try to resolve at build time.
+      const pagefindPath = '/pagefind/pagefind-ui.js';
+      // @ts-expect-error - dynamic runtime import not typed
+      const { PagefindUI } = await import(pagefindPath);
+      new PagefindUI({
+        element: root,
+        showSubResults: true,
+        showImages: false,
+        resetStyles: false,
+        translations: {
+          placeholder: 'Search writing...',
+        },
+      });
+    } catch (err) {
+      root.innerHTML =
+        '<p class="text-sm text-[var(--color-fg-muted)]">Search index not available yet (run a production build to generate it).</p>';
+    }
+  }
+
+  const dialog = document.getElementById('search-dialog') as HTMLDialogElement | null;
+  const trigger = document.getElementById('search-trigger');
+  const root = document.getElementById('pagefind-root') as HTMLElement | null;
+
+  function openSearch() {
+    if (!dialog || !root) return;
+    dialog.showModal();
+    ensurePagefind(root).then(() => {
+      const input = root.querySelector('input');
+      if (input instanceof HTMLInputElement) input.focus();
+    });
+  }
+
+  trigger?.addEventListener('click', openSearch);
+
+  // "/" or Cmd+K to open
+  document.addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement | null;
+    const isTyping =
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable);
+    if (isTyping) return;
+    if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) {
+      e.preventDefault();
+      openSearch();
+    }
+  });
+
+  // Click outside dialog content closes it
+  dialog?.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+</script>
+
+<style is:global>
+  /* Style the Pagefind UI to match editorial palette */
+  #pagefind-root .pagefind-ui {
+    --pagefind-ui-scale: 0.95;
+    --pagefind-ui-primary: var(--color-accent);
+    --pagefind-ui-text: var(--color-fg);
+    --pagefind-ui-background: var(--color-bg-elevated);
+    --pagefind-ui-border: var(--color-border);
+    --pagefind-ui-tag: var(--color-fg-subtle);
+    --pagefind-ui-border-width: 1px;
+    --pagefind-ui-border-radius: 6px;
+    --pagefind-ui-image-border-radius: 4px;
+    --pagefind-ui-image-box-ratio: 3 / 2;
+    --pagefind-ui-font: var(--font-sans);
+  }
+</style>

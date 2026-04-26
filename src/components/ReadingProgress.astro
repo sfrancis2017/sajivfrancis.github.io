@@ -1,0 +1,22 @@
+---
+// Scroll progress bar — fixed at top of viewport, fills as user scrolls
+---
+
+<div
+  id="reading-progress"
+  class="fixed top-0 left-0 h-[2px] w-0 bg-[var(--color-accent)] z-50 transition-[width] duration-75"
+></div>
+
+<script>
+  const bar = document.getElementById('reading-progress');
+  function update() {
+    if (!bar) return;
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    bar.style.width = `${pct}%`;
+  }
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+</script>

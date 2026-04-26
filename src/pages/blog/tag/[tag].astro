@@ -1,0 +1,62 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { tagToSlug, buildPostUrl, formatDate } from '@/lib/utils';
+
+export async function getStaticPaths() {
+  const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+  const tagSet = new Set<string>();
+  allPosts.forEach((post) => post.data.tags.forEach((t) => tagSet.add(t)));
+
+  return Array.from(tagSet).map((tag) => {
+    const slug = tagToSlug(tag);
+    const posts = allPosts.filter((p) => p.data.tags.includes(tag));
+    return {
+      params: { tag: slug },
+      props: { tag, posts },
+    };
+  });
+}
+
+interface Props {
+  tag: string;
+  posts: CollectionEntry<'blog'>[];
+}
+
+const { tag, posts } = Astro.props;
+const sorted = posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+---
+
+<BaseLayout
+  title={`Tagged: ${tag}`}
+  description={`Posts tagged with ${tag}.`}
+>
+  <header class="mb-10">
+    <p class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">Tag</p>
+    <h1 class="mt-2 text-4xl font-semibold tracking-tight">{tag}</h1>
+    <p class="mt-3 text-[var(--color-fg-muted)]">
+      {sorted.length} post{sorted.length === 1 ? '' : 's'} ·{' '}
+      <a href="/blog/" class="underline">all writing</a>
+    </p>
+  </header>
+
+  <ul class="space-y-8">
+    {
+      sorted.map((post) => (
+        <li class="border-b border-[var(--color-border)] pb-8 last:border-b-0">
+          <article>
+            <p class="text-sm text-[var(--color-fg-subtle)] uppercase tracking-wider">
+              {formatDate(post.data.pubDate)}
+            </p>
+            <h2 class="mt-2 text-2xl font-semibold tracking-tight">
+              <a href={buildPostUrl(post)} class="text-[var(--color-fg)] no-underline hover:underline">
+                {post.data.title}
+              </a>
+            </h2>
+            <p class="mt-2 text-[var(--color-fg-muted)]">{post.data.description}</p>
+          </article>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>

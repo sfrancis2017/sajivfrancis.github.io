@@ -1,0 +1,35 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import BlogPost from '@/layouts/BlogPost.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => {
+    const date = post.data.pubDate;
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    // Strip the YYYY-MM-DD- prefix from the filename slug
+    const cleanSlug = post.slug.replace(/^\d{4}-\d{2}-\d{2}-/, '');
+    return {
+      params: { slug: `${year}/${month}/${day}/${cleanSlug}` },
+      props: { post },
+    };
+  });
+}
+
+interface Props {
+  post: CollectionEntry<'blog'>;
+}
+
+const { post } = Astro.props;
+const { Content, remarkPluginFrontmatter } = await post.render();
+
+// Estimate reading time from raw body (~200 wpm)
+const wordCount = post.body.split(/\s+/).filter(Boolean).length;
+const readingTime = Math.max(1, Math.round(wordCount / 200));
+---
+
+<BlogPost post={post} readingTime={readingTime}>
+  <Content />
+</BlogPost>

@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Type scale (1.25 ratio) */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+  --text-6xl: 3.75rem;
+
+  /* Editorial palette — light mode (warm, restrained) */
+  --color-bg: #FAFAF7;
+  --color-bg-elevated: #FFFFFF;
+  --color-fg: #1A1A1A;
+  --color-fg-muted: #6B6864;
+  --color-fg-subtle: #8A8682;
+  --color-border: #E8E5DE;
+  --color-border-strong: #C9C5BC;
+  --color-accent: #B85450;
+  --color-accent-fg: #FFFFFF;
+
+  /* Spacing */
+  --spacing-prose: 65ch;
+
+  /* Radii */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+}
+
+/* Dark mode token overrides */
+:root[data-theme='dark'] {
+  --color-bg: #0F0F0F;
+  --color-bg-elevated: #1A1A1A;
+  --color-fg: #F0EFEA;
+  --color-fg-muted: #8A8682;
+  --color-fg-subtle: #6B6864;
+  --color-border: #2A2826;
+  --color-border-strong: #3A3835;
+  --color-accent: #D87572;
+  --color-accent-fg: #0F0F0F;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  a {
+    color: var(--color-accent);
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+
+  /* Smooth theme transitions */
+  html, body, header, footer, main, section, article {
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+}

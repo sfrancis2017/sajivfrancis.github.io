@@ -1,0 +1,39 @@
+---
+interface Props {
+  src: string;
+  alt: string;
+  caption?: string;
+  link?: string;
+}
+
+const { src, alt, caption, link } = Astro.props;
+---
+
+<figure class="my-8">
+  {
+    link ? (
+      <a href={link} target="_blank" rel="noopener noreferrer">
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          class="w-full rounded-md border border-[var(--color-border)]"
+        />
+      </a>
+    ) : (
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        class="w-full rounded-md border border-[var(--color-border)]"
+      />
+    )
+  }
+  {
+    caption && (
+      <figcaption class="mt-3 text-sm text-[var(--color-fg-subtle)] text-center">
+        {caption}
+      </figcaption>
+    )
+  }
+</figure>
