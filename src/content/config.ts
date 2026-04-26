@@ -4,13 +4,16 @@ const blog = defineCollection({
   type: 'content',
   schema: z.object({
     title: z.string(),
+    subtitle: z.string().optional(),
     description: z.string(),
     pubDate: z.coerce.date(),
     updatedDate: z.coerce.date().optional(),
     coverImage: z.string().optional(),
     coverAlt: z.string().optional(),
+    videoUrl: z.string().optional(), // YouTube/Vimeo embed URL for legacy project posts
     tags: z.array(z.string()).default([]),
     draft: z.boolean().default(false),
+    legacy: z.boolean().default(false), // marks ported portfolio posts vs new editorial content
 
     // Publishing mode: blog-first (publish here, syndicate widely) vs.
     // venue-first (hold; submit to a tier-1 venue; republish later with

@@ -1,0 +1,22 @@
+---
+interface Props {
+  type?: 'info' | 'warning' | 'note' | 'tip';
+  title?: string;
+}
+
+const { type = 'note', title } = Astro.props;
+
+const styles: Record<string, string> = {
+  info: 'border-l-blue-400/40 bg-blue-400/5',
+  warning: 'border-l-amber-500/50 bg-amber-500/5',
+  note: 'border-l-[var(--color-border-strong)] bg-[var(--color-bg-elevated)]',
+  tip: 'border-l-emerald-500/50 bg-emerald-500/5',
+};
+---
+
+<aside class={`my-6 border-l-4 px-5 py-4 rounded-r ${styles[type]}`}>
+  {title && <p class="font-semibold mb-1">{title}</p>}
+  <div class="text-[var(--color-fg)] [&>:last-child]:mb-0 [&>p]:my-2">
+    <slot />
+  </div>
+</aside>

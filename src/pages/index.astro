@@ -1,5 +1,14 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import { buildPostUrl, formatDate } from '@/lib/utils';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .slice(0, 5);
+
+const shortDate = (d: Date) =>
+  formatDate(d, { year: 'numeric', month: 'short', day: 'numeric' });
 ---
 
 <BaseLayout
@@ -24,12 +33,35 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   </section>
 
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
-    <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
-      Recent Writing
-    </h2>
-    <p class="text-[var(--color-fg-muted)]">
-      Posts coming soon. <a href="/blog/" class="underline">View archive</a>.
-    </p>
+    <div class="flex items-baseline justify-between mb-6">
+      <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">
+        Recent Writing
+      </h2>
+      <a href="/blog/" class="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline">
+        Archive →
+      </a>
+    </div>
+    {
+      posts.length === 0 ? (
+        <p class="text-[var(--color-fg-muted)]">Posts coming soon.</p>
+      ) : (
+        <ul class="space-y-5">
+          {posts.map((post) => (
+            <li class="flex items-baseline justify-between gap-4">
+              <a
+                href={buildPostUrl(post)}
+                class="text-[var(--color-fg)] no-underline hover:underline truncate"
+              >
+                {post.data.title}
+              </a>
+              <time class="text-sm text-[var(--color-fg-subtle)] tabular-nums shrink-0">
+                {shortDate(post.data.pubDate)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      )
+    }
   </section>
 
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">

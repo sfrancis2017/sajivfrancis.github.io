@@ -1,0 +1,49 @@
+---
+interface Props {
+  id?: string;
+  url?: string;
+  title?: string;
+}
+
+const { id, url, title = 'YouTube video' } = Astro.props;
+
+// Accept either an `id` directly or a `url` containing a YouTube ID.
+function extractId(input: string): string | null {
+  // Match patterns like: youtu.be/ID, youtube.com/embed/ID, youtube.com/watch?v=ID
+  const patterns = [
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const re of patterns) {
+    const m = input.match(re);
+    if (m) return m[1];
+  }
+  // Maybe it's just the ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+  return null;
+}
+
+const videoId = id ?? (url ? extractId(url) : null);
+---
+
+{
+  videoId ? (
+    <figure class="my-8">
+      <div class="relative w-full aspect-video rounded-md overflow-hidden border border-[var(--color-border)]">
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${videoId}`}
+          title={title}
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+          class="absolute inset-0 w-full h-full"
+        />
+      </div>
+    </figure>
+  ) : (
+    <p class="text-[var(--color-fg-subtle)] italic">
+      [Invalid YouTube reference: {url ?? id}]
+    </p>
+  )
+}
