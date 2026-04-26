@@ -1,0 +1,61 @@
+---
+// Giscus comments — GitHub Discussions backed.
+//
+// SETUP REQUIRED (one-time, ~5 min):
+// 1. Enable Discussions on sfrancis2017/sajivfrancis.github.io:
+//      Settings → General → Features → Discussions → check
+// 2. Install the Giscus app: https://github.com/apps/giscus
+//      Grant access to sfrancis2017/sajivfrancis.github.io
+// 3. Configure at https://giscus.app:
+//      Repo: sfrancis2017/sajivfrancis.github.io
+//      Page ↔ Discussions Mapping: pathname
+//      Discussion category: pick (or create) "Comments" — choose
+//        Announcements category type so only repo maintainers can create
+//      Features: leave defaults
+// 4. Copy the data-repo-id and data-category-id values from giscus.app
+//    and paste them into the constants below.
+//
+// Until configured, this component will render but show a setup prompt.
+
+const REPO = 'sfrancis2017/sajivfrancis.github.io';
+const REPO_ID = ''; // <-- paste from giscus.app
+const CATEGORY = 'Comments';
+const CATEGORY_ID = ''; // <-- paste from giscus.app
+
+const isConfigured = REPO_ID && CATEGORY_ID;
+---
+
+{
+  isConfigured ? (
+    <section class="mt-16 pt-8 border-t border-[var(--color-border)]">
+      <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
+        Comments
+      </h2>
+      <script
+        src="https://giscus.app/client.js"
+        data-repo={REPO}
+        data-repo-id={REPO_ID}
+        data-category={CATEGORY}
+        data-category-id={CATEGORY_ID}
+        data-mapping="pathname"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="bottom"
+        data-theme="preferred_color_scheme"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async
+      />
+    </section>
+  ) : (
+    <aside class="mt-16 pt-8 border-t border-[var(--color-border)]">
+      <p class="text-sm text-[var(--color-fg-subtle)]">
+        Comments not yet configured. See{' '}
+        <code class="px-1 py-0.5 bg-[var(--color-bg-elevated)] rounded">src/components/Giscus.astro</code>{' '}
+        for the 5-minute setup at <a href="https://giscus.app" target="_blank" rel="noopener noreferrer">giscus.app</a>.
+      </p>
+    </aside>
+  )
+}

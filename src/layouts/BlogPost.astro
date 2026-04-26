@@ -2,6 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import ReadingProgress from '@/components/ReadingProgress.astro';
 import YouTube from '@/components/mdx/YouTube.astro';
+import Giscus from '@/components/Giscus.astro';
 import { tagToSlug } from '@/lib/utils';
 import type { CollectionEntry } from 'astro:content';
 
@@ -96,4 +97,6 @@ const venueLabel =
       </a>
     </footer>
   </article>
+
+  <Giscus />
 </BaseLayout>
