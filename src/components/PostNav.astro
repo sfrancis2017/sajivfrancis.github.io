@@ -1,0 +1,51 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { buildPostUrl } from '@/lib/utils';
+
+interface Props {
+  prev: CollectionEntry<'blog'> | null;
+  next: CollectionEntry<'blog'> | null;
+}
+
+const { prev, next } = Astro.props;
+---
+
+{
+  (prev || next) && (
+    <nav
+      class="mt-12 pt-8 border-t border-[var(--color-border)] grid grid-cols-1 sm:grid-cols-2 gap-6 not-prose"
+      aria-label="Post navigation"
+    >
+      <div>
+        {prev && (
+          <a
+            href={buildPostUrl(prev)}
+            class="block group no-underline hover:no-underline"
+          >
+            <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-1">
+              ← Previous
+            </p>
+            <p class="text-base text-[var(--color-fg)] group-hover:text-[var(--color-accent)] transition-colors leading-snug">
+              {prev.data.title}
+            </p>
+          </a>
+        )}
+      </div>
+      <div class="sm:text-right">
+        {next && (
+          <a
+            href={buildPostUrl(next)}
+            class="block group no-underline hover:no-underline"
+          >
+            <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-1">
+              Next →
+            </p>
+            <p class="text-base text-[var(--color-fg)] group-hover:text-[var(--color-accent)] transition-colors leading-snug">
+              {next.data.title}
+            </p>
+          </a>
+        )}
+      </div>
+    </nav>
+  )
+}

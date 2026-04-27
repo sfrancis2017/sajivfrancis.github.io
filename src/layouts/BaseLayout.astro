@@ -52,6 +52,13 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
       const theme = stored ?? (prefersDark ? 'dark' : 'light');
       document.documentElement.dataset.theme = theme;
     </script>
+
+    <!-- Analytics: GoatCounter (privacy-friendly, no cookies) -->
+    <script
+      is:inline
+      data-goatcounter="https://sajivfrancis.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"></script>
   </head>
   <body class="min-h-screen flex flex-col">
     <Header />
