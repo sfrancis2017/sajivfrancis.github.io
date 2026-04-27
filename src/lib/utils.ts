@@ -40,3 +40,26 @@ export function formatDate(d: Date, opts?: Intl.DateTimeFormatOptions): string {
     ...opts,
   });
 }
+
+/**
+ * Given a post and a date-sorted (newest-first) collection, return the
+ * adjacent posts for prev/next navigation. "Previous" is the older post,
+ * "Next" is the newer post.
+ */
+export function getAdjacentPosts(
+  current: CollectionEntry<'blog'>,
+  all: CollectionEntry<'blog'>[],
+): {
+  prev: CollectionEntry<'blog'> | null;
+  next: CollectionEntry<'blog'> | null;
+} {
+  const sorted = [...all].sort(
+    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+  );
+  const idx = sorted.findIndex((p) => p.id === current.id);
+  if (idx === -1) return { prev: null, next: null };
+  return {
+    next: idx > 0 ? sorted[idx - 1] : null,
+    prev: idx < sorted.length - 1 ? sorted[idx + 1] : null,
+  };
+}

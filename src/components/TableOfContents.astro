@@ -1,0 +1,81 @@
+---
+// Sticky sidebar table of contents, generated from h2/h3 headings.
+// Hidden on mobile/tablet; visible on lg+ screens.
+//
+// Astro provides headings via `post.render()`. Each heading has
+// { depth, slug, text }. We filter to depth 2 and 3.
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: Heading[];
+}
+
+const { headings } = Astro.props;
+const tocItems = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+{
+  tocItems.length > 1 && (
+    <aside
+      class="hidden xl:block fixed top-32 right-[max(2rem,calc(50vw-26rem-14rem))] w-52 max-h-[calc(100vh-10rem)] overflow-y-auto text-sm not-prose"
+      aria-label="Table of contents"
+    >
+      <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+        Contents
+      </p>
+      <nav>
+        <ul class="space-y-2">
+          {tocItems.map((h) => (
+            <li class={h.depth === 3 ? 'pl-3' : ''}>
+              <a
+                href={`#${h.slug}`}
+                data-toc-link={h.slug}
+                class="block text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline leading-snug transition-colors"
+              >
+                {h.text}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </aside>
+  )
+}
+
+<script>
+  // Highlight the current section as user scrolls
+  const tocLinks = document.querySelectorAll<HTMLAnchorElement>('[data-toc-link]');
+  if (tocLinks.length > 0) {
+    const headingsBySlug = new Map<string, HTMLElement>();
+    tocLinks.forEach((link) => {
+      const slug = link.dataset.tocLink;
+      if (!slug) return;
+      const el = document.getElementById(slug);
+      if (el) headingsBySlug.set(slug, el);
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const slug = entry.target.id;
+          const link = document.querySelector(`[data-toc-link="${slug}"]`);
+          if (!link) return;
+          if (entry.isIntersecting) {
+            tocLinks.forEach((l) =>
+              l.classList.remove('text-[var(--color-fg)]', 'font-medium'),
+            );
+            link.classList.add('text-[var(--color-fg)]', 'font-medium');
+          }
+        });
+      },
+      { rootMargin: '-20% 0px -70% 0px' },
+    );
+
+    headingsBySlug.forEach((el) => observer.observe(el));
+  }
+</script>
