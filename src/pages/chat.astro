@@ -1,0 +1,18 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ChatEmbed from '@/components/ChatEmbed.astro';
+---
+
+<BaseLayout
+  title="Chat"
+  description="Personal RAG-powered chat — grounded in Sajiv Francis's writing, architecture notes, and talks."
+>
+  <header class="mb-6">
+    <h1 class="text-3xl font-semibold tracking-tight leading-tight">Chat</h1>
+    <p class="text-[var(--color-fg-muted)] mt-2">
+      A personal assistant grounded in my published work. Access-gated.
+    </p>
+  </header>
+
+  <ChatEmbed />
+</BaseLayout>
