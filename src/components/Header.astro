@@ -14,10 +14,10 @@ const currentPath = Astro.url.pathname;
   class="border-b border-[var(--color-border)] sticky top-0 z-10 backdrop-blur"
   style="background-color: color-mix(in oklab, var(--color-bg) 90%, transparent);"
 >
-  <div class="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
+  <div class="max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-5 flex items-center justify-between gap-3">
     <a
       href="/"
-      class="no-underline hover:no-underline flex items-center"
+      class="no-underline hover:no-underline flex items-center shrink-0"
       aria-label="Sajiv Francis — home"
     >
       <img
@@ -25,10 +25,12 @@ const currentPath = Astro.url.pathname;
         alt="Sajiv Francis"
         width="45"
         height="36"
-        class="h-9 w-auto"
+        class="h-7 md:h-9 w-auto"
       />
     </a>
-    <nav class="flex items-center gap-6 text-sm">
+
+    {/* Desktop nav links — hidden on mobile */}
+    <nav class="hidden md:flex items-center gap-6 text-sm">
       {
         navLinks.map(({ href, label, external }) => {
           const isActive =
@@ -50,6 +52,10 @@ const currentPath = Astro.url.pathname;
           );
         })
       }
+    </nav>
+
+    {/* Always-visible icon cluster: search, theme, hamburger (mobile only) */}
+    <div class="flex items-center gap-3">
       <button
         type="button"
         id="search-trigger"
@@ -68,28 +74,103 @@ const currentPath = Astro.url.pathname;
         <span class="theme-icon-light" aria-hidden="true">☾</span>
         <span class="theme-icon-dark hidden" aria-hidden="true">☀</span>
       </button>
-    </nav>
+      <button
+        type="button"
+        id="menu-toggle"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        class="md:hidden text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+      >
+        <svg class="menu-icon-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        <svg class="menu-icon-close hidden" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
   </div>
+
+  {/* Mobile menu panel — hidden on desktop, toggled on mobile */}
+  <nav
+    id="mobile-menu"
+    class="hidden md:hidden border-t border-[var(--color-border)]"
+    aria-label="Mobile navigation"
+  >
+    <ul class="flex flex-col px-4 py-2">
+      {
+        navLinks.map(({ href, label, external }) => {
+          const isActive =
+            !external &&
+            (href === '/' ? currentPath === '/' : currentPath.startsWith(href));
+          return (
+            <li>
+              <a
+                href={href}
+                target={external ? '_blank' : undefined}
+                rel={external ? 'noopener noreferrer' : undefined}
+                class={`block py-3 no-underline hover:no-underline ${
+                  isActive
+                    ? 'text-[var(--color-fg)] font-medium'
+                    : 'text-[var(--color-fg-muted)]'
+                }`}
+              >
+                {label}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </nav>
 </header>
 
 <script>
-  const toggle = document.getElementById('theme-toggle');
+  // Theme toggle
+  const themeToggle = document.getElementById('theme-toggle');
   const lightIcon = document.querySelector('.theme-icon-light');
   const darkIcon = document.querySelector('.theme-icon-dark');
 
-  function syncIcons() {
+  function syncThemeIcons() {
     const isDark = document.documentElement.dataset.theme === 'dark';
     lightIcon?.classList.toggle('hidden', isDark);
     darkIcon?.classList.toggle('hidden', !isDark);
   }
 
-  syncIcons();
+  syncThemeIcons();
 
-  toggle?.addEventListener('click', () => {
+  themeToggle?.addEventListener('click', () => {
     const next =
       document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('theme', next);
-    syncIcons();
+    syncThemeIcons();
+  });
+
+  // Mobile menu toggle
+  const menuToggle = document.getElementById('menu-toggle');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const menuIconOpen = document.querySelector('.menu-icon-open');
+  const menuIconClose = document.querySelector('.menu-icon-close');
+
+  function setMenuOpen(open: boolean) {
+    if (!menuToggle || !mobileMenu) return;
+    menuToggle.setAttribute('aria-expanded', String(open));
+    menuToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    mobileMenu.classList.toggle('hidden', !open);
+    menuIconOpen?.classList.toggle('hidden', open);
+    menuIconClose?.classList.toggle('hidden', !open);
+  }
+
+  menuToggle?.addEventListener('click', () => {
+    const isOpen = menuToggle.getAttribute('aria-expanded') === 'true';
+    setMenuOpen(!isOpen);
+  });
+
+  // Close on link click (so navigation feels right)
+  mobileMenu?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => setMenuOpen(false));
+  });
+
+  // Close on resize to desktop (avoid stuck-open state)
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 768) setMenuOpen(false);
   });
 </script>
