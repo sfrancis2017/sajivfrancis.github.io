@@ -196,6 +196,19 @@
     border-top: 1px solid var(--color-border);
     margin: 1rem 0;
   }
+  .message.assistant .body :global(.mermaid-rendered) {
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    text-align: center;
+  }
+  .message.assistant .body :global(.mermaid-rendered svg) {
+    max-width: 100%;
+    height: auto;
+  }
 
   .message.error .body {
     color: var(--color-accent);
@@ -271,14 +284,47 @@
 <script>
   import { marked } from 'marked';
   import DOMPurify from 'dompurify';
+  import mermaid from 'mermaid';
 
   marked.setOptions({ gfm: true, breaks: true });
+
+  // Initialize Mermaid once, matching the current theme.
+  const isDarkTheme = () => document.documentElement.dataset.theme === 'dark';
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: isDarkTheme() ? 'dark' : 'default',
+    securityLevel: 'strict',
+    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+  });
 
   function renderMarkdown(text: string): string {
     const html = marked.parse(text, { async: false }) as string;
     return DOMPurify.sanitize(html, {
       ADD_ATTR: ['target', 'rel'],
     });
+  }
+
+  // After streaming completes, find any <pre><code class="language-mermaid">
+  // blocks inside `container` and replace them with rendered SVG diagrams.
+  // Runs only once per message to avoid mid-stream parse failures.
+  async function renderMermaid(container: HTMLElement) {
+    const blocks = Array.from(
+      container.querySelectorAll<HTMLElement>('pre code.language-mermaid')
+    );
+    for (const block of blocks) {
+      const code = block.textContent ?? '';
+      const id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
+      try {
+        const { svg } = await mermaid.render(id, code);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mermaid-rendered';
+        wrapper.innerHTML = svg;
+        block.parentElement?.replaceWith(wrapper);
+      } catch (err) {
+        console.warn('mermaid render failed for block:', err);
+        // Leave the raw code block in place so the user can see the source.
+      }
+    }
   }
 
   const API_URL =
@@ -433,6 +479,9 @@
 
       cursor.remove();
       history.push({ role: 'assistant', content: assistantText });
+      // Render any Mermaid diagrams now that the stream is complete
+      await renderMermaid(assistantBody);
+      scrollToBottom();
     } catch (err: any) {
       cursor.remove();
       const wrapper = assistantBody.parentElement!;
