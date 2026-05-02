@@ -101,6 +101,102 @@
     font-size: 1.0625rem;
   }
 
+  /* Markdown elements inside assistant responses */
+  .message.assistant .body :global(h1),
+  .message.assistant .body :global(h2),
+  .message.assistant .body :global(h3),
+  .message.assistant .body :global(h4) {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-fg);
+    margin: 1.25rem 0 0.5rem;
+    line-height: 1.25;
+  }
+  .message.assistant .body :global(h1) { font-size: 1.5rem; }
+  .message.assistant .body :global(h2) { font-size: 1.25rem; }
+  .message.assistant .body :global(h3) { font-size: 1.0625rem; }
+  .message.assistant .body :global(h4) { font-size: 1rem; }
+  .message.assistant .body :global(p) {
+    margin: 0.5rem 0;
+  }
+  .message.assistant .body :global(p:first-child) { margin-top: 0; }
+  .message.assistant .body :global(p:last-child) { margin-bottom: 0; }
+  .message.assistant .body :global(ul),
+  .message.assistant .body :global(ol) {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+  .message.assistant .body :global(li) {
+    margin: 0.25rem 0;
+  }
+  .message.assistant .body :global(li > p) {
+    margin: 0.25rem 0;
+  }
+  .message.assistant .body :global(strong) {
+    font-weight: 600;
+    color: var(--color-fg);
+  }
+  .message.assistant .body :global(em) { font-style: italic; }
+  .message.assistant .body :global(a) {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .message.assistant .body :global(blockquote) {
+    margin: 0.75rem 0;
+    padding-left: 0.875rem;
+    border-left: 3px solid var(--color-border-strong);
+    color: var(--color-fg-muted);
+    font-style: italic;
+  }
+  .message.assistant .body :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+  }
+  .message.assistant .body :global(pre) {
+    margin: 0.75rem 0;
+    padding: 0.875rem 1rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .message.assistant .body :global(pre code) {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+  }
+  .message.assistant .body :global(table) {
+    margin: 0.875rem 0;
+    border-collapse: collapse;
+    font-size: 0.95em;
+    width: 100%;
+  }
+  .message.assistant .body :global(th),
+  .message.assistant .body :global(td) {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+  }
+  .message.assistant .body :global(th) {
+    background: var(--color-bg-elevated);
+    font-weight: 600;
+  }
+  .message.assistant .body :global(hr) {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+    margin: 1rem 0;
+  }
+
   .message.error .body {
     color: var(--color-accent);
     font-style: italic;
@@ -173,6 +269,18 @@
 </style>
 
 <script>
+  import { marked } from 'marked';
+  import DOMPurify from 'dompurify';
+
+  marked.setOptions({ gfm: true, breaks: true });
+
+  function renderMarkdown(text: string): string {
+    const html = marked.parse(text, { async: false }) as string;
+    return DOMPurify.sanitize(html, {
+      ADD_ATTR: ['target', 'rel'],
+    });
+  }
+
   const API_URL =
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:8787/chat'
@@ -312,7 +420,7 @@
             const json = JSON.parse(payload);
             if (json.delta) {
               assistantText += json.delta;
-              assistantBody.textContent = assistantText;
+              assistantBody.innerHTML = renderMarkdown(assistantText);
               assistantBody.appendChild(cursor);
               scrollToBottom();
             }
