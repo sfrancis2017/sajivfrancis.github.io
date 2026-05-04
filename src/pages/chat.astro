@@ -1,18 +1,25 @@
 ---
-import BaseLayout from '@/layouts/BaseLayout.astro';
-import ChatEmbed from '@/components/ChatEmbed.astro';
+// /chat/ now redirects to chat.sajivfrancis.com.
+// The standalone chat handles both owner mode (token in localStorage) and
+// public mode (rate-limited, visibility-filtered). The previous embedded
+// version on this page predated public mode and is no longer needed.
+const target = 'https://chat.sajivfrancis.com';
 ---
 
-<BaseLayout
-  title="Chat"
-  description="Personal RAG-powered chat — grounded in Sajiv Francis's writing, architecture notes, and talks."
->
-  <header class="mb-6">
-    <h1 class="text-3xl font-semibold tracking-tight leading-tight">Chat</h1>
-    <p class="text-[var(--color-fg-muted)] mt-2">
-      A personal assistant grounded in my published work. Access-gated.
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content={`0;url=${target}`} />
+    <link rel="canonical" href={target} />
+    <title>Redirecting to chat.sajivfrancis.com…</title>
+    <script is:inline define:vars={{ target }}>
+      window.location.replace(target);
+    </script>
+  </head>
+  <body>
+    <p>
+      Redirecting to <a href={target}>{target}</a>…
     </p>
-  </header>
-
-  <ChatEmbed />
-</BaseLayout>
+  </body>
+</html>
