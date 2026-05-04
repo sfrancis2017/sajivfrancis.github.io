@@ -133,6 +133,21 @@
   }
 }
 
+/* Mermaid diagrams rendered inside blog posts */
+.mermaid-rendered {
+  margin: 1.5rem 0;
+  padding: 0.75rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  text-align: center;
+}
+.mermaid-rendered svg {
+  max-width: 100%;
+  height: auto;
+}
+
 @media print {
   /* Hide site chrome — everything except the article body */
   body > header,
