@@ -159,8 +159,14 @@ const venueLabel =
   // Lazy-render Mermaid diagrams. The mermaid bundle (~600KB) is only
   // imported when a post actually contains a ```mermaid block, so
   // diagram-free posts pay zero cost.
+  //
+  // Astro renders fenced code through Shiki, which emits
+  // `<pre data-language="mermaid">...</pre>` — the language goes on the
+  // <pre> as a data attribute, not as `class="language-mermaid"` on the
+  // inner <code>. We select on the data attribute and grab the raw
+  // text via .textContent (strips Shiki's syntax-highlight spans).
   const initialBlocks = document.querySelectorAll(
-    'pre code.language-mermaid'
+    'pre[data-language="mermaid"]'
   );
 
   if (initialBlocks.length > 0) {
@@ -180,7 +186,7 @@ const venueLabel =
 
     async function renderAll() {
       const targets = document.querySelectorAll<HTMLElement>(
-        'pre code.language-mermaid, .mermaid-rendered'
+        'pre[data-language="mermaid"], .mermaid-rendered'
       );
       for (const el of targets) {
         const source =
@@ -192,14 +198,7 @@ const venueLabel =
           wrapper.className = 'mermaid-rendered';
           wrapper.setAttribute('data-source', source);
           wrapper.innerHTML = svg;
-          // For raw <pre><code> blocks, swap the whole <pre>; for
-          // already-rendered .mermaid-rendered nodes, swap in place
-          // (this happens on theme toggle re-render).
-          if (el.classList.contains('language-mermaid')) {
-            el.parentElement?.replaceWith(wrapper);
-          } else {
-            el.replaceWith(wrapper);
-          }
+          el.replaceWith(wrapper);
         } catch (err) {
           console.warn('Mermaid render failed:', err);
         }
