@@ -24,8 +24,26 @@ Fast forward to 2026, and here is how that build compares to the same system if 
 
 In 2026 terms, we had built a RAG-based adaptive-learning SaaS, before RAG had a name. The stack was modest: Python and Django on the backend, NLTK doing the parsing, an SQL store for structured records with a JavaScript frontend on top. The pipeline ran in one direction where it had documents in -> parsed once -> persisted as structured records & UI read from these records. We never finished it into a product, but eight years later, the architecture sketched is approximately the same architecture I would still draw today.
 
-The point of this essay is not the project, it is the narrow question of what the model layer of a document AI system can output now that it could not output in 2018, and what that change does to the systems around it. In summary: architectural successes, strategic mistakes, and most importantly — changes to the AI layer.
+Then and now:
 
+```mermaid
+graph LR
+  D[Document] --> P[NLTK parse]
+  P --> S[Structured records]
+  S --> U[Fixed UI views]
+```
+
+```mermaid
+graph LR
+  D[Document] --> C[Chunk + embed]
+  C --> V[(Vector index)]
+  Q[User query] --> R[Hybrid retrieval]
+  V --> R
+  R --> G[LLM generation]
+  G --> O[Per-query output]
+```
+
+The point of this essay is not the project, it is the narrow question of what the model layer of a document AI system can output now that it could not output in 2018, and what that change does to the systems around it. In summary: architectural successes, strategic mistakes, and most importantly — changes to the AI layer.
 
 ## What we got right
 
