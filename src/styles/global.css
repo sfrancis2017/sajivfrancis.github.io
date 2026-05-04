@@ -132,3 +132,61 @@
     --tw-prose-invert-td-borders: var(--color-border);
   }
 }
+
+@media print {
+  /* Hide site chrome — everything except the article body */
+  body > header,
+  body > footer,
+  #search-dialog,
+  #reading-progress,
+  #chat-launcher-button,
+  #chat-launcher-modal,
+  main > *:not(article),
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Reset content widths to fill the printed page */
+  main,
+  article {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+  }
+
+  /* Force light colors — dark mode would bleed black backgrounds */
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .prose {
+    --tw-prose-body: #000;
+    --tw-prose-headings: #000;
+    --tw-prose-bold: #000;
+    --tw-prose-links: #000;
+    --tw-prose-quotes: #000;
+    --tw-prose-pre-bg: #f4f4f4;
+    --tw-prose-pre-code: #000;
+    --tw-prose-code: #000;
+  }
+
+  /* Avoid awkward page breaks inside indivisible elements */
+  pre,
+  blockquote,
+  figure,
+  table,
+  .mermaid-rendered {
+    break-inside: avoid;
+  }
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  /* Slightly smaller heading scale for paper */
+  h1 {
+    font-size: 1.875rem;
+  }
+}
