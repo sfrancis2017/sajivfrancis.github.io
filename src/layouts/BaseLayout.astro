@@ -3,6 +3,7 @@ import '@/styles/global.css';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
 import Search from '@/components/Search.astro';
+import ChatLauncher from '@/components/ChatLauncher.astro';
 
 interface Props {
   title?: string;
@@ -70,5 +71,6 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
     </main>
     <Footer />
     <Search />
+    <ChatLauncher />
   </body>
 </html>

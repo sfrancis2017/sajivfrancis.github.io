@@ -1,3 +1,0 @@
-{% include landingpage/css/bootstrap.min.css %}
-{% include landingpage/css/agency.css %}
-{{ content }}
