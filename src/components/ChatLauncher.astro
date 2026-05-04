@@ -1,0 +1,125 @@
+---
+// Floating chat launcher: bottom-right button → modal with iframe to
+// chat.sajivfrancis.com. Anonymous visitors get public mode automatically;
+// owner-mode bearer token (if set on the chat origin) auto-applies there.
+//
+// Hidden on /chat/* since that page already embeds the chat directly.
+
+const hide = Astro.url.pathname.startsWith('/chat');
+---
+
+{
+  !hide && (
+    <>
+      <button
+        type="button"
+        id="chat-launcher-button"
+        aria-label="Open chat"
+        title="Chat with Sajiv"
+        class="fixed bottom-6 right-6 z-30 h-14 w-14 rounded-full bg-[var(--color-fg)] text-[var(--color-bg)] shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </button>
+
+      <div
+        id="chat-launcher-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Chat with Sajiv"
+        hidden
+        class="fixed inset-0 z-50"
+      >
+        <div
+          id="chat-launcher-backdrop"
+          class="absolute inset-0 bg-black/40"
+        />
+        <div class="absolute inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[640px] md:max-h-[calc(100vh-3rem)] bg-[var(--color-bg)] md:rounded-xl shadow-2xl border border-[var(--color-border)] flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
+            <span class="text-sm font-medium text-[var(--color-fg)]">
+              Chat with Sajiv
+            </span>
+            <button
+              type="button"
+              id="chat-launcher-close"
+              aria-label="Close chat"
+              class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <iframe
+            id="chat-launcher-iframe"
+            title="Chat with Sajiv"
+            class="flex-1 w-full border-0"
+          />
+        </div>
+      </div>
+
+      <script>
+        const button = document.getElementById('chat-launcher-button')!;
+        const modal = document.getElementById(
+          'chat-launcher-modal'
+        ) as HTMLElement;
+        const backdrop = document.getElementById('chat-launcher-backdrop')!;
+        const closeBtn = document.getElementById('chat-launcher-close')!;
+        const iframe = document.getElementById(
+          'chat-launcher-iframe'
+        ) as HTMLIFrameElement;
+
+        let mounted = false;
+        let lastScrollY = 0;
+
+        function openLauncher() {
+          if (!mounted) {
+            iframe.src = 'https://chat.sajivfrancis.com';
+            mounted = true;
+          }
+          lastScrollY = window.scrollY;
+          modal.hidden = false;
+          document.body.style.overflow = 'hidden';
+          closeBtn.focus();
+        }
+
+        function closeLauncher() {
+          modal.hidden = true;
+          document.body.style.overflow = '';
+          button.focus();
+          // Restore scroll position (overflow:hidden can shift on some browsers)
+          window.scrollTo(0, lastScrollY);
+        }
+
+        button.addEventListener('click', openLauncher);
+        backdrop.addEventListener('click', closeLauncher);
+        closeBtn.addEventListener('click', closeLauncher);
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !modal.hidden) closeLauncher();
+        });
+      </script>
+    </>
+  )
+}
