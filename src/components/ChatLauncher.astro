@@ -45,32 +45,78 @@ const hide = Astro.url.pathname.startsWith('/chat');
           id="chat-launcher-backdrop"
           class="absolute inset-0 bg-black/40"
         />
-        <div class="absolute inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[640px] md:max-h-[calc(100vh-3rem)] bg-[var(--color-bg)] md:rounded-xl shadow-2xl border border-[var(--color-border)] flex flex-col overflow-hidden">
+        <div
+          id="chat-launcher-panel"
+          class="chat-panel absolute inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[640px] md:max-h-[calc(100vh-3rem)] bg-[var(--color-bg)] md:rounded-xl shadow-2xl border border-[var(--color-border)] flex flex-col overflow-hidden"
+        >
           <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
             <span class="text-sm font-medium text-[var(--color-fg)]">
               Chat with Sajiv
             </span>
-            <button
-              type="button"
-              id="chat-launcher-close"
-              aria-label="Close chat"
-              class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                id="chat-launcher-expand"
+                aria-label="Expand chat"
+                class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors hidden md:inline-flex"
               >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+                <svg
+                  class="icon-expand"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <line x1="21" y1="3" x2="14" y2="10" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+                <svg
+                  class="icon-collapse hidden"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <polyline points="4 14 10 14 10 20" />
+                  <polyline points="20 10 14 10 14 4" />
+                  <line x1="14" y1="10" x2="21" y2="3" />
+                  <line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                id="chat-launcher-close"
+                aria-label="Close chat"
+                class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
           </div>
           <iframe
             id="chat-launcher-iframe"
@@ -80,6 +126,19 @@ const hide = Astro.url.pathname.startsWith('/chat');
         </div>
       </div>
 
+      <style>
+        /* Expanded state: panel fills the viewport (overrides bottom-right
+           panel sizing). Mobile is already full-screen, so this only matters
+           on md+ screens. */
+        #chat-launcher-panel.expanded {
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          max-height: 100% !important;
+          border-radius: 0 !important;
+        }
+      </style>
+
       <script>
         const button = document.getElementById('chat-launcher-button')!;
         const modal = document.getElementById(
@@ -87,9 +146,13 @@ const hide = Astro.url.pathname.startsWith('/chat');
         ) as HTMLElement;
         const backdrop = document.getElementById('chat-launcher-backdrop')!;
         const closeBtn = document.getElementById('chat-launcher-close')!;
+        const expandBtn = document.getElementById('chat-launcher-expand')!;
+        const panel = document.getElementById('chat-launcher-panel')!;
         const iframe = document.getElementById(
           'chat-launcher-iframe'
         ) as HTMLIFrameElement;
+        const iconExpand = expandBtn.querySelector('.icon-expand')!;
+        const iconCollapse = expandBtn.querySelector('.icon-collapse')!;
 
         let mounted = false;
         let lastScrollY = 0;
@@ -113,9 +176,20 @@ const hide = Astro.url.pathname.startsWith('/chat');
           window.scrollTo(0, lastScrollY);
         }
 
+        function toggleExpand() {
+          const expanded = panel.classList.toggle('expanded');
+          iconExpand.classList.toggle('hidden', expanded);
+          iconCollapse.classList.toggle('hidden', !expanded);
+          expandBtn.setAttribute(
+            'aria-label',
+            expanded ? 'Collapse chat' : 'Expand chat'
+          );
+        }
+
         button.addEventListener('click', openLauncher);
         backdrop.addEventListener('click', closeLauncher);
         closeBtn.addEventListener('click', closeLauncher);
+        expandBtn.addEventListener('click', toggleExpand);
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && !modal.hidden) closeLauncher();
         });
