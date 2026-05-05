@@ -8,11 +8,17 @@ import ChatLauncher from '@/components/ChatLauncher.astro';
 interface Props {
   title?: string;
   description?: string;
+  /**
+   * Tailwind max-width class for <main>. Defaults to `max-w-3xl` (prose width).
+   * Pages that need more horizontal room (e.g. /lab/* tools) can pass `max-w-6xl` etc.
+   */
+  mainClass?: string;
 }
 
 const {
   title = 'Sajiv Francis',
   description = 'Enterprise Architect writing about the intersection of AI and architecture practice.',
+  mainClass = 'max-w-3xl',
 } = Astro.props;
 
 const fullTitle = title === 'Sajiv Francis' ? title : `${title} — Sajiv Francis`;
@@ -66,7 +72,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
   </head>
   <body class="min-h-screen flex flex-col">
     <Header />
-    <main class="flex-1 w-full max-w-3xl mx-auto px-6 py-12">
+    <main class:list={['flex-1 w-full mx-auto px-6 py-12', mainClass]}>
       <slot />
     </main>
     <Footer />
