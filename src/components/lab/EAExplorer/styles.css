@@ -453,7 +453,24 @@
   margin: 1.75rem 0 0.625rem;
 }
 
-/* Diagram */
+/* Mermaid diagram (rendered SVG) */
+.ea-mermaid-diagram {
+  margin: 1rem 0 1.5rem;
+  padding: 1.25rem 1rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  text-align: center;
+  min-height: 120px;
+}
+.ea-mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Legacy layered diagram styles — retained in case we re-enable
+   the band-style view later. Currently unused. */
 .ea-diagram {
   margin: 1rem 0;
 }
@@ -823,8 +840,14 @@
   }
 
   .ea-diagram-row,
+  .ea-mermaid-diagram,
   .ea-roadmap-phase {
     break-inside: avoid;
+  }
+
+  .ea-mermaid-diagram {
+    background: #fff !important;
+    border-color: #d4d4d4 !important;
   }
 
   .ea-int-table {

@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Architecture, Industry, GenerateResult } from './types';
-import { LAYERS } from './data';
-import { architectureToMermaid } from './api';
+import {
+  architectureToMermaid,
+  architecturesToMarkdown,
+  openInMermaidLive,
+} from './api';
 
-const LAYER_ORDER = ['source', 'ot', 'erp', 'middleware', 'data', 'bi', 'ai'];
 const TAB_LABELS = ['Primary', 'Alternate 1', 'Alternate 2'];
 
 interface Props {
@@ -32,15 +34,14 @@ export function ResultsView({ result, industry, onReset }: Props) {
   const archs = result.architectures;
   const current = archs[activeTab];
 
-  async function copyMermaid(arch: Architecture, idx: number) {
-    const src = architectureToMermaid(arch);
+  async function copyAllAsMarkdown() {
+    const md = architecturesToMarkdown(archs, industry.label);
     try {
-      await navigator.clipboard.writeText(src);
-      setCopied(idx);
-      setTimeout(() => setCopied(null), 1500);
+      await navigator.clipboard.writeText(md);
+      setCopied(-1); // -1 = "all" copied
+      setTimeout(() => setCopied(null), 1800);
     } catch {
-      // Fallback: show in a prompt for manual copy
-      window.prompt('Copy this Mermaid source:', src);
+      window.prompt('Copy this markdown:', md);
     }
   }
 
@@ -106,11 +107,21 @@ export function ResultsView({ result, industry, onReset }: Props) {
         </button>
         <button
           type="button"
-          onClick={() => copyMermaid(current, activeTab)}
+          onClick={() => openInMermaidLive(current)}
           className="ea-action"
-          aria-label="Copy current architecture as Mermaid source"
+          aria-label="Open current architecture in Mermaid Live Editor"
+          title="Opens in mermaid.live — edit, render, export PNG/SVG"
         >
-          {copied === activeTab ? '✓ Copied' : 'Copy as Mermaid'}
+          ↗ Open current in Mermaid Live
+        </button>
+        <button
+          type="button"
+          onClick={copyAllAsMarkdown}
+          className="ea-action"
+          aria-label="Copy all 3 architectures as markdown"
+          title="Copies markdown with one ```mermaid fence per architecture"
+        >
+          {copied === -1 ? '✓ Copied all 3' : 'Copy all 3 as Markdown'}
         </button>
         <button type="button" onClick={onReset} className="ea-action">
           ↻ Start over
@@ -152,7 +163,7 @@ function ArchitectureSection({
       )}
 
       <h3 className="ea-subhead">Architecture diagram</h3>
-      <ArchDiagram arch={arch} />
+      <MermaidDiagram arch={arch} />
 
       <h3 className="ea-subhead">Integration patterns</h3>
       <IntegrationTable arch={arch} />
@@ -166,65 +177,47 @@ function ArchitectureSection({
   );
 }
 
-function ArchDiagram({ arch }: { arch: Architecture }) {
-  const nodesByLayer: Record<string, typeof arch.nodes> = {};
-  for (const node of arch.nodes ?? []) {
-    if (!nodesByLayer[node.layer]) nodesByLayer[node.layer] = [];
-    nodesByLayer[node.layer]!.push(node);
-  }
-  const activeLayers = LAYER_ORDER.filter(
-    (l) => (nodesByLayer[l]?.length ?? 0) > 0,
-  );
+function MermaidDiagram({ arch }: { arch: Architecture }) {
+  const ref = useRef<HTMLDivElement>(null);
 
-  // Map layerId → first edge label going OUT of that layer
-  const edgeLabels: Record<string, string> = {};
-  for (const edge of arch.edges ?? []) {
-    const fromNode = arch.nodes?.find((n) => n.id === edge.from);
-    if (fromNode && !edgeLabels[fromNode.layer]) {
-      edgeLabels[fromNode.layer] = edge.label;
+  useEffect(() => {
+    let cancelled = false;
+
+    async function render() {
+      try {
+        const { default: mermaid } = await import('mermaid');
+        const isDark =
+          document.documentElement.dataset.theme === 'dark';
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? 'dark' : 'default',
+          securityLevel: 'strict',
+          fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+        });
+        const source = architectureToMermaid(arch);
+        const id = 'ea-mermaid-' + Math.random().toString(36).slice(2, 10);
+        const { svg } = await mermaid.render(id, source);
+        if (!cancelled && ref.current) {
+          ref.current.innerHTML = svg;
+        }
+      } catch (err) {
+        // Mermaid render can fail on unusual node names; fail soft and
+        // keep the integration table + roadmap as the load-bearing content.
+        console.warn('Mermaid render failed:', err);
+        if (!cancelled && ref.current) {
+          ref.current.innerHTML =
+            '<div style="padding:1rem;color:var(--color-fg-muted);font-size:0.875rem;text-align:center">Diagram could not be rendered. The integration patterns table below shows the same flows.</div>';
+        }
+      }
     }
-  }
 
-  return (
-    <div className="ea-diagram">
-      {activeLayers.map((layerId, idx) => {
-        const layer = LAYERS.find((l) => l.id === layerId)!;
-        const nodes = nodesByLayer[layerId]!;
-        const isLast = idx === activeLayers.length - 1;
-        return (
-          <div key={layerId}>
-            <div className="ea-diagram-row">
-              <div className="ea-diagram-layer">
-                {layer.icon} {layer.label}
-              </div>
-              <div className="ea-diagram-divider" aria-hidden="true" />
-              <div className="ea-diagram-vendors">
-                {nodes.map((node) => (
-                  <span key={node.id} className="ea-diagram-chip">
-                    {node.vendor}
-                  </span>
-                ))}
-              </div>
-            </div>
-            {!isLast && (
-              <div className="ea-diagram-flow" aria-hidden="true">
-                <div className="ea-diagram-arrow-line" />
-                <div className="ea-diagram-flow-label">
-                  <div className="ea-diagram-arrow-line" />
-                  {edgeLabels[layerId] && (
-                    <span className="ea-diagram-flow-pill">
-                      {edgeLabels[layerId]}
-                    </span>
-                  )}
-                </div>
-                <div className="ea-diagram-arrow" />
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+    render();
+    return () => {
+      cancelled = true;
+    };
+  }, [arch]);
+
+  return <div ref={ref} className="ea-mermaid-diagram" aria-label="Architecture diagram" />;
 }
 
 function IntegrationTable({ arch }: { arch: Architecture }) {
