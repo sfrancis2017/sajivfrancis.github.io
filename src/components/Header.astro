@@ -143,6 +143,10 @@ const currentPath = Astro.url.pathname;
       document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('theme', next);
+    // Cross-subdomain cookie so docs.sajivfrancis.com and
+    // chat.sajivfrancis.com pick up the same preference.
+    document.cookie =
+      'theme=' + next + '; Domain=.sajivfrancis.com; Path=/; Max-Age=31536000; SameSite=Lax; Secure';
     syncThemeIcons();
   });
 
