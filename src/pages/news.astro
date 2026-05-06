@@ -93,52 +93,30 @@ function shareUrls(item: { title: string; url: string; source: string }) {
           const s = shareUrls(item);
           return (
             <article
-              class:list={['news-card', item.image && 'has-image']}
+              class="news-card"
               data-domain={item.domain}
               data-timestamp={item.timestamp}
               data-url={item.url}
               data-share-title={item.title}
               data-share-source={item.source}
             >
-              {item.image && (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="news-card-image-link"
-                  aria-hidden="true"
-                  tabindex="-1"
-                >
-                  <img
-                    src={item.image}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    referrerpolicy="no-referrer"
-                    class="news-card-image"
-                    onerror="this.parentElement.style.display='none'"
-                  />
-                </a>
-              )}
-              <div class="news-card-body">
-                <div class="news-card-meta">
-                  <span class:list={['news-domain-badge', `domain-${item.domain.toLowerCase()}`]}>
-                    {item.domain}
-                  </span>
-                  <span class="news-card-source">{item.source}</span>
-                  <time class="news-card-time" datetime={item.date}>
-                    {relativeTime(item.date)}
-                  </time>
-                </div>
-                <a class="news-card-title" href={item.url} target="_blank" rel="noopener noreferrer">
-                  {item.title}
-                </a>
-                {item.excerpt && <p class="news-card-excerpt">{item.excerpt}</p>}
-                <div class="news-card-actions print-hide">
-                  <a href={s.twitter} target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on X">X</a>
-                  <a href={s.linkedin} target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on LinkedIn">in</a>
-                  <button type="button" class="news-share-btn news-copy-btn" data-copy-url={item.url} aria-label="Copy link">⧉</button>
-                </div>
+              <div class="news-card-meta">
+                <span class:list={['news-domain-badge', `domain-${item.domain.toLowerCase()}`]}>
+                  {item.domain}
+                </span>
+                <span class="news-card-source">{item.source}</span>
+                <time class="news-card-time" datetime={item.date}>
+                  {relativeTime(item.date)}
+                </time>
+              </div>
+              <a class="news-card-title" href={item.url} target="_blank" rel="noopener noreferrer">
+                {item.title}
+              </a>
+              {item.excerpt && <p class="news-card-excerpt">{item.excerpt}</p>}
+              <div class="news-card-actions print-hide">
+                <a href={s.twitter} target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on X">X</a>
+                <a href={s.linkedin} target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on LinkedIn">in</a>
+                <button type="button" class="news-share-btn news-copy-btn" data-copy-url={item.url} aria-label="Copy link">⧉</button>
               </div>
             </article>
           );
@@ -279,37 +257,14 @@ function shareUrls(item: { title: string; url: string; source: string }) {
 
   .news-card {
     background: var(--color-bg);
-    display: flex;
-    flex-direction: column;
-    transition: background 100ms ease;
-    overflow: hidden;
-  }
-  .news-card:hover {
-    background: var(--color-bg-elevated);
-  }
-
-  /* Image at top of card when feed provides one. Lazy-loaded so off-screen
-     cards don't fetch. on:error hides the link if the image 404s. */
-  .news-card-image-link {
-    display: block;
-    width: 100%;
-    background: var(--color-bg-elevated);
-    border-bottom: 1px solid var(--color-border);
-  }
-  .news-card-image {
-    display: block;
-    width: 100%;
-    height: 140px;
-    object-fit: cover;
-    object-position: center;
-  }
-
-  .news-card-body {
     padding: 1rem 1.125rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    flex: 1;
+    transition: background 100ms ease;
+  }
+  .news-card:hover {
+    background: var(--color-bg-elevated);
   }
 
   .news-card-meta {
@@ -549,30 +504,24 @@ function shareUrls(item: { title: string; url: string; source: string }) {
       grid.innerHTML = items
         .map((item) => {
           const s = shareUrls(item);
-          const imgBlock = item.image
-            ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" class="news-card-image-link" aria-hidden="true" tabindex="-1"><img src="${escapeHtml(item.image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="news-card-image" onerror="this.parentElement.style.display='none'"></a>`
-            : '';
           return `
             <article
-              class="news-card${item.image ? ' has-image' : ''}"
+              class="news-card"
               data-domain="${escapeHtml(item.domain)}"
               data-timestamp="${item.timestamp}"
               data-url="${escapeHtml(item.url)}"
             >
-              ${imgBlock}
-              <div class="news-card-body">
-                <div class="news-card-meta">
-                  <span class="news-domain-badge domain-${item.domain.toLowerCase()}">${escapeHtml(item.domain)}</span>
-                  <span class="news-card-source">${escapeHtml(item.source)}</span>
-                  <time class="news-card-time" datetime="${escapeHtml(item.date)}">${escapeHtml(relTime(item.date))}</time>
-                </div>
-                <a class="news-card-title" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
-                ${item.excerpt ? `<p class="news-card-excerpt">${escapeHtml(item.excerpt)}</p>` : ''}
-                <div class="news-card-actions print-hide">
-                  <a href="${escapeHtml(s.twitter)}" target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on X">X</a>
-                  <a href="${escapeHtml(s.linkedin)}" target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on LinkedIn">in</a>
-                  <button type="button" class="news-share-btn news-copy-btn" data-copy-url="${escapeHtml(item.url)}" aria-label="Copy link">⧉</button>
-                </div>
+              <div class="news-card-meta">
+                <span class="news-domain-badge domain-${item.domain.toLowerCase()}">${escapeHtml(item.domain)}</span>
+                <span class="news-card-source">${escapeHtml(item.source)}</span>
+                <time class="news-card-time" datetime="${escapeHtml(item.date)}">${escapeHtml(relTime(item.date))}</time>
+              </div>
+              <a class="news-card-title" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
+              ${item.excerpt ? `<p class="news-card-excerpt">${escapeHtml(item.excerpt)}</p>` : ''}
+              <div class="news-card-actions print-hide">
+                <a href="${escapeHtml(s.twitter)}" target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on X">X</a>
+                <a href="${escapeHtml(s.linkedin)}" target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on LinkedIn">in</a>
+                <button type="button" class="news-share-btn news-copy-btn" data-copy-url="${escapeHtml(item.url)}" aria-label="Copy link">⧉</button>
               </div>
             </article>
           `;
