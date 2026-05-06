@@ -13,13 +13,21 @@ interface Props {
    * Pages that need more horizontal room (e.g. /lab/* tools) can pass `max-w-6xl` etc.
    */
   mainClass?: string;
+  /**
+   * Open Graph image path (absolute URL or root-relative). Defaults to the
+   * site-wide social card so shares on LinkedIn / X always have a preview.
+   * Per-post images can be passed in for richer previews.
+   */
+  ogImage?: string;
 }
 
 const {
   title = 'Sajiv Francis',
   description = 'Enterprise Architect writing about the intersection of AI and architecture practice.',
   mainClass = 'max-w-3xl',
+  ogImage = '/img/blog-image.png',
 } = Astro.props;
+const ogImageUrl = new URL(ogImage, Astro.site).toString();
 
 const fullTitle = title === 'Sajiv Francis' ? title : `${title} — Sajiv Francis`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
@@ -47,11 +55,13 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageUrl} />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
 
     <title>{fullTitle}</title>
 

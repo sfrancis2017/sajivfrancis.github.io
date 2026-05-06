@@ -13,6 +13,7 @@ export interface FeedItem {
   date: string;
   timestamp: number;
   excerpt?: string;
+  image?: string;
 }
 
 export interface FeedsResponse {
