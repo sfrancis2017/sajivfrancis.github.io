@@ -65,12 +65,26 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
 
     <title>{fullTitle}</title>
 
-    <!-- Theme: read from localStorage, fall back to system preference, set BEFORE paint -->
+    <!-- Theme: read from cross-subdomain cookie first (so docs / chat /
+         main stay in sync), fall back to localStorage, then to system
+         preference. Set BEFORE paint to avoid a flash. Forward-syncs
+         whichever source won so the next visit is fast. -->
     <script is:inline>
-      const stored = localStorage.getItem('theme');
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = stored ?? (prefersDark ? 'dark' : 'light');
-      document.documentElement.dataset.theme = theme;
+      (function () {
+        const m = document.cookie.match(/(?:^|;\s*)theme=(light|dark)/);
+        const cookieTheme = m ? m[1] : null;
+        const localTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = cookieTheme || localTheme || (prefersDark ? 'dark' : 'light');
+        document.documentElement.dataset.theme = theme;
+        if (cookieTheme !== theme) {
+          document.cookie =
+            'theme=' + theme + '; Domain=.sajivfrancis.com; Path=/; Max-Age=31536000; SameSite=Lax; Secure';
+        }
+        if (localTheme !== theme) {
+          try { localStorage.setItem('theme', theme); } catch (_) {}
+        }
+      })();
     </script>
 
     <!-- Analytics: GoatCounter (privacy-friendly, no cookies) -->
