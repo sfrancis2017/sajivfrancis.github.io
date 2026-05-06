@@ -2,6 +2,8 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
+import { fetchFeeds, relativeTime } from '@/lib/news';
+import type { FeedItem } from '@/lib/news';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
@@ -9,6 +11,18 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
 
 const shortDate = (d: Date) =>
   formatDate(d, { year: 'numeric', month: 'short', day: 'numeric' });
+
+// Top 3 news items as a landing-page tease. If the worker is briefly
+// unreachable at build time, fall back to an empty list rather than
+// failing the whole page build — the news page itself is the
+// authoritative surface and surfaces its own errors.
+let newsItems: FeedItem[] = [];
+try {
+  const { items } = await fetchFeeds();
+  newsItems = items.slice(0, 3);
+} catch (err) {
+  console.warn('[index] news worker unreachable at build time:', err);
+}
 ---
 
 <BaseLayout
@@ -63,6 +77,41 @@ const shortDate = (d: Date) =>
       )
     }
   </section>
+
+  {
+    newsItems.length > 0 && (
+      <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
+        <div class="flex items-baseline justify-between mb-6">
+          <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">
+            What I'm Reading
+          </h2>
+          <a
+            href="/news/"
+            class="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline"
+          >
+            All news →
+          </a>
+        </div>
+        <ul class="space-y-4">
+          {newsItems.map((item) => (
+            <li class="flex flex-col gap-1">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-[var(--color-fg)] no-underline hover:underline"
+              >
+                {item.title}
+              </a>
+              <span class="text-xs text-[var(--color-fg-subtle)]">
+                {item.domain} · {item.source} · {relativeTime(item.date)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
     <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
