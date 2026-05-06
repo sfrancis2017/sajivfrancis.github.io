@@ -6,6 +6,16 @@ import { buildPostUrl, formatDate } from '@/lib/utils';
 const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
+
+// Pre-compute reading time per post (200 wpm). Same formula as the
+// individual post pages so the number on the index matches what the
+// reader will see when they open the post.
+const readingTimes = new Map<string, number>(
+  posts.map((p) => {
+    const words = p.body.split(/\s+/).filter(Boolean).length;
+    return [p.id, Math.max(1, Math.round(words / 200))];
+  }),
+);
 ---
 
 <BaseLayout
@@ -41,6 +51,8 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
               <div class={post.data.coverImage ? '' : 'sm:col-span-2'}>
                 <p class="text-sm text-[var(--color-fg-subtle)] uppercase tracking-wider">
                   {formatDate(post.data.pubDate)}
+                  <span aria-hidden="true"> · </span>
+                  <span>{readingTimes.get(post.id)} min read</span>
                   {post.data.publishMode === 'venue-first' && post.data.venueName && (
                     <span class="ml-2 normal-case tracking-normal">
                       · Originally published in {post.data.venueName}
