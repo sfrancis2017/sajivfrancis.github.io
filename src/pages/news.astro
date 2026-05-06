@@ -1,0 +1,541 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { fetchFeeds, relativeTime, NEWS_WORKER_URL } from '@/lib/news';
+import type { FeedDomain } from '@/lib/news';
+
+const { items, fetchedAt } = await fetchFeeds();
+
+const DOMAINS: { id: FeedDomain | 'All'; label: string }[] = [
+  { id: 'All', label: 'All' },
+  { id: 'SAP', label: 'SAP' },
+  { id: 'Architecture', label: 'Architecture' },
+  { id: 'AI', label: 'AI' },
+  { id: 'Engineering', label: 'Engineering' },
+];
+
+const counts: Record<string, number> = { All: items.length };
+for (const it of items) counts[it.domain] = (counts[it.domain] ?? 0) + 1;
+
+function shareUrls(item: { title: string; url: string; source: string }) {
+  const text = `${item.title} — via ${item.source}`;
+  const u = encodeURIComponent(item.url);
+  const t = encodeURIComponent(text);
+  return {
+    twitter: `https://twitter.com/intent/tweet?text=${t}&url=${u}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`,
+  };
+}
+---
+
+<BaseLayout
+  title="News"
+  description="Curated tech news across SAP, Enterprise Architecture, AI, and Software Engineering — handpicked sources, refreshed every few hours."
+  mainClass="max-w-6xl"
+>
+  <article>
+    <header class="news-header">
+      <div class="news-header-row">
+        <div>
+          <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] font-semibold">
+            News
+          </p>
+          <h1 class="text-3xl md:text-4xl font-semibold tracking-tight leading-tight mt-2">
+            What I'm reading.
+          </h1>
+          <p class="text-base text-[var(--color-fg-muted)] mt-2 max-w-2xl">
+            Curated from {items.length} articles across SAP, Enterprise Architecture, AI &amp; Engineering. Sources I trust; ranked newest-first.
+          </p>
+        </div>
+        <div class="news-meta print-hide">
+          <span class="news-updated">
+            Updated <time id="fetched-at" datetime={fetchedAt}>{relativeTime(fetchedAt)}</time>
+          </span>
+          <button
+            type="button"
+            id="news-refresh"
+            class="news-refresh-btn"
+            aria-label="Refresh feeds"
+            title="Fetch the latest from each source"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <nav class="news-filters print-hide" role="tablist" aria-label="Filter by domain">
+        {
+          DOMAINS.map((d) => (
+            <button
+              type="button"
+              role="tab"
+              data-domain={d.id}
+              class:list={['news-filter-btn', `domain-${d.id.toLowerCase()}`, d.id === 'All' && 'active']}
+              aria-selected={d.id === 'All' ? 'true' : 'false'}
+            >
+              <span class="news-filter-dot" aria-hidden="true" />
+              {d.label}
+              <span class="news-filter-count" data-count={d.id}>
+                {counts[d.id] ?? 0}
+              </span>
+            </button>
+          ))
+        }
+      </nav>
+    </header>
+
+    <main class="news-grid" id="news-grid">
+      {
+        items.map((item) => {
+          const s = shareUrls(item);
+          return (
+            <article
+              class="news-card"
+              data-domain={item.domain}
+              data-timestamp={item.timestamp}
+              data-url={item.url}
+              data-share-title={item.title}
+              data-share-source={item.source}
+            >
+              <div class="news-card-meta">
+                <span class:list={['news-domain-badge', `domain-${item.domain.toLowerCase()}`]}>
+                  {item.domain}
+                </span>
+                <span class="news-card-source">{item.source}</span>
+                <time class="news-card-time" datetime={item.date}>
+                  {relativeTime(item.date)}
+                </time>
+              </div>
+              <a class="news-card-title" href={item.url} target="_blank" rel="noopener noreferrer">
+                {item.title}
+              </a>
+              {item.excerpt && <p class="news-card-excerpt">{item.excerpt}</p>}
+              <div class="news-card-actions print-hide">
+                <a href={s.twitter} target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on X">X</a>
+                <a href={s.linkedin} target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on LinkedIn">in</a>
+                <button type="button" class="news-share-btn news-copy-btn" data-copy-url={item.url} aria-label="Copy link">⧉</button>
+              </div>
+            </article>
+          );
+        })
+      }
+    </main>
+
+    <p class="news-empty" id="news-empty" hidden>
+      No articles for this filter right now.
+    </p>
+
+    <footer class="news-footer">
+      <a href="/news.xml" class="news-rss-link">
+        Subscribe via RSS →
+      </a>
+    </footer>
+  </article>
+</BaseLayout>
+
+<style>
+  /* Header */
+  .news-header {
+    margin-bottom: 2rem;
+  }
+
+  .news-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+
+  .news-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .news-updated {
+    font-size: 0.8125rem;
+    color: var(--color-fg-subtle);
+  }
+
+  .news-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-fg);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 150ms ease;
+  }
+  .news-refresh-btn:hover {
+    border-color: var(--color-fg-muted);
+  }
+  .news-refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .news-refresh-btn.spinning svg {
+    animation: news-spin 0.8s linear infinite;
+  }
+  @keyframes news-spin { to { transform: rotate(360deg); } }
+
+  /* Domain palette — works in both light and dark via accent stripes,
+     keeping the neutral surface from the editorial theme */
+  .domain-sap          { --news-accent: #0066cc; }
+  .domain-architecture { --news-accent: #059669; }
+  .domain-ai           { --news-accent: #d97706; }
+  .domain-engineering  { --news-accent: #7c3aed; }
+  .domain-all          { --news-accent: var(--color-fg-muted); }
+
+  /* Filter tabs */
+  .news-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1rem;
+  }
+
+  .news-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+  }
+  .news-filter-btn:hover {
+    border-color: var(--color-fg-muted);
+    color: var(--color-fg);
+  }
+  .news-filter-btn.active {
+    color: var(--color-bg);
+    border-color: var(--news-accent);
+    background: var(--news-accent);
+  }
+  .news-filter-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--news-accent);
+    flex-shrink: 0;
+  }
+  .news-filter-btn.active .news-filter-dot {
+    background: var(--color-bg);
+  }
+  .news-filter-count {
+    font-size: 0.7rem;
+    opacity: 0.75;
+  }
+
+  /* Grid */
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1px;
+    background: var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: 0.625rem;
+    overflow: hidden;
+  }
+
+  .news-card {
+    background: var(--color-bg);
+    padding: 1rem 1.125rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: background 100ms ease;
+  }
+  .news-card:hover {
+    background: var(--color-bg-elevated);
+  }
+
+  .news-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .news-domain-badge {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    color: var(--news-accent);
+    background: color-mix(in oklab, var(--news-accent) 14%, transparent);
+    flex-shrink: 0;
+  }
+
+  .news-card-source {
+    font-size: 0.75rem;
+    color: var(--color-fg-muted);
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .news-card-time {
+    font-size: 0.7rem;
+    color: var(--color-fg-subtle);
+    flex-shrink: 0;
+  }
+
+  .news-card-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--color-fg);
+    text-decoration: none;
+  }
+  .news-card-title:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .news-card-excerpt {
+    font-size: 0.8125rem;
+    color: var(--color-fg-muted);
+    line-height: 1.5;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .news-card-actions {
+    display: flex;
+    gap: 0.375rem;
+    margin-top: 0.25rem;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  .news-card:hover .news-card-actions,
+  .news-card:focus-within .news-card-actions {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .news-card-actions { opacity: 1; }
+  }
+
+  .news-share-btn {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-fg-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease;
+  }
+  .news-share-btn:hover {
+    border-color: var(--color-fg-muted);
+    color: var(--color-fg);
+  }
+  .news-copy-btn {
+    font-family: inherit;
+  }
+
+  .news-empty {
+    text-align: center;
+    color: var(--color-fg-muted);
+    padding: 3rem 1rem;
+  }
+
+  .news-footer {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.875rem;
+  }
+  .news-rss-link {
+    color: var(--color-fg-muted);
+    text-decoration: none;
+  }
+  .news-rss-link:hover {
+    color: var(--color-fg);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .news-grid {
+      grid-template-columns: 1fr;
+    }
+    .news-header-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<script>
+  // Client-side: filter tabs (no page reload), live refresh, copy-link.
+  const grid = document.getElementById('news-grid')!;
+  const empty = document.getElementById('news-empty') as HTMLElement;
+  const refreshBtn = document.getElementById('news-refresh') as HTMLButtonElement | null;
+  const fetchedAtEl = document.getElementById('fetched-at')!;
+
+  const WORKER_URL = 'https://news-worker.sfrancis2017.workers.dev';
+  let activeFilter: string = 'All';
+
+  function applyFilter(domain: string) {
+    activeFilter = domain;
+    let visible = 0;
+    grid
+      .querySelectorAll<HTMLElement>('.news-card')
+      .forEach((card) => {
+        const match = domain === 'All' || card.dataset.domain === domain;
+        card.hidden = !match;
+        if (match) visible++;
+      });
+    empty.hidden = visible > 0;
+    document
+      .querySelectorAll<HTMLElement>('[data-domain][role="tab"]')
+      .forEach((btn) => {
+        const active = btn.dataset.domain === domain;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', String(active));
+      });
+  }
+
+  document
+    .querySelectorAll<HTMLButtonElement>('[data-domain][role="tab"]')
+    .forEach((btn) => {
+      btn.addEventListener('click', () => applyFilter(btn.dataset.domain ?? 'All'));
+    });
+
+  // Copy link
+  grid.addEventListener('click', async (e) => {
+    const target = (e.target as HTMLElement).closest<HTMLButtonElement>('.news-copy-btn');
+    if (!target) return;
+    const url = target.dataset.copyUrl;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      const original = target.textContent;
+      target.textContent = '✓';
+      setTimeout(() => (target.textContent = original), 1200);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  // Relative time helper (mirror of server-side)
+  function relTime(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 60) return `${Math.max(m, 1)}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // Refresh button — calls worker live, replaces grid HTML.
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function shareUrls(item: { title: string; url: string; source: string }) {
+    const text = encodeURIComponent(`${item.title} — via ${item.source}`);
+    const u = encodeURIComponent(item.url);
+    return {
+      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${u}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${u}`,
+    };
+  }
+
+  async function refresh() {
+    if (!refreshBtn) return;
+    refreshBtn.classList.add('spinning');
+    refreshBtn.disabled = true;
+    try {
+      const res = await fetch(`${WORKER_URL}/feeds`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { items, fetchedAt } = (await res.json()) as {
+        items: Array<{
+          id: string;
+          title: string;
+          url: string;
+          source: string;
+          domain: string;
+          date: string;
+          timestamp: number;
+          excerpt?: string;
+        }>;
+        fetchedAt: string;
+      };
+      grid.innerHTML = items
+        .map((item) => {
+          const s = shareUrls(item);
+          return `
+            <article
+              class="news-card"
+              data-domain="${escapeHtml(item.domain)}"
+              data-timestamp="${item.timestamp}"
+              data-url="${escapeHtml(item.url)}"
+            >
+              <div class="news-card-meta">
+                <span class="news-domain-badge domain-${item.domain.toLowerCase()}">${escapeHtml(item.domain)}</span>
+                <span class="news-card-source">${escapeHtml(item.source)}</span>
+                <time class="news-card-time" datetime="${escapeHtml(item.date)}">${escapeHtml(relTime(item.date))}</time>
+              </div>
+              <a class="news-card-title" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
+              ${item.excerpt ? `<p class="news-card-excerpt">${escapeHtml(item.excerpt)}</p>` : ''}
+              <div class="news-card-actions print-hide">
+                <a href="${escapeHtml(s.twitter)}" target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on X">X</a>
+                <a href="${escapeHtml(s.linkedin)}" target="_blank" rel="noopener noreferrer" class="news-share-btn" aria-label="Share on LinkedIn">in</a>
+                <button type="button" class="news-share-btn news-copy-btn" data-copy-url="${escapeHtml(item.url)}" aria-label="Copy link">⧉</button>
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+      applyFilter(activeFilter);
+      fetchedAtEl.textContent = relTime(fetchedAt);
+      fetchedAtEl.setAttribute('datetime', fetchedAt);
+    } catch (err) {
+      console.error('[news] refresh failed:', err);
+    } finally {
+      refreshBtn.classList.remove('spinning');
+      refreshBtn.disabled = false;
+    }
+  }
+
+  refreshBtn?.addEventListener('click', refresh);
+</script>
