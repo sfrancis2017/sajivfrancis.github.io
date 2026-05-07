@@ -1,0 +1,31 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Editorial OG card, minimal book-cover register.
+       Vector source so we can regenerate at any DPI without quality loss.
+       Uses system fonts (Georgia plus Helvetica) so it renders consistently
+       in librsvg / sharp without needing font embedding. -->
+
+  <!-- Warm off-white background, matches site light mode color-bg token -->
+  <rect width="1200" height="630" fill="#FAFAF7"/>
+
+  <!-- Subtle hairline frame, 1px in from edge — adds restraint -->
+  <rect x="40" y="40" width="1120" height="550" fill="none"
+        stroke="#E8E5DE" stroke-width="1"/>
+
+  <!-- Main name in serif (book-cover register) -->
+  <text x="600" y="335" text-anchor="middle"
+        font-family="Georgia, 'Source Serif 4', serif"
+        font-size="108" font-weight="700"
+        fill="#1A1A1A"
+        letter-spacing="-2">Sajiv Francis</text>
+
+  <!-- Accent rule under the name in site's warm red -->
+  <line x1="540" y1="380" x2="660" y2="380"
+        stroke="#B85450" stroke-width="3"/>
+
+  <!-- Footer domain — small, monospaced register, anchors the composition -->
+  <text x="600" y="540" text-anchor="middle"
+        font-family="Helvetica, Arial, sans-serif"
+        font-size="20" font-weight="600"
+        letter-spacing="6"
+        fill="#8A8682">SAJIVFRANCIS.COM</text>
+</svg>
