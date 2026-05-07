@@ -1,0 +1,594 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+// Owner-only tool. The page itself is a static asset (visitors can see
+// the form), but the worker rejects calls without the bearer token, so
+// no Anthropic spend is possible without owner credentials.
+---
+
+<BaseLayout
+  title="Share — compose draft"
+  description="Compose social media drafts for sharing — owner-only tool."
+  mainClass="max-w-4xl"
+>
+  <article>
+    <header class="mb-8">
+      <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] font-semibold">
+        Admin · Share
+      </p>
+      <h1 class="mt-2 text-3xl md:text-4xl font-semibold tracking-tight leading-tight">
+        Compose with my take.
+      </h1>
+      <p class="mt-3 text-base text-[var(--color-fg-muted)] leading-snug max-w-2xl">
+        Paste a URL, add your commentary, and Claude drafts X and LinkedIn
+        posts in your voice. Edit, copy, paste manually. Nothing posts
+        automatically.
+      </p>
+    </header>
+
+    <!-- Token gate (shown when no token in localStorage) -->
+    <section id="token-gate" class="share-section" hidden>
+      <h2 class="share-section-title">Owner mode required</h2>
+      <p class="share-section-help">
+        This tool calls the Anthropic API and is gated to avoid runaway
+        cost. Enter the compose token to enable. Saved to this device only.
+      </p>
+      <form id="token-form" class="share-form">
+        <label class="share-field">
+          <span>Compose token</span>
+          <input
+            type="password"
+            id="token-input"
+            autocomplete="off"
+            required
+          />
+        </label>
+        <div class="share-actions">
+          <button type="submit" class="share-button share-button-primary">
+            Save token
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Compose form -->
+    <section id="compose-form-section" class="share-section" hidden>
+      <h2 class="share-section-title">What are you sharing?</h2>
+      <form id="compose-form" class="share-form">
+        <label class="share-field">
+          <span>URL <em class="share-required">*</em></span>
+          <input
+            type="url"
+            id="article-url"
+            required
+            placeholder="https://example.com/article"
+          />
+        </label>
+        <label class="share-field">
+          <span>Title <em class="share-required">*</em></span>
+          <input
+            type="text"
+            id="article-title"
+            required
+            placeholder="Article title (auto-filled from /news)"
+          />
+        </label>
+        <label class="share-field">
+          <span>Source <em class="share-optional">(optional)</em></span>
+          <input
+            type="text"
+            id="article-source"
+            placeholder="e.g. Hacker News, Martin Fowler"
+          />
+        </label>
+        <label class="share-field">
+          <span>Your take <em class="share-optional">(optional but recommended)</em></span>
+          <textarea
+            id="commentary"
+            rows="5"
+            placeholder="Why this matters. What you'd add. Where you disagree. The angle a casual reader would miss."
+          ></textarea>
+          <span class="share-hint">
+            The commentary is the value — without it the draft will read
+            like a generic summary.
+          </span>
+        </label>
+        <div class="share-actions">
+          <button
+            type="submit"
+            id="generate-btn"
+            class="share-button share-button-primary"
+          >
+            Generate drafts
+          </button>
+          <button
+            type="button"
+            id="clear-token-btn"
+            class="share-button share-button-ghost"
+          >
+            Sign out
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Loading state -->
+    <section id="generating" class="share-section" hidden>
+      <div class="share-spinner" aria-hidden="true"></div>
+      <p class="share-loading-text">Drafting…</p>
+    </section>
+
+    <!-- Drafts -->
+    <section id="drafts" class="share-section" hidden>
+      <h2 class="share-section-title">Drafts</h2>
+      <p class="share-section-help">
+        Edit inline. Counts update live. Copy each separately and paste
+        into the platform.
+      </p>
+
+      <div class="share-draft" data-platform="x">
+        <header class="share-draft-head">
+          <h3 class="share-draft-title">X / Twitter</h3>
+          <span class="share-draft-meta">
+            <span id="x-count">0</span> / 280 chars
+          </span>
+        </header>
+        <textarea
+          id="x-draft"
+          class="share-draft-textarea share-draft-textarea-short"
+          rows="4"
+        ></textarea>
+        <div class="share-draft-actions">
+          <button type="button" data-copy="x" class="share-button share-button-primary">
+            Copy
+          </button>
+          <a
+            id="x-open"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="share-button share-button-ghost"
+          >
+            Open compose ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="share-draft" data-platform="linkedin">
+        <header class="share-draft-head">
+          <h3 class="share-draft-title">LinkedIn</h3>
+          <span class="share-draft-meta">
+            <span id="li-count">0</span> chars
+          </span>
+        </header>
+        <textarea
+          id="li-draft"
+          class="share-draft-textarea"
+          rows="10"
+        ></textarea>
+        <div class="share-draft-actions">
+          <button type="button" data-copy="linkedin" class="share-button share-button-primary">
+            Copy
+          </button>
+          <a
+            id="li-open"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="share-button share-button-ghost"
+          >
+            Open compose ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="share-actions">
+        <button type="button" id="regenerate-btn" class="share-button share-button-ghost">
+          Regenerate
+        </button>
+        <button type="button" id="new-share-btn" class="share-button share-button-ghost">
+          Share something else
+        </button>
+      </div>
+    </section>
+
+    <!-- Error banner -->
+    <div id="error-banner" class="share-error" hidden role="alert"></div>
+  </article>
+</BaseLayout>
+
+<style>
+  .share-section {
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 0.625rem;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .share-section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.5rem;
+    color: var(--color-fg);
+  }
+
+  .share-section-help {
+    font-size: 0.875rem;
+    color: var(--color-fg-muted);
+    margin: 0 0 1.25rem;
+    line-height: 1.55;
+  }
+
+  .share-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .share-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+  }
+
+  .share-field > span {
+    color: var(--color-fg-muted);
+    font-weight: 500;
+  }
+
+  .share-required {
+    color: var(--color-accent);
+    font-style: normal;
+    margin-left: 0.25rem;
+  }
+
+  .share-optional {
+    color: var(--color-fg-subtle);
+    font-style: normal;
+  }
+
+  .share-field input,
+  .share-field textarea {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    color: var(--color-fg);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    padding: 0.625rem 0.75rem;
+    line-height: 1.5;
+    transition: border-color 150ms ease;
+  }
+  .share-field textarea {
+    resize: vertical;
+    min-height: 4rem;
+  }
+  .share-field input:focus,
+  .share-field textarea:focus {
+    outline: none;
+    border-color: var(--color-fg-muted);
+  }
+
+  .share-hint {
+    font-size: 0.75rem;
+    color: var(--color-fg-subtle);
+    line-height: 1.45;
+  }
+
+  .share-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .share-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.55rem 1rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 150ms ease, background 150ms ease;
+  }
+  .share-button:hover {
+    border-color: var(--color-fg-muted);
+  }
+  .share-button-primary {
+    background: var(--color-fg);
+    color: var(--color-bg);
+    border-color: var(--color-fg);
+  }
+  .share-button-primary:hover {
+    opacity: 0.92;
+  }
+  .share-button-ghost {
+    background: transparent;
+  }
+  .share-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Drafts */
+  .share-draft {
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 1rem 1.125rem;
+    margin-bottom: 1.25rem;
+    background: var(--color-bg);
+  }
+
+  .share-draft-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .share-draft-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .share-draft-meta {
+    font-size: 0.75rem;
+    color: var(--color-fg-subtle);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  .share-draft-meta.over {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  .share-draft-textarea {
+    width: 100%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 0.375rem;
+    color: var(--color-fg);
+    font-family: inherit;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    padding: 0.625rem 0.75rem;
+    resize: vertical;
+  }
+
+  .share-draft-textarea-short {
+    min-height: 4.5rem;
+  }
+
+  .share-draft-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+    flex-wrap: wrap;
+  }
+
+  /* Loading */
+  .share-spinner {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border);
+    border-top: 2px solid var(--color-fg);
+    animation: share-spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes share-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .share-loading-text {
+    text-align: center;
+    color: var(--color-fg-muted);
+    font-size: 0.9375rem;
+    margin: 0;
+  }
+
+  /* Error */
+  .share-error {
+    margin-top: 1rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--color-accent);
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, var(--color-accent) 8%, transparent);
+    color: var(--color-accent);
+    font-size: 0.875rem;
+  }
+</style>
+
+<script>
+  const WORKER_URL = 'https://news-worker.sfrancis2017.workers.dev';
+  const TOKEN_KEY = 'compose-token';
+
+  const tokenGate = document.getElementById('token-gate') as HTMLElement;
+  const tokenForm = document.getElementById('token-form') as HTMLFormElement;
+  const tokenInput = document.getElementById('token-input') as HTMLInputElement;
+
+  const composeSection = document.getElementById('compose-form-section') as HTMLElement;
+  const composeForm = document.getElementById('compose-form') as HTMLFormElement;
+  const urlInput = document.getElementById('article-url') as HTMLInputElement;
+  const titleInput = document.getElementById('article-title') as HTMLInputElement;
+  const sourceInput = document.getElementById('article-source') as HTMLInputElement;
+  const commentaryInput = document.getElementById('commentary') as HTMLTextAreaElement;
+  const generateBtn = document.getElementById('generate-btn') as HTMLButtonElement;
+  const clearTokenBtn = document.getElementById('clear-token-btn') as HTMLButtonElement;
+
+  const generating = document.getElementById('generating') as HTMLElement;
+  const draftsSection = document.getElementById('drafts') as HTMLElement;
+  const xDraft = document.getElementById('x-draft') as HTMLTextAreaElement;
+  const liDraft = document.getElementById('li-draft') as HTMLTextAreaElement;
+  const xCount = document.getElementById('x-count') as HTMLElement;
+  const liCount = document.getElementById('li-count') as HTMLElement;
+  const xOpen = document.getElementById('x-open') as HTMLAnchorElement;
+  const liOpen = document.getElementById('li-open') as HTMLAnchorElement;
+  const regenerateBtn = document.getElementById('regenerate-btn') as HTMLButtonElement;
+  const newShareBtn = document.getElementById('new-share-btn') as HTMLButtonElement;
+
+  const errorBanner = document.getElementById('error-banner') as HTMLElement;
+
+  function getToken(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+  function setToken(v: string) {
+    localStorage.setItem(TOKEN_KEY, v);
+  }
+  function clearToken() {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+
+  function show(el: HTMLElement) { el.hidden = false; }
+  function hide(el: HTMLElement) { el.hidden = true; }
+  function showOnly(target: HTMLElement) {
+    [tokenGate, composeSection, generating, draftsSection].forEach((el) => {
+      if (el === target) show(el); else hide(el);
+    });
+  }
+
+  function showError(message: string) {
+    errorBanner.textContent = '⚠ ' + message;
+    show(errorBanner);
+    setTimeout(() => hide(errorBanner), 6000);
+  }
+
+  // Prefill from query params (?url=...&title=...&source=...)
+  function prefillFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const u = params.get('url');
+    const t = params.get('title');
+    const s = params.get('source');
+    if (u) urlInput.value = u;
+    if (t) titleInput.value = t;
+    if (s) sourceInput.value = s;
+  }
+
+  // Char counters
+  function updateCounts() {
+    const xLen = xDraft.value.length;
+    xCount.textContent = String(xLen);
+    xCount.parentElement?.classList.toggle('over', xLen > 280);
+    liCount.textContent = String(liDraft.value.length);
+  }
+  function updateOpenLinks() {
+    xOpen.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(xDraft.value)}`;
+    // LinkedIn share doesn't accept pre-filled text via URL (only URL),
+    // so we just open the LinkedIn share dialog with the article URL —
+    // user pastes the text from the textarea. (Long-standing LinkedIn API
+    // limitation; nothing we can do about it client-side.)
+    liOpen.href = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(urlInput.value)}`;
+  }
+
+  xDraft.addEventListener('input', () => { updateCounts(); updateOpenLinks(); });
+  liDraft.addEventListener('input', () => { updateCounts(); updateOpenLinks(); });
+
+  // Init
+  if (getToken()) {
+    showOnly(composeSection);
+  } else {
+    showOnly(tokenGate);
+  }
+  prefillFromUrl();
+
+  // Token form
+  tokenForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = tokenInput.value.trim();
+    if (!v) return;
+    setToken(v);
+    tokenInput.value = '';
+    showOnly(composeSection);
+  });
+
+  clearTokenBtn.addEventListener('click', () => {
+    clearToken();
+    showOnly(tokenGate);
+  });
+
+  // Compose form
+  composeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await generate();
+  });
+
+  regenerateBtn.addEventListener('click', () => generate());
+  newShareBtn.addEventListener('click', () => {
+    composeForm.reset();
+    showOnly(composeSection);
+  });
+
+  async function generate() {
+    const token = getToken();
+    if (!token) {
+      showOnly(tokenGate);
+      return;
+    }
+    showOnly(generating);
+
+    try {
+      const res = await fetch(`${WORKER_URL}/compose`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          url: urlInput.value.trim(),
+          title: titleInput.value.trim(),
+          source: sourceInput.value.trim() || undefined,
+          commentary: commentaryInput.value.trim() || undefined,
+        }),
+      });
+
+      if (res.status === 401) {
+        clearToken();
+        showOnly(tokenGate);
+        showError('Token rejected. Re-enter to continue.');
+        return;
+      }
+
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      const data = (await res.json()) as { x: string; linkedin: string };
+      xDraft.value = data.x;
+      liDraft.value = data.linkedin;
+      updateCounts();
+      updateOpenLinks();
+      showOnly(draftsSection);
+    } catch (err) {
+      showOnly(composeSection);
+      showError(err instanceof Error ? err.message : 'Generation failed.');
+    }
+  }
+
+  // Copy buttons
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const which = btn.dataset.copy;
+      const text = which === 'x' ? xDraft.value : liDraft.value;
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = '✓ Copied';
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      } catch {
+        window.prompt('Copy this draft:', text);
+      }
+    });
+  });
+</script>
