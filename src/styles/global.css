@@ -135,6 +135,7 @@
 
 /* Mermaid diagrams rendered inside blog posts */
 .mermaid-rendered {
+  position: relative;
   margin: 1.5rem 0;
   padding: 0.75rem;
   background: var(--color-bg-elevated);
@@ -142,6 +143,92 @@
   border-radius: 0.5rem;
   overflow-x: auto;
   text-align: center;
+}
+
+/* Expand-to-fullscreen button on each diagram (top-right). Subtle by
+   default; brightens on hover. Always tap-visible on touch screens. */
+.mermaid-expand {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.mermaid-rendered:hover .mermaid-expand { opacity: 1; }
+.mermaid-expand:hover {
+  color: var(--color-fg);
+  background: var(--color-bg-elevated);
+}
+
+/* Fullscreen modal for expanded diagram view */
+.mermaid-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mermaid-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+}
+.mermaid-modal-panel {
+  position: relative;
+  width: min(96vw, 1600px);
+  height: min(94vh, 1100px);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.mermaid-modal-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.mermaid-modal-close:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+}
+.mermaid-modal-svg {
+  flex: 1;
+  overflow: auto;
+  padding: 1.2rem;
+  /* Center if smaller than container, allow scroll if larger */
+  display: grid;
+  place-items: center;
+}
+.mermaid-modal-svg svg {
+  /* Render at intrinsic size — the scrollable parent handles overflow */
+  max-width: none !important;
+  height: auto !important;
 }
 .mermaid-rendered svg {
   max-width: 100%;

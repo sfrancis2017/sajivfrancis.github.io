@@ -268,11 +268,78 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
           wrapper.className = 'mermaid-rendered';
           wrapper.setAttribute('data-source', source);
           wrapper.innerHTML = svg;
+          // Append an expand button. Dense architecture diagrams scale
+          // down too far to read on the post page; clicking opens a
+          // fullscreen modal with the SVG at natural size + pan/zoom.
+          const expandBtn = document.createElement('button');
+          expandBtn.type = 'button';
+          expandBtn.className = 'mermaid-expand';
+          expandBtn.setAttribute('aria-label', 'Expand diagram');
+          expandBtn.title = 'Expand diagram';
+          expandBtn.innerHTML =
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+          expandBtn.addEventListener('click', () => openMermaidModal(wrapper));
+          wrapper.appendChild(expandBtn);
           el.replaceWith(wrapper);
         } catch (err) {
           console.warn('Mermaid render failed:', err);
         }
       }
+    }
+
+    // ---- Fullscreen expand modal ---------------------------------------
+    // One modal shared across every diagram on the page. Cloning the SVG
+    // (rather than moving it) means the inline copy stays in place.
+    function ensureMermaidModal(): HTMLElement {
+      let modal = document.getElementById('mermaid-modal');
+      if (modal) return modal;
+      modal = document.createElement('div');
+      modal.id = 'mermaid-modal';
+      modal.className = 'mermaid-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-label', 'Diagram fullscreen view');
+      modal.hidden = true;
+      modal.innerHTML = `
+        <div class="mermaid-modal-backdrop" data-close></div>
+        <div class="mermaid-modal-panel">
+          <button type="button" class="mermaid-modal-close" data-close aria-label="Close">×</button>
+          <div class="mermaid-modal-svg"></div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.dataset && target.dataset.close !== undefined) closeMermaidModal();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal!.hidden) closeMermaidModal();
+      });
+      return modal;
+    }
+
+    function openMermaidModal(source: HTMLElement) {
+      const modal = ensureMermaidModal();
+      const slot = modal.querySelector('.mermaid-modal-svg') as HTMLElement;
+      const svg = source.querySelector('svg');
+      if (!svg) return;
+      slot.innerHTML = '';
+      const clone = svg.cloneNode(true) as SVGElement;
+      // Strip width/height caps so the SVG renders at intrinsic size
+      // inside the modal's scrollable container.
+      clone.removeAttribute('width');
+      clone.removeAttribute('height');
+      clone.removeAttribute('style');
+      slot.appendChild(clone);
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMermaidModal() {
+      const modal = document.getElementById('mermaid-modal');
+      if (!modal) return;
+      modal.hidden = true;
+      document.body.style.overflow = '';
     }
 
     configure();
