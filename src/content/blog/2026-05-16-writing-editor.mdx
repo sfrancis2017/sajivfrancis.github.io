@@ -18,10 +18,10 @@ Here's the loop. One Cloudflare Worker — the chat-worker — handles all read/
 
 ```mermaid
 flowchart TD
-    A[/admin/write] -->|Save| B[DRAFTS_KV<br>owner-only via CHAT_TOKEN]
-    B -->|Publish| C[GitHub: src/content/blog/<br>YYYY-MM-DD-slug.mdx]
-    C -->|git push| D[GitHub Pages rebuild]
-    D --> E[sajivfrancis.com/blog/slug]
+    A["/admin/write"] -->|Save| B["DRAFTS_KV<br>owner-only via CHAT_TOKEN"]
+    B -->|Publish| C["GitHub: src/content/blog/<br>YYYY-MM-DD-slug.mdx"]
+    C -->|git push| D["GitHub Pages rebuild"]
+    D --> E["sajivfrancis.com/blog/slug"]
 ``` 
 
 The review pass fetches the actual GitHub source for any repo I tag, then asks Claude to ground my prose against that code. If I write "I used Python" but 'wrangler.toml' says TypeScript, the suggestion flags it — I fix it manually before publishing.
@@ -40,7 +40,7 @@ This is a different way of writing. Review prose and technical claims in the sam
 ```mermaid
 sequenceDiagram
     actor Owner
-    participant Editor as /admin/write
+    participant Editor as "/admin/write"
     participant Worker as chat-worker
     participant KV as DRAFTS_KV
     participant GH as GitHub
