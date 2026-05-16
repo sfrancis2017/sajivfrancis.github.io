@@ -217,6 +217,30 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   }
   .drafts-list .draft-meta { font-size: 0.7rem; color: var(--color-fg-muted); }
   .drafts-list .draft-pub { color: #2e7d32; font-weight: 600; }
+  .draft-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.4rem;
+  }
+  .draft-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .draft-delete {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    padding: 0; border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-fg-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+  }
+  .drafts-list li:hover .draft-delete { opacity: 0.7; }
+  .draft-delete:hover {
+    opacity: 1 !important;
+    background: rgba(198, 40, 40, 0.12);
+    color: #c62828;
+  }
   .drafts-empty { color: var(--color-fg-muted); font-style: italic; padding: 0.5rem; }
 
   /* Editor main column */
@@ -607,15 +631,54 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       const li = document.createElement('li');
       li.dataset.id = d.id;
       if (d.id === currentDraftId) li.classList.add('active');
+
+      // Title + delete button row
+      const row = document.createElement('div');
+      row.className = 'draft-row';
       const title = document.createElement('div');
+      title.className = 'draft-title';
       title.textContent = d.title || '(untitled)';
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'draft-delete';
+      del.title = 'Delete this draft';
+      del.setAttribute('aria-label', `Delete draft: ${d.title || 'untitled'}`);
+      del.textContent = '×';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteDraft(d.id, d.title);
+      });
+      row.append(title, del);
+
       const meta = document.createElement('div');
       meta.className = 'draft-meta';
       const date = d.updated_at ? new Date(d.updated_at).toLocaleString() : '';
       meta.innerHTML = `${date}${d.published_at ? ' · <span class="draft-pub">published</span>' : ''}`;
-      li.append(title, meta);
+
+      li.append(row, meta);
       li.addEventListener('click', () => loadDraft(d.id));
       draftsList.appendChild(li);
+    }
+  }
+
+  async function deleteDraft(id, title) {
+    if (!confirm(`Delete draft "${title || '(untitled)'}"?\n\nThis cannot be undone. The published post (if any) is NOT affected — only the draft record is removed.`)) {
+      return;
+    }
+    try {
+      const res = await api(`/api/drafts/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      // If the deleted draft is currently loaded, reset the editor
+      if (currentDraftId === id) {
+        newDraft();
+      }
+      status(`Deleted · ${title || '(untitled)'}`, 'ok');
+      await loadDraftsList();
+    } catch (e) {
+      status(`Delete failed: ${e.message}`, 'error');
     }
   }
 
