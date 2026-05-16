@@ -1,0 +1,77 @@
+---
+// Cusdis comments — privacy-friendly, no-signup comment system.
+//
+// Replaces Giscus, which required a GitHub account to post — a real
+// barrier for the senior-EA audience this site is written for. Cusdis
+// commenters just enter a name (+ optional email for reply notifications);
+// no third-party sign-in.
+//
+// SETUP (already done once):
+// 1. Sign up at https://cusdis.com (Google or GitHub).
+// 2. Create a site for sajivfrancis.com.
+// 3. Copy the `appId` UUID from the embed snippet → APP_ID below.
+// 4. Moderation defaults to ON — comments enter a queue at
+//    cusdis.com/dashboard for owner approval before showing on the post.
+// 5. Toggle email notifications in the Cusdis dashboard so new comments
+//    don't sit unread.
+//
+// APP_ID is a public identifier (it's embedded in every page's HTML),
+// so it's safe to commit — same shape as Giscus's REPO_ID / CATEGORY_ID.
+
+interface Props {
+  /** Stable per-post identifier. Use the post slug, not the URL,
+      so renaming the URL later doesn't orphan the thread. */
+  pageId: string;
+  /** Absolute URL to the post — used in moderation dashboard links
+      and reply-notification emails. */
+  pageUrl: string;
+  /** Post title — shows in the moderation queue and email subjects. */
+  pageTitle: string;
+}
+
+const { pageId, pageUrl, pageTitle } = Astro.props;
+
+const APP_ID = '4744fc4e-f9ff-490b-a410-78fea69436a1';
+const HOST = 'https://cusdis.com';
+---
+
+<section class="mt-16 pt-8 border-t border-[var(--color-border)]">
+  <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
+    Comments
+  </h2>
+  <div
+    id="cusdis_thread"
+    data-host={HOST}
+    data-app-id={APP_ID}
+    data-page-id={pageId}
+    data-page-url={pageUrl}
+    data-page-title={pageTitle}
+    data-theme="auto"
+  >
+  </div>
+  <script async defer src="https://cusdis.com/js/cusdis.es.js"></script>
+</section>
+
+<script>
+  // Re-render Cusdis when the user toggles theme so the comment widget
+  // matches the surrounding page (light/dark). Cusdis exposes a global
+  // `CUSDIS` object once its script has loaded; we call setTheme on
+  // every data-theme change. Defensive about timing — observer waits
+  // for the global to exist before calling.
+  function applyTheme() {
+    const theme =
+      document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    const cusdis = (window as any).CUSDIS;
+    if (cusdis && typeof cusdis.setTheme === 'function') {
+      cusdis.setTheme(theme);
+    }
+  }
+  // Initial apply once the script loads (slight delay; Cusdis is async)
+  setTimeout(applyTheme, 800);
+  new MutationObserver((muts) => {
+    if (muts.some((m) => m.attributeName === 'data-theme')) applyTheme();
+  }).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme'],
+  });
+</script>

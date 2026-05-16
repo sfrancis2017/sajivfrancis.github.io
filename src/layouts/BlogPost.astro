@@ -2,7 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import ReadingProgress from '@/components/ReadingProgress.astro';
 import YouTube from '@/components/mdx/YouTube.astro';
-import Giscus from '@/components/Giscus.astro';
+import Cusdis from '@/components/Cusdis.astro';
 import TableOfContents from '@/components/TableOfContents.astro';
 import PostNav from '@/components/PostNav.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
@@ -197,7 +197,11 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
     </footer>
   </article>
 
-  <Giscus />
+  <Cusdis
+    pageId={post.slug}
+    pageUrl={postUrl}
+    pageTitle={title}
+  />
 </BaseLayout>
 
 <script>
