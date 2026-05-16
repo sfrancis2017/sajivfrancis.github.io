@@ -1,0 +1,74 @@
+---
+// DocVideo.astro — placeholder component for the HeyGen/Seedance avatar
+// video pipeline planned for Phase 3.
+//
+// USAGE in MDX:
+//   <DocVideo slug="my-post-slug" />
+//
+// Today, this renders nothing (or a small placeholder when ?debug=video
+// is on the URL — useful for layout testing). It exists so authors can
+// embed the marker NOW; when Phase 3 ships, the component body will be
+// swapped for a polling/playback implementation that hits the droplet API
+// (or its successor) at /api/video-status/:slug. Posts that already have
+// the tag pick up videos automatically — no edits needed.
+//
+// Why a no-op stub instead of fetching at build time:
+//   - sajivfrancis.com is statically built and deployed via GitHub Pages.
+//     A build-time fetch to a future droplet API would fail the build.
+//   - Client-side polling is the correct Phase 3 implementation. The
+//     stub leaves a marker the JS can replace later.
+
+interface Props {
+  slug: string;
+  /**
+   * Optional: set to false to suppress even the dev placeholder.
+   * Defaults to true (placeholder visible only when devDebug is also true).
+   */
+  debug?: boolean;
+}
+
+const { slug, debug = false } = Astro.props;
+---
+
+<div class="doc-video" data-slug={slug} data-pending="phase-3">
+  {debug && (
+    <div class="doc-video-placeholder">
+      <span class="doc-video-label">Video placeholder</span>
+      <code>slug={slug}</code>
+      <span class="doc-video-note">— Phase 3 will render here</span>
+    </div>
+  )}
+</div>
+
+<style>
+  .doc-video {
+    /* No layout impact when empty. */
+  }
+  .doc-video-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.9rem;
+    margin: 0 0 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 6px;
+    background: var(--color-bg-subtle, rgba(0, 0, 0, 0.03));
+    font-size: 0.82rem;
+    color: var(--color-fg-muted);
+  }
+  .doc-video-label {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    font-size: 0.7rem;
+  }
+  .doc-video-note {
+    font-style: italic;
+  }
+  .doc-video-placeholder code {
+    font-size: 0.78rem;
+    padding: 0.1rem 0.35rem;
+    background: var(--color-bg, rgba(0, 0, 0, 0.05));
+    border-radius: 3px;
+  }
+</style>
