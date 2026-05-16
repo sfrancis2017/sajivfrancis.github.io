@@ -146,6 +146,14 @@
 .mermaid-rendered svg {
   max-width: 100%;
   height: auto;
+  /* SVGs are inline by default — that lets the parent's text-align: center
+     work, but Mermaid sets display:block on the rendered SVG which
+     ignores text-align. Force block-level horizontal centering via
+     auto margins so diagrams sit in the middle of the container on
+     wide screens and shrink to fit on narrow ones. */
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @media print {
