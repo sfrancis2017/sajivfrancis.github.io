@@ -112,6 +112,30 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
                 <span>Tags (comma-separated)</span>
                 <input type="text" id="fm-tags" placeholder="AI, Architecture, SAP" />
               </label>
+              <div class="fm-row">
+                <label class="write-field" style="flex: 2;">
+                  <span>Cover / OG image URL</span>
+                  <input
+                    type="text"
+                    id="fm-cover-image"
+                    placeholder="/img/blog/your-slug/cover.png  or  https://..."
+                  />
+                  <small class="write-help">
+                    Used as the social-share card. Upload an image first, then click
+                    <strong>Use last upload</strong>, or paste any URL.
+                    Leave empty to inherit the site-default OG card.
+                  </small>
+                </label>
+                <label class="write-field" style="flex: 1;">
+                  <span>Cover alt text</span>
+                  <input type="text" id="fm-cover-alt" placeholder="Describe the image" />
+                </label>
+              </div>
+              <div class="write-actions" style="margin-top: -0.4rem;">
+                <button type="button" id="fm-cover-use-last" class="write-button write-button-ghost" disabled>
+                  Use last upload
+                </button>
+              </div>
               <label class="write-field">
                 <span>Ground review against</span>
                 <select id="fm-grounding" multiple size="4">
@@ -448,7 +472,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   // ---- Config -----------------------------------------------------------
   const WORKER_URL = 'https://chat-worker.sfrancis2017.workers.dev';
   const GROUNDING_REPOS = [
-    'sfrancis2017/sajivfrancis.github.io-master',
+    'sfrancis2017/sajivfrancis.github.io',
     'sfrancis2017/personal-chat',
     'sfrancis2017/docs',
     'sfrancis2017/ea-explorer-worker',
@@ -497,6 +521,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   const fmPublishMode = $('fm-publishmode');
   const fmDraft = $('fm-draft');
   const fmTags = $('fm-tags');
+  const fmCoverImage = $('fm-cover-image');
+  const fmCoverAlt = $('fm-cover-alt');
+  const fmCoverUseLast = $('fm-cover-use-last');
   const fmGrounding = $('fm-grounding');
   const mdEditor = $('md-editor');
   const mdPreview = $('md-preview');
@@ -531,6 +558,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   let currentDraftId = null;
   let currentDraft = null;
   let dirty = false;
+  let lastUploadedImageUrl = null;
 
   // ---- API --------------------------------------------------------------
   async function api(path, opts = {}) {
@@ -566,6 +594,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       draft: fmDraft.checked,
       publishMode: fmPublishMode.value,
       slug: fmSlug.value.trim() || undefined,
+      coverImage: fmCoverImage.value.trim() || undefined,
+      coverAlt: fmCoverAlt.value.trim() || undefined,
     };
   }
   function applyFrontmatter(fm) {
@@ -577,6 +607,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     fmPublishMode.value = fm.publishMode ?? 'blog-first';
     fmDraft.checked = !!fm.draft;
     fmTags.value = (fm.tags ?? []).join(', ');
+    fmCoverImage.value = fm.coverImage ?? '';
+    fmCoverAlt.value = fm.coverAlt ?? '';
   }
   function collectGroundingRepos() {
     return Array.from(fmGrounding.selectedOptions).map((o) => o.value).slice(0, 3);
@@ -603,7 +635,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     schedulePreview();
     status('Unsaved changes');
   });
-  for (const el of [fmTitle, fmSubtitle, fmDescription, fmPubDate, fmSlug, fmTags]) {
+  for (const el of [fmTitle, fmSubtitle, fmDescription, fmPubDate, fmSlug, fmTags, fmCoverImage, fmCoverAlt]) {
     el.addEventListener('input', () => { dirty = true; status('Unsaved changes'); });
   }
   for (const el of [fmPublishMode, fmDraft, fmGrounding]) {
@@ -1023,11 +1055,26 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       mdEditor.selectionStart = mdEditor.selectionEnd = start + snippet.length;
       dirty = true;
       schedulePreview();
+      lastUploadedImageUrl = data.public_url;
+      fmCoverUseLast.disabled = false;
+      fmCoverUseLast.textContent = `Use last upload (${data.public_url.split('/').pop()})`;
       status(`Image uploaded · ${data.public_url}`, 'ok');
     } catch (e) {
       status(`Upload failed: ${e.message}`, 'error');
     }
   }
+
+  fmCoverUseLast.addEventListener('click', () => {
+    if (!lastUploadedImageUrl) return;
+    fmCoverImage.value = lastUploadedImageUrl;
+    if (!fmCoverAlt.value.trim()) {
+      // Best-effort default alt text from the filename stem
+      const stem = lastUploadedImageUrl.split('/').pop().split('.')[0].replace(/[-_]+/g, ' ');
+      fmCoverAlt.value = stem;
+    }
+    dirty = true;
+    status('Cover image set from last upload — review alt text and save', 'ok');
+  });
 
   // ---- Bootstrap --------------------------------------------------------
   async function bootstrap() {
