@@ -4,64 +4,275 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
 <BaseLayout
   title="About"
-  description="About Sajiv Francis — Enterprise Architect, AI programmes, TOGAF 10."
+  description="About Sajiv Francis — Enterprise Architect leading AI programmes at a Fortune 50 technology company. Indo-Canadian living in Arizona."
+  mainClass="max-w-6xl"
 >
-  <article class="prose dark:prose-invert max-w-none">
-    <h1>About</h1>
+  <!-- Top section: image is a background on the wrapper, positioned
+       top-right and bleeding to the viewport edge. The wrapper extends
+       through Hero + Now + Background + Why so the image is visible
+       (and the eye has something to follow) for the first ~1100-1300px
+       of scroll. Below this wrapper, content goes full-width.
 
-    <p class="lead text-lg">
-      Enterprise Architect at a Fortune 50 technology company, leading AI
-      programmes at the intersection of enterprise systems, cloud architecture,
-      and large language models.
-    </p>
+       This mirrors ianenders.com's editorial layout where the content
+       area is a single tall div with the image positioned `top right`
+       and text flowing in the left half. -->
+  <div class="about-with-portrait">
+    <section class="about-hero">
+      <p class="about-eyebrow">About</p>
+      <h1 class="about-name">Sajiv Francis</h1>
+      <p class="about-role">
+        Enterprise Architect — solution architecture, AI, digital
+        transformations, and program delivery.
+      </p>
+      <p class="about-lede">
+        Indo-Canadian, living in Arizona. I do this work inside a
+        Fortune 50 technology company by day, and write here on the
+        side about what changes when the practice of architecture
+        meets new AI tools.
+      </p>
+    </section>
 
-    <h2>Background</h2>
+    <article class="prose dark:prose-invert max-w-none about-content-narrow">
+      <h2>Now <span class="not-prose about-now-date">— May 2026</span></h2>
+      <ul>
+        <li>
+          Trying to work out what agentic architectures actually look
+          like in real enterprise stacks — beyond the demo videos.
+        </li>
+        <li>
+          Building tooling for my own work in public: RAG over my notes,
+          AI-grounded writing, automated white papers.
+        </li>
+        <li>
+          Following SAP S/4HANA's evolution — especially where AI starts
+          being useful inside it, not bolted on.
+        </li>
+      </ul>
+
+      <h2>Background</h2>
+      <p>
+        Eight years of building at the intersection of AI and enterprise
+        systems — from a 2018 grad-school location tool for Connecticut
+        seniors, to an NLP-powered adaptive learning system in 2019
+        (predating mainstream RAG by four years), to enterprise data
+        orchestration on Kubernetes, to leading AI programmes inside one
+        of the world's largest technology companies.
+      </p>
+
+      <h2>Why this work</h2>
+      <p>
+        I came into enterprise architecture sideways — through software
+        engineering, then through trying to make AI useful inside
+        organisations that move slowly. What I care about now is the
+        seam where new model capabilities meet decades-old enterprise
+        systems, and how architects translate one to the other without
+        breaking either.
+      </p>
+    </article>
+
+    <!-- Background image element + mobile fallback <img>. Hidden on
+         narrow screens; the mobile <img> stacks above the text. -->
+    <div class="about-portrait-bg" aria-hidden="true"></div>
+    <img
+      src="/img/authors/sajivfrancis-about.png"
+      alt="Portrait of Sajiv Francis"
+      class="about-portrait-mobile"
+      width="1241"
+      height="1400"
+      loading="eager"
+    />
+  </div>
+
+  <article class="prose dark:prose-invert max-w-none about-content">
+    <h2>Life outside work</h2>
+    <p>Married, two kids. Most weekends are theirs.</p>
     <p>
-      Eight years of building at the intersection of AI and enterprise
-      systems — from a 2018 grad-school location tool for Connecticut seniors,
-      to an NLP-powered adaptive learning system in 2019 (predating mainstream
-      RAG by four years), to enterprise data orchestration on Kubernetes, to
-      leading AI programmes inside one of the world's largest technology
-      companies.
+      When time allows: I ride a Harley, collect stamps (a habit my
+      grandfather used to do, decades ago, that I've never quite outgrown)
+      and I also pretend to follow Formula 1 and MotoGP as closely as I
+      once did.
     </p>
 
-    <p>
-      Currently focused on agentic AI architectures, MCP and A2A protocols, and
-      SAP S/4HANA ecosystems. TOGAF 10 certified. Stanford AI-Driven
-      Leadership.
-    </p>
-
-    <h2>Education</h2>
-    <ul>
-      <li>
-        M.S. Software Engineering — <a href="https://www.fairfield.edu" target="_blank" rel="noopener noreferrer">Fairfield University</a>
-      </li>
-      <li>
-        Applied Data Science — <a href="https://www.engineering.columbia.edu" target="_blank" rel="noopener noreferrer">Columbia Engineering</a>
-      </li>
-      <li>
-        AI-Driven Leadership — <a href="https://online.stanford.edu" target="_blank" rel="noopener noreferrer">Stanford</a>
-      </li>
-    </ul>
-
-    <h2>Communities</h2>
-    <ul>
-      <li>Association of Enterprise Architects (AEA)</li>
-      <li>ASUG (Americas' SAP Users' Group)</li>
-      <li>The Open Group — TOGAF certified member</li>
-      <li>Arizona Science &amp; Engineering Fair (judge)</li>
-    </ul>
+    <h2>Education &amp; communities</h2>
+    <div class="not-prose about-edu-grid">
+      <div>
+        <h3 class="about-edu-heading">Education</h3>
+        <ul class="about-edu-list">
+          <li>M.S. Software Engineering — <a href="https://www.fairfield.edu" target="_blank" rel="noopener noreferrer">Fairfield University</a></li>
+          <li>Applied Data Science — <a href="https://www.engineering.columbia.edu" target="_blank" rel="noopener noreferrer">Columbia Engineering</a></li>
+          <li>AI-Driven Leadership — <a href="https://online.stanford.edu" target="_blank" rel="noopener noreferrer">Stanford</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="about-edu-heading">Communities</h3>
+        <ul class="about-edu-list">
+          <li>Association of Enterprise Architects (AEA)</li>
+          <li>ASUG (Americas' SAP Users' Group)</li>
+          <li>The Open Group — TOGAF certified member</li>
+          <li>Arizona Science &amp; Engineering Fair (judge)</li>
+        </ul>
+      </div>
+    </div>
 
     <h2>Writing</h2>
     <p>
-      I write about the future of architecture practice at the intersection of
-      AI and organisational design — for practitioners, not just academics.
-      Recent pieces are on the <a href="/blog/">writing</a> page.
+      I write about the future of architecture practice at the
+      intersection of AI and organisational design — for practitioners,
+      not just academics. Recent pieces are on the
+      <a href="/blog/">writing</a> page.
     </p>
 
     <h2>Contact</h2>
-    <p>
-      <a href="mailto:connectsfrancis@gmail.com">connectsfrancis@gmail.com</a>
-    </p>
+    <p><a href="mailto:connectsfrancis@gmail.com">connectsfrancis@gmail.com</a></p>
   </article>
 </BaseLayout>
+
+<style>
+  /* ----------------------------------------------------------------------
+     Hero — ianenders-style editorial layout.
+
+     Desktop: a relative-positioned section that lets the cutout image
+     bleed past the right page gutter to the viewport edge. The image is
+     applied as a background on an absolutely-positioned element so it
+     sits behind/beside the text without affecting flow.
+
+     Mobile: the absolutely-positioned image is hidden; an <img> tag
+     stacks above the text instead. Cleaner stacking and accessible alt.
+     ---------------------------------------------------------------------- */
+  /* Wrapper that holds Hero + Now + Background + Why on the LEFT,
+     with the cutout portrait as a background image on the RIGHT,
+     bleeding past the page gutter to the viewport edge. */
+  .about-with-portrait {
+    position: relative;
+    margin-bottom: 3rem;
+    padding-top: 2rem;
+  }
+  .about-portrait-bg {
+    position: absolute;
+    top: 0;
+    right: calc((100vw - 100%) / -2);
+    width: 50%;
+    height: 100%;
+    background-image: url('/img/authors/sajivfrancis-about.png');
+    background-repeat: no-repeat;
+    background-position: top right;
+    background-size: contain;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .about-portrait-mobile { display: none; }
+
+  .about-hero {
+    position: relative;
+    z-index: 1;
+    max-width: 32rem;
+    padding-right: 1rem;
+    margin-bottom: 2rem;
+  }
+  .about-eyebrow {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-fg-muted);
+    margin: 0 0 0.6rem;
+    font-weight: 600;
+  }
+  .about-name {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    margin: 0 0 0.6rem;
+  }
+  .about-role {
+    font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+    color: var(--color-fg);
+    margin: 0 0 1.2rem;
+    line-height: 1.4;
+  }
+  .about-lede {
+    font-size: 1rem;
+    color: var(--color-fg-muted);
+    line-height: 1.55;
+    margin: 0;
+    max-width: 28rem;
+  }
+
+  /* Content sections INSIDE the portrait wrapper need to stay in the
+     left half so they don't overlap the image. Width tuned so prose
+     ends well before the cutout's left edge. */
+  .about-content-narrow {
+    position: relative;
+    z-index: 1;
+    max-width: 32rem;
+    padding-right: 1rem;
+  }
+
+  /* Below ~900px: hide the background image, show a stacked mobile
+     <img> above the text, and let the content expand full-width. */
+  @media (max-width: 900px) {
+    .about-with-portrait {
+      padding-top: 0;
+    }
+    .about-portrait-bg { display: none; }
+    .about-portrait-mobile {
+      display: block;
+      width: 100%;
+      max-width: 22rem;
+      height: auto;
+      margin: 0 auto 1.5rem;
+    }
+    .about-hero,
+    .about-content-narrow {
+      max-width: 100%;
+      padding-right: 0;
+    }
+  }
+
+  /* ----------------------------------------------------------------------
+     Content section below the portrait wrapper — left-anchored so it
+     sits in the same column as the prose above. No `margin: 0 auto`,
+     because centering breaks the visual continuity with the upper
+     left-aligned column. Slightly wider max-width (40rem vs 32rem)
+     since there's no image competing for room.
+     ---------------------------------------------------------------------- */
+  .about-content {
+    max-width: 40rem;
+    margin: 0;
+  }
+  .about-now-date {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--color-fg-muted);
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+
+  /* Education + communities two-column grid */
+  .about-edu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 2.5rem;
+    margin: 0.8rem 0 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .about-edu-grid { grid-template-columns: 1fr; }
+  }
+  .about-edu-heading {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    margin: 0 0 0.5rem;
+  }
+  .about-edu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.95rem;
+  }
+</style>
