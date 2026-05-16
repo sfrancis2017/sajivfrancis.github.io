@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import WriterLauncher from '@/components/WriterLauncher.astro';
 import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
 
@@ -22,12 +23,15 @@ const readingTimes = new Map<string, number>(
   title="Writing"
   description="Essays and articles on enterprise architecture, AI, and the future of practice."
 >
-  <header class="mb-12">
-    <h1 class="text-4xl font-semibold tracking-tight">Writing</h1>
-    <p class="mt-3 text-[var(--color-fg-muted)]">
-      Essays and articles on enterprise architecture, AI, and the future of
-      practice. <a href="/rss.xml" class="underline">RSS</a>.
-    </p>
+  <header class="mb-12 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-4xl font-semibold tracking-tight">Writing</h1>
+      <p class="mt-3 text-[var(--color-fg-muted)]">
+        Essays and articles on enterprise architecture, AI, and the future of
+        practice. <a href="/rss.xml" class="underline">RSS</a>.
+      </p>
+    </div>
+    <WriterLauncher />
   </header>
 
   {

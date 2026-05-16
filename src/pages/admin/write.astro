@@ -130,6 +130,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
                 <div class="pane-actions">
                   <button type="button" id="image-upload-btn" class="write-button write-button-ghost" title="Upload image">Image</button>
                   <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden />
+                  <button type="button" id="video-embed-btn" class="write-button write-button-ghost" title="Embed video (YouTube, Vimeo, MP4)">Video</button>
                 </div>
               </div>
               <textarea
@@ -489,6 +490,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   const reviewClose = $('review-close');
   const imageBtn = $('image-upload-btn');
   const imageInput = $('image-input');
+  const videoBtn = $('video-embed-btn');
 
   // Populate grounding dropdown
   for (const r of GROUNDING_REPOS) {
@@ -839,6 +841,97 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   });
   mdEditor.addEventListener('dragover', (e) => {
     if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+  });
+
+  // ---- Video embed -----------------------------------------------------
+  // Accepts YouTube watch / share / embed URLs, Vimeo URLs, or direct
+  // links to .mp4 / .webm / .mov files. Builds the matching HTML snippet
+  // and inserts it at the cursor. Anything we don't recognise falls back
+  // to a generic <iframe> with the URL as-is so the author can still
+  // make it work with a one-line edit.
+  function buildVideoEmbed(rawUrl) {
+    const url = rawUrl.trim();
+    if (!url) return null;
+
+    // YouTube: watch?v=ID, youtu.be/ID, embed/ID, shorts/ID
+    const ytMatch = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/,
+    );
+    if (ytMatch) {
+      const id = ytMatch[1];
+      return (
+        `<iframe\n` +
+        `  width="100%"\n` +
+        `  height="420"\n` +
+        `  src="https://www.youtube.com/embed/${id}"\n` +
+        `  title="YouTube video"\n` +
+        `  frameborder="0"\n` +
+        `  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"\n` +
+        `  allowfullscreen\n` +
+        `/>`
+      );
+    }
+
+    // Vimeo: vimeo.com/ID, player.vimeo.com/video/ID
+    const vimeoMatch = url.match(
+      /(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/,
+    );
+    if (vimeoMatch) {
+      const id = vimeoMatch[1];
+      return (
+        `<iframe\n` +
+        `  width="100%"\n` +
+        `  height="420"\n` +
+        `  src="https://player.vimeo.com/video/${id}"\n` +
+        `  title="Vimeo video"\n` +
+        `  frameborder="0"\n` +
+        `  allow="autoplay; fullscreen; picture-in-picture"\n` +
+        `  allowfullscreen\n` +
+        `/>`
+      );
+    }
+
+    // Direct video file: .mp4, .webm, .mov (case-insensitive)
+    if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
+      return (
+        `<video src="${url}" controls width="100%" />`
+      );
+    }
+
+    // Fallback: wrap in iframe and let the author tweak. MDX-safe self-close.
+    return (
+      `<iframe\n` +
+      `  width="100%"\n` +
+      `  height="420"\n` +
+      `  src="${url}"\n` +
+      `  title="Embedded video"\n` +
+      `  frameborder="0"\n` +
+      `  allowfullscreen\n` +
+      `/>`
+    );
+  }
+
+  videoBtn.addEventListener('click', () => {
+    const url = window.prompt(
+      'Video URL\n\n' +
+      'Supported:\n' +
+      '  • YouTube (watch, embed, youtu.be, shorts)\n' +
+      '  • Vimeo (vimeo.com/123, player.vimeo.com/video/123)\n' +
+      '  • Direct file (.mp4, .webm, .mov)\n' +
+      '  • Anything else (wrapped in a generic iframe)',
+      '',
+    );
+    if (!url) return;
+    const embed = buildVideoEmbed(url);
+    if (!embed) return;
+    const snippet = `\n${embed}\n`;
+    const start = mdEditor.selectionStart;
+    const end = mdEditor.selectionEnd;
+    mdEditor.value = mdEditor.value.slice(0, start) + snippet + mdEditor.value.slice(end);
+    mdEditor.selectionStart = mdEditor.selectionEnd = start + snippet.length;
+    dirty = true;
+    schedulePreview();
+    status('Video embed inserted — review and save', 'ok');
   });
 
   async function uploadImage(file) {
