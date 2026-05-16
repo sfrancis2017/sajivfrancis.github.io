@@ -104,6 +104,25 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
     </header>
 
     {
+      coverImage && (
+        <figure class="not-prose mb-10 -mt-2">
+          <img
+            src={coverImage}
+            alt={post.data.coverAlt ?? ''}
+            class="w-full aspect-[2/1] object-cover rounded-md border border-[var(--color-border)]"
+            loading="eager"
+            decoding="async"
+          />
+          {post.data.coverAlt && (
+            <figcaption class="mt-2 text-xs text-[var(--color-fg-subtle)] italic">
+              {post.data.coverAlt}
+            </figcaption>
+          )}
+        </figure>
+      )
+    }
+
+    {
       videoUrl && (
         <div class="not-prose mb-8">
           <YouTube url={videoUrl} title={title} />
