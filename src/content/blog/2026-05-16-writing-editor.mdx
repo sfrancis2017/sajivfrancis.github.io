@@ -64,6 +64,7 @@ sequenceDiagram
 
 The retrieval query is constructed from the draft's title and the first 800 characters of the body — enough signal to surface relevant chunks without overfitting to the opening paragraph. The actual call looks like this:
 
+```ts
 // pgvector corpus grounding — use draft title + body lead as the
 // retrieval query. Owner mode so all visibility scopes are in play.
 let corpusChunks = [];
@@ -82,5 +83,6 @@ try {
 } catch (e) {
   // Non-fatal — continue with GitHub grounding only
 }
+```
 
 The AI layer is only as useful as its grounding — GitHub source, personal docs, the vector store. Strip that away and it is just a grammar checker.
