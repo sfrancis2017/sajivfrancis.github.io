@@ -1,0 +1,977 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+// Owner-only blog editor. Token-gated — page is statically served (visitors
+// can see the gate) but every API call requires a Bearer token that the
+// chat-worker validates against CHAT_TOKEN. No token, no compute spend.
+//
+// Architecture:
+//   /admin/write    ← this page (frontmatter form + markdown editor +
+//                     live preview + review panel + publish action)
+//   chat-worker     ← /api/drafts CRUD + review (grounded against
+//                     GitHub repos + pgvector) + publish + image upload
+//   src/content/blog/  ← target for publish (YYYY-MM-DD-slug.mdx)
+---
+
+<BaseLayout
+  title="Write"
+  description="Owner-only blog editor for sajivfrancis.com — draft, review, publish."
+  mainClass="max-w-7xl"
+>
+  <article>
+    <header class="mb-6 flex items-baseline justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] font-semibold">
+          Admin
+        </p>
+        <h1 class="mt-1 text-2xl md:text-3xl font-semibold tracking-tight">
+          Write
+        </h1>
+      </div>
+      <p class="text-xs text-[var(--color-fg-muted)] hidden md:block">
+        Draft → review (grounded against tagged repos + corpus) → publish to
+        <code class="px-1 bg-[var(--color-bg-subtle)] rounded">src/content/blog/</code>
+      </p>
+    </header>
+
+    <!-- Token gate (shown when no token in localStorage) -->
+    <section id="token-gate" class="write-section" hidden>
+      <h2 class="write-section-title">Owner mode required</h2>
+      <p class="write-section-help">
+        This editor saves drafts, runs Claude review, and commits to GitHub.
+        It uses the same Bearer token as the chat surface
+        (<code>CHAT_TOKEN</code>). Saved to this device only.
+      </p>
+      <form id="token-form" class="write-form">
+        <label class="write-field">
+          <span>Compose token</span>
+          <input type="password" id="token-input" autocomplete="off" required />
+        </label>
+        <div class="write-actions">
+          <button type="submit" class="write-button write-button-primary">
+            Save token
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Editor surface (shown when authenticated) -->
+    <section id="editor-surface" hidden>
+      <div class="editor-grid">
+        <!-- LEFT: drafts list -->
+        <aside class="drafts-panel">
+          <div class="drafts-panel-head">
+            <h3>Drafts</h3>
+            <button type="button" id="draft-new" class="write-button write-button-ghost" title="New draft">+ New</button>
+          </div>
+          <ul id="drafts-list" class="drafts-list">
+            <li class="drafts-empty">Loading…</li>
+          </ul>
+        </aside>
+
+        <!-- CENTER: editor + preview -->
+        <div class="editor-main">
+          <!-- Frontmatter form -->
+          <details class="frontmatter-form" open>
+            <summary>Frontmatter</summary>
+            <div class="frontmatter-fields">
+              <label class="write-field">
+                <span>Title <em class="write-required">*</em></span>
+                <input type="text" id="fm-title" maxlength="300" required />
+              </label>
+              <label class="write-field">
+                <span>Subtitle</span>
+                <input type="text" id="fm-subtitle" maxlength="300" />
+              </label>
+              <label class="write-field">
+                <span>Description <em class="write-required">*</em></span>
+                <textarea id="fm-description" rows="2" maxlength="500" required></textarea>
+              </label>
+              <div class="fm-row">
+                <label class="write-field">
+                  <span>Pub date</span>
+                  <input type="date" id="fm-pubdate" required />
+                </label>
+                <label class="write-field">
+                  <span>Slug</span>
+                  <input type="text" id="fm-slug" pattern="[a-z0-9][-a-z0-9]{0,79}" />
+                </label>
+                <label class="write-field">
+                  <span>Publish mode</span>
+                  <select id="fm-publishmode">
+                    <option value="blog-first">blog-first</option>
+                    <option value="venue-first">venue-first</option>
+                  </select>
+                </label>
+                <label class="write-field write-field-checkbox">
+                  <input type="checkbox" id="fm-draft" />
+                  <span>Mark as draft</span>
+                </label>
+              </div>
+              <label class="write-field">
+                <span>Tags (comma-separated)</span>
+                <input type="text" id="fm-tags" placeholder="AI, Architecture, SAP" />
+              </label>
+              <label class="write-field">
+                <span>Ground review against</span>
+                <select id="fm-grounding" multiple size="4">
+                  <!-- populated from worker config -->
+                </select>
+                <small class="write-help">Hold ⌘/Ctrl to multi-select. Max 3.</small>
+              </label>
+            </div>
+          </details>
+
+          <!-- Editor + preview -->
+          <div class="editor-panes">
+            <div class="editor-pane">
+              <div class="pane-head">
+                <span class="pane-label">Markdown</span>
+                <div class="pane-actions">
+                  <button type="button" id="image-upload-btn" class="write-button write-button-ghost" title="Upload image">Image</button>
+                  <input type="file" id="image-input" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden />
+                  <button type="button" id="video-embed-btn" class="write-button write-button-ghost" title="Embed video (YouTube, Vimeo, MP4)">Video</button>
+                </div>
+              </div>
+              <textarea
+                id="md-editor"
+                spellcheck="true"
+                placeholder="Write your post here…&#10;&#10;Drop or paste images directly. Insert &lt;DocVideo slug=&quot;your-slug&quot; /&gt; where a HeyGen video should appear once Phase 3 ships."
+              ></textarea>
+            </div>
+            <div class="editor-pane">
+              <div class="pane-head">
+                <span class="pane-label">Preview</span>
+                <span id="preview-status" class="pane-status"></span>
+              </div>
+              <div id="md-preview" class="md-preview"></div>
+            </div>
+          </div>
+
+          <!-- Action bar -->
+          <div class="action-bar">
+            <span id="action-status" class="action-status">No draft loaded</span>
+            <span class="action-spacer"></span>
+            <button type="button" id="btn-save" class="write-button">Save draft</button>
+            <button type="button" id="btn-review" class="write-button">Review with Claude</button>
+            <button type="button" id="btn-publish" class="write-button write-button-primary">Publish</button>
+          </div>
+
+          <!-- Review panel -->
+          <section id="review-panel" class="review-panel" hidden>
+            <div class="review-head">
+              <h3>Review suggestions</h3>
+              <button type="button" id="review-close" class="write-button write-button-ghost">Close</button>
+            </div>
+            <div id="review-overall" class="review-overall"></div>
+            <ul id="review-suggestions" class="review-suggestions"></ul>
+            <div id="review-meta" class="review-meta"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </article>
+</BaseLayout>
+
+<style is:global>
+  /* Layout */
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .editor-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Drafts panel */
+  .drafts-panel {
+    position: sticky;
+    top: 5rem;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: var(--color-bg-subtle, transparent);
+  }
+  .drafts-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  .drafts-panel-head h3 {
+    font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--color-fg-muted); margin: 0;
+  }
+  .drafts-list { list-style: none; margin: 0; padding: 0; }
+  .drafts-list li {
+    padding: 0.5rem 0.5rem; border-radius: 6px; cursor: pointer;
+    font-size: 0.85rem; color: var(--color-fg);
+    display: flex; flex-direction: column; gap: 0.15rem;
+  }
+  .drafts-list li:hover { background: var(--color-bg-hover, rgba(0,0,0,0.04)); }
+  .drafts-list li.active {
+    background: var(--color-bg-active, rgba(0,0,0,0.08));
+    font-weight: 600;
+  }
+  .drafts-list .draft-meta { font-size: 0.7rem; color: var(--color-fg-muted); }
+  .drafts-list .draft-pub { color: #2e7d32; font-weight: 600; }
+  .drafts-empty { color: var(--color-fg-muted); font-style: italic; padding: 0.5rem; }
+
+  /* Editor main column */
+  .editor-main { min-width: 0; }
+  .frontmatter-form {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  .frontmatter-form summary {
+    cursor: pointer; padding: 0.6rem 0.8rem;
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--color-fg-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .frontmatter-fields {
+    padding: 0.5rem 0.8rem 0.8rem;
+    display: flex; flex-direction: column; gap: 0.7rem;
+  }
+  .fm-row {
+    display: grid; gap: 0.7rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  /* Form primitives */
+  .write-section {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    max-width: 480px;
+  }
+  .write-section-title {
+    font-size: 0.9rem; font-weight: 600; margin: 0 0 0.4rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--color-fg-muted);
+  }
+  .write-section-help {
+    font-size: 0.85rem; color: var(--color-fg-muted); margin: 0 0 0.8rem;
+  }
+  .write-form, .write-field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .write-field > span { font-size: 0.75rem; font-weight: 600; color: var(--color-fg-muted); }
+  .write-field-checkbox { flex-direction: row; align-items: center; gap: 0.5rem; }
+  .write-field-checkbox > span { font-weight: 400; }
+  .write-field input[type="text"], .write-field input[type="password"],
+  .write-field input[type="date"], .write-field input[type="email"],
+  .write-field textarea, .write-field select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    font: inherit;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  .write-field textarea { resize: vertical; }
+  .write-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+  .write-button {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 5px;
+    font: inherit; font-size: 0.85rem;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    cursor: pointer;
+  }
+  .write-button:hover { background: var(--color-bg-hover, rgba(0,0,0,0.04)); }
+  .write-button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .write-button-primary {
+    background: var(--color-fg);
+    color: var(--color-bg);
+    border-color: var(--color-fg);
+  }
+  .write-button-ghost { border-color: transparent; padding: 0.25rem 0.5rem; }
+  .write-required { color: #c62828; font-style: normal; }
+  .write-help { font-size: 0.7rem; color: var(--color-fg-muted); margin-top: 0.2rem; }
+
+  /* Editor + preview panes */
+  .editor-panes {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 900px) {
+    .editor-panes { grid-template-columns: 1fr; }
+  }
+  .editor-pane {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    min-height: 480px;
+    overflow: hidden;
+  }
+  .pane-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.4rem 0.7rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-subtle, transparent);
+  }
+  .pane-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: 600; color: var(--color-fg-muted);
+  }
+  .pane-status { font-size: 0.75rem; color: var(--color-fg-muted); }
+  .pane-actions { display: flex; gap: 0.3rem; }
+
+  #md-editor {
+    flex: 1; min-height: 440px;
+    border: none; outline: none;
+    padding: 0.8rem 1rem;
+    font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--color-bg); color: var(--color-fg);
+    resize: vertical;
+  }
+  .md-preview {
+    flex: 1; padding: 0.8rem 1rem;
+    overflow-y: auto; min-height: 440px;
+    font-size: 0.92rem; line-height: 1.55;
+  }
+  .md-preview h1, .md-preview h2, .md-preview h3 { font-weight: 600; margin-top: 1.2rem; }
+  .md-preview h1 { font-size: 1.5rem; }
+  .md-preview h2 { font-size: 1.2rem; }
+  .md-preview h3 { font-size: 1.05rem; }
+  .md-preview pre {
+    background: var(--color-bg-subtle, rgba(0,0,0,0.04));
+    padding: 0.6rem 0.8rem; border-radius: 5px; overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  .md-preview code { font-size: 0.88em; }
+  .md-preview blockquote {
+    border-left: 3px solid var(--color-border);
+    margin: 0.6rem 0; padding-left: 0.8rem; color: var(--color-fg-muted);
+  }
+  .md-preview img { max-width: 100%; height: auto; border-radius: 4px; }
+
+  /* Action bar */
+  .action-bar {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-subtle, transparent);
+    margin-bottom: 1rem;
+  }
+  .action-status { font-size: 0.8rem; color: var(--color-fg-muted); }
+  .action-spacer { flex: 1; }
+
+  /* Review panel */
+  .review-panel {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    margin-top: 1rem;
+  }
+  .review-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+  .review-head h3 { margin: 0; font-size: 1rem; }
+  .review-overall { font-size: 0.9rem; color: var(--color-fg-muted); margin-bottom: 0.8rem; padding: 0.5rem 0.6rem; background: var(--color-bg-subtle, rgba(0,0,0,0.03)); border-radius: 5px; }
+  .review-suggestions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .review-suggestion {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.88rem;
+  }
+  .review-suggestion-head {
+    display: flex; gap: 0.5rem; align-items: center;
+    margin-bottom: 0.4rem;
+    font-size: 0.78rem;
+  }
+  .review-category {
+    text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem; border-radius: 3px;
+    background: rgba(0,0,0,0.06);
+  }
+  .review-category-FLOW { background: #fff3e0; color: #e65100; }
+  .review-category-STRUCTURE { background: #e3f2fd; color: #1565c0; }
+  .review-category-TECHNICAL_GROUNDING { background: #f3e5f5; color: #6a1b9a; }
+  .review-category-TECHNICAL_AUGMENTATION { background: #e8f5e9; color: #2e7d32; }
+  .review-category-POLISH { background: #fce4ec; color: #ad1457; }
+  .review-category-CRITICAL_CONFIDENTIAL { background: #ffebee; color: #c62828; }
+  .review-location { color: var(--color-fg-muted); }
+  .review-original, .review-suggested {
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    margin: 0.3rem 0;
+    word-break: break-word;
+  }
+  .review-original { background: rgba(198, 40, 40, 0.08); border-left: 3px solid #c62828; }
+  .review-suggested { background: rgba(46, 125, 50, 0.08); border-left: 3px solid #2e7d32; }
+  .review-rationale { font-size: 0.85rem; color: var(--color-fg-muted); margin: 0.4rem 0 0.5rem; }
+  .review-suggestion-actions { display: flex; gap: 0.4rem; }
+  .review-meta { font-size: 0.75rem; color: var(--color-fg-muted); margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid var(--color-border); }
+
+  /* Dark mode tweaks for review category chips */
+  html[data-theme="dark"] .review-category-FLOW { background: #4a2c00; color: #ffcc80; }
+  html[data-theme="dark"] .review-category-STRUCTURE { background: #0d2a4a; color: #90caf9; }
+  html[data-theme="dark"] .review-category-TECHNICAL_GROUNDING { background: #38143d; color: #ce93d8; }
+  html[data-theme="dark"] .review-category-TECHNICAL_AUGMENTATION { background: #0d3a17; color: #a5d6a7; }
+  html[data-theme="dark"] .review-category-POLISH { background: #3d0a1f; color: #f48fb1; }
+  html[data-theme="dark"] .review-category-CRITICAL_CONFIDENTIAL { background: #4a0d0d; color: #ef9a9a; }
+</style>
+
+<script type="module">
+  // ---- Config -----------------------------------------------------------
+  const WORKER_URL = 'https://chat-worker.sfrancis2017.workers.dev';
+  const GROUNDING_REPOS = [
+    'sfrancis2017/sajivfrancis.github.io-master',
+    'sfrancis2017/personal-chat',
+    'sfrancis2017/docs',
+    'sfrancis2017/ea-explorer-worker',
+  ];
+
+  // ---- Marked.js (CDN, ESM) --------------------------------------------
+  let marked;
+  async function loadMarked() {
+    if (marked) return marked;
+    const mod = await import('https://cdn.jsdelivr.net/npm/marked@12/+esm');
+    marked = mod.marked;
+    marked.setOptions({ gfm: true, breaks: false });
+    return marked;
+  }
+
+  // ---- Token gate -------------------------------------------------------
+  const TOKEN_KEY = 'write-token';
+  function getToken() { return localStorage.getItem(TOKEN_KEY); }
+  function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+  function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+  const gateEl = document.getElementById('token-gate');
+  const surfaceEl = document.getElementById('editor-surface');
+  const tokenForm = document.getElementById('token-form');
+  const tokenInput = document.getElementById('token-input');
+
+  function showGate() { gateEl.hidden = false; surfaceEl.hidden = true; }
+  function showSurface() { gateEl.hidden = true; surfaceEl.hidden = false; }
+
+  tokenForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = tokenInput.value.trim();
+    if (!t) return;
+    setToken(t);
+    tokenInput.value = '';
+    bootstrap();
+  });
+
+  // ---- DOM refs ---------------------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  const fmTitle = $('fm-title');
+  const fmSubtitle = $('fm-subtitle');
+  const fmDescription = $('fm-description');
+  const fmPubDate = $('fm-pubdate');
+  const fmSlug = $('fm-slug');
+  const fmPublishMode = $('fm-publishmode');
+  const fmDraft = $('fm-draft');
+  const fmTags = $('fm-tags');
+  const fmGrounding = $('fm-grounding');
+  const mdEditor = $('md-editor');
+  const mdPreview = $('md-preview');
+  const previewStatus = $('preview-status');
+  const draftsList = $('drafts-list');
+  const actionStatus = $('action-status');
+  const btnSave = $('btn-save');
+  const btnReview = $('btn-review');
+  const btnPublish = $('btn-publish');
+  const btnNew = $('draft-new');
+  const reviewPanel = $('review-panel');
+  const reviewOverall = $('review-overall');
+  const reviewSuggestions = $('review-suggestions');
+  const reviewMeta = $('review-meta');
+  const reviewClose = $('review-close');
+  const imageBtn = $('image-upload-btn');
+  const imageInput = $('image-input');
+  const videoBtn = $('video-embed-btn');
+
+  // Populate grounding dropdown
+  for (const r of GROUNDING_REPOS) {
+    const opt = document.createElement('option');
+    opt.value = r;
+    opt.textContent = r.replace(/^sfrancis2017\//, '');
+    fmGrounding.appendChild(opt);
+  }
+
+  // Default pubDate to today
+  fmPubDate.value = new Date().toISOString().slice(0, 10);
+
+  // ---- State ------------------------------------------------------------
+  let currentDraftId = null;
+  let currentDraft = null;
+  let dirty = false;
+
+  // ---- API --------------------------------------------------------------
+  async function api(path, opts = {}) {
+    const token = getToken();
+    if (!token) throw new Error('no token');
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+      ...(opts.headers ?? {}),
+    };
+    const res = await fetch(`${WORKER_URL}${path}`, { ...opts, headers });
+    if (res.status === 401) {
+      clearToken();
+      showGate();
+      throw new Error('unauthorized');
+    }
+    return res;
+  }
+
+  function status(msg, kind = 'info') {
+    actionStatus.textContent = msg;
+    actionStatus.style.color = kind === 'error' ? '#c62828' : kind === 'ok' ? '#2e7d32' : '';
+  }
+
+  // ---- Frontmatter <-> form ---------------------------------------------
+  function collectFrontmatter() {
+    return {
+      title: fmTitle.value.trim(),
+      subtitle: fmSubtitle.value.trim() || undefined,
+      description: fmDescription.value.trim(),
+      pubDate: fmPubDate.value,
+      tags: fmTags.value.split(',').map((t) => t.trim()).filter(Boolean),
+      draft: fmDraft.checked,
+      publishMode: fmPublishMode.value,
+      slug: fmSlug.value.trim() || undefined,
+    };
+  }
+  function applyFrontmatter(fm) {
+    fmTitle.value = fm.title ?? '';
+    fmSubtitle.value = fm.subtitle ?? '';
+    fmDescription.value = fm.description ?? '';
+    fmPubDate.value = fm.pubDate ?? new Date().toISOString().slice(0, 10);
+    fmSlug.value = fm.slug ?? '';
+    fmPublishMode.value = fm.publishMode ?? 'blog-first';
+    fmDraft.checked = !!fm.draft;
+    fmTags.value = (fm.tags ?? []).join(', ');
+  }
+  function collectGroundingRepos() {
+    return Array.from(fmGrounding.selectedOptions).map((o) => o.value).slice(0, 3);
+  }
+  function applyGroundingRepos(repos) {
+    const set = new Set(repos ?? []);
+    for (const opt of fmGrounding.options) opt.selected = set.has(opt.value);
+  }
+
+  // ---- Preview rendering -----------------------------------------------
+  let previewTimer = null;
+  function schedulePreview() {
+    if (previewTimer) clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreview, 200);
+  }
+  async function renderPreview() {
+    const md = await loadMarked();
+    mdPreview.innerHTML = md.parse(mdEditor.value || '');
+    previewStatus.textContent = `${mdEditor.value.length} chars`;
+  }
+
+  mdEditor.addEventListener('input', () => {
+    dirty = true;
+    schedulePreview();
+    status('Unsaved changes');
+  });
+  for (const el of [fmTitle, fmSubtitle, fmDescription, fmPubDate, fmSlug, fmTags]) {
+    el.addEventListener('input', () => { dirty = true; status('Unsaved changes'); });
+  }
+  for (const el of [fmPublishMode, fmDraft, fmGrounding]) {
+    el.addEventListener('change', () => { dirty = true; status('Unsaved changes'); });
+  }
+
+  // ---- Drafts list ------------------------------------------------------
+  async function loadDraftsList() {
+    try {
+      const res = await api('/api/drafts');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderDraftsList(data.drafts ?? []);
+    } catch (e) {
+      draftsList.innerHTML = `<li class="drafts-empty">Failed: ${e.message}</li>`;
+    }
+  }
+  function renderDraftsList(drafts) {
+    if (!drafts.length) {
+      draftsList.innerHTML = '<li class="drafts-empty">No drafts yet</li>';
+      return;
+    }
+    draftsList.innerHTML = '';
+    for (const d of drafts) {
+      const li = document.createElement('li');
+      li.dataset.id = d.id;
+      if (d.id === currentDraftId) li.classList.add('active');
+      const title = document.createElement('div');
+      title.textContent = d.title || '(untitled)';
+      const meta = document.createElement('div');
+      meta.className = 'draft-meta';
+      const date = d.updated_at ? new Date(d.updated_at).toLocaleString() : '';
+      meta.innerHTML = `${date}${d.published_at ? ' · <span class="draft-pub">published</span>' : ''}`;
+      li.append(title, meta);
+      li.addEventListener('click', () => loadDraft(d.id));
+      draftsList.appendChild(li);
+    }
+  }
+
+  async function loadDraft(id) {
+    try {
+      const res = await api(`/api/drafts/${id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      currentDraftId = id;
+      currentDraft = data;
+      applyFrontmatter(data.frontmatter);
+      applyGroundingRepos(data.grounding_repos);
+      mdEditor.value = data.body;
+      dirty = false;
+      schedulePreview();
+      reviewPanel.hidden = true;
+      status(`Loaded ${data.frontmatter.title}`, 'ok');
+      await loadDraftsList(); // refresh active state
+    } catch (e) {
+      status(`Load failed: ${e.message}`, 'error');
+    }
+  }
+
+  function newDraft() {
+    currentDraftId = null;
+    currentDraft = null;
+    applyFrontmatter({});
+    applyGroundingRepos([]);
+    mdEditor.value = '';
+    dirty = false;
+    schedulePreview();
+    reviewPanel.hidden = true;
+    status('New draft');
+    document.querySelectorAll('#drafts-list li').forEach((li) => li.classList.remove('active'));
+    fmTitle.focus();
+  }
+  btnNew.addEventListener('click', newDraft);
+
+  // ---- Save -------------------------------------------------------------
+  function buildPayload() {
+    return {
+      frontmatter: collectFrontmatter(),
+      body: mdEditor.value,
+      grounding_repos: collectGroundingRepos(),
+    };
+  }
+
+  async function save() {
+    if (!fmTitle.value.trim() || !fmDescription.value.trim()) {
+      status('Title and description are required', 'error');
+      return;
+    }
+    btnSave.disabled = true;
+    status('Saving…');
+    try {
+      const payload = buildPayload();
+      const res = currentDraftId
+        ? await api(`/api/drafts/${currentDraftId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+          })
+        : await api('/api/drafts', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      currentDraftId = data.id;
+      dirty = false;
+      status(`Saved · ${data.title}`, 'ok');
+      await loadDraftsList();
+    } catch (e) {
+      status(`Save failed: ${e.message}`, 'error');
+    } finally {
+      btnSave.disabled = false;
+    }
+  }
+  btnSave.addEventListener('click', save);
+
+  // ---- Review -----------------------------------------------------------
+  async function review() {
+    if (!currentDraftId) {
+      status('Save the draft first', 'error');
+      return;
+    }
+    if (dirty) {
+      status('Save unsaved changes first', 'error');
+      return;
+    }
+    btnReview.disabled = true;
+    status('Reviewing — fetching grounding + asking Claude…');
+    try {
+      const res = await api(`/api/drafts/${currentDraftId}/review`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      renderReview(data);
+      status(`Review complete (${data.elapsed_ms}ms)`, 'ok');
+    } catch (e) {
+      status(`Review failed: ${e.message}`, 'error');
+    } finally {
+      btnReview.disabled = false;
+    }
+  }
+  btnReview.addEventListener('click', review);
+
+  function renderReview(data) {
+    const review = data.review ?? {};
+    reviewOverall.textContent = review.overall ?? '';
+    reviewSuggestions.innerHTML = '';
+    for (const s of review.suggestions ?? []) {
+      const li = document.createElement('li');
+      li.className = 'review-suggestion';
+      li.innerHTML = `
+        <div class="review-suggestion-head">
+          <span class="review-category review-category-${s.category}">${s.category}</span>
+          <span class="review-location">${escapeHtml(s.location ?? '')}</span>
+        </div>
+        ${s.original ? `<pre class="review-original">${escapeHtml(s.original)}</pre>` : ''}
+        ${s.suggested ? `<pre class="review-suggested">${escapeHtml(s.suggested)}</pre>` : ''}
+        <p class="review-rationale">${escapeHtml(s.rationale ?? '')}</p>
+        <div class="review-suggestion-actions">
+          ${s.original && s.suggested ? `<button type="button" class="write-button review-accept" data-id="${s.id}">Apply</button>` : ''}
+          <button type="button" class="write-button write-button-ghost review-dismiss" data-id="${s.id}">Dismiss</button>
+        </div>
+      `;
+      reviewSuggestions.appendChild(li);
+    }
+    const meta = data.grounding_meta ?? {};
+    const repos = (meta.github_repos ?? []).map((r) => `${r.repo}@${r.sha} (${r.file_count} files)`).join(', ') || 'none';
+    reviewMeta.textContent = `Grounding: ${repos} · corpus chunks: ${meta.corpus_chunks ?? 0}`;
+    reviewPanel.hidden = false;
+    reviewPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Wire accept/dismiss
+    reviewSuggestions.querySelectorAll('.review-accept').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const s = (review.suggestions ?? []).find((x) => x.id === id);
+        if (!s) return;
+        if (s.original && s.suggested && mdEditor.value.includes(s.original)) {
+          mdEditor.value = mdEditor.value.replace(s.original, s.suggested);
+          dirty = true;
+          schedulePreview();
+          btn.closest('.review-suggestion').style.opacity = '0.45';
+          btn.disabled = true;
+          status('Applied — review and save', 'ok');
+        } else {
+          status('Original text not found verbatim — apply manually', 'error');
+        }
+      });
+    });
+    reviewSuggestions.querySelectorAll('.review-dismiss').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        btn.closest('.review-suggestion').style.opacity = '0.45';
+        btn.disabled = true;
+      });
+    });
+  }
+  reviewClose.addEventListener('click', () => { reviewPanel.hidden = true; });
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---- Publish ----------------------------------------------------------
+  async function publish() {
+    if (!currentDraftId) {
+      status('Save the draft first', 'error');
+      return;
+    }
+    if (dirty) {
+      status('Save unsaved changes first', 'error');
+      return;
+    }
+    const fm = collectFrontmatter();
+    if (!confirm(`Publish "${fm.title}" to src/content/blog/${fm.pubDate}-${fm.slug || '<slug>'}.mdx?`)) return;
+    btnPublish.disabled = true;
+    status('Publishing — committing to GitHub…');
+    try {
+      const res = await api(`/api/drafts/${currentDraftId}/publish`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      status(`Published · ${data.path} (${data.commit_sha.slice(0, 7)})`, 'ok');
+      await loadDraftsList();
+    } catch (e) {
+      status(`Publish failed: ${e.message}`, 'error');
+    } finally {
+      btnPublish.disabled = false;
+    }
+  }
+  btnPublish.addEventListener('click', publish);
+
+  // ---- Image upload ----------------------------------------------------
+  imageBtn.addEventListener('click', () => imageInput.click());
+  imageInput.addEventListener('change', () => {
+    if (imageInput.files?.[0]) uploadImage(imageInput.files[0]);
+    imageInput.value = '';
+  });
+  // Paste support
+  mdEditor.addEventListener('paste', (e) => {
+    const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith('image/'));
+    if (item) {
+      e.preventDefault();
+      uploadImage(item.getAsFile());
+    }
+  });
+  // Drop support
+  mdEditor.addEventListener('drop', (e) => {
+    const file = Array.from(e.dataTransfer?.files ?? []).find((f) => f.type.startsWith('image/'));
+    if (file) {
+      e.preventDefault();
+      uploadImage(file);
+    }
+  });
+  mdEditor.addEventListener('dragover', (e) => {
+    if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
+  });
+
+  // ---- Video embed -----------------------------------------------------
+  // Accepts YouTube watch / share / embed URLs, Vimeo URLs, or direct
+  // links to .mp4 / .webm / .mov files. Builds the matching HTML snippet
+  // and inserts it at the cursor. Anything we don't recognise falls back
+  // to a generic <iframe> with the URL as-is so the author can still
+  // make it work with a one-line edit.
+  function buildVideoEmbed(rawUrl) {
+    const url = rawUrl.trim();
+    if (!url) return null;
+
+    // YouTube: watch?v=ID, youtu.be/ID, embed/ID, shorts/ID
+    const ytMatch = url.match(
+      /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/,
+    );
+    if (ytMatch) {
+      const id = ytMatch[1];
+      return (
+        `<iframe\n` +
+        `  width="100%"\n` +
+        `  height="420"\n` +
+        `  src="https://www.youtube.com/embed/${id}"\n` +
+        `  title="YouTube video"\n` +
+        `  frameborder="0"\n` +
+        `  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"\n` +
+        `  allowfullscreen\n` +
+        `/>`
+      );
+    }
+
+    // Vimeo: vimeo.com/ID, player.vimeo.com/video/ID
+    const vimeoMatch = url.match(
+      /(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d+)/,
+    );
+    if (vimeoMatch) {
+      const id = vimeoMatch[1];
+      return (
+        `<iframe\n` +
+        `  width="100%"\n` +
+        `  height="420"\n` +
+        `  src="https://player.vimeo.com/video/${id}"\n` +
+        `  title="Vimeo video"\n` +
+        `  frameborder="0"\n` +
+        `  allow="autoplay; fullscreen; picture-in-picture"\n` +
+        `  allowfullscreen\n` +
+        `/>`
+      );
+    }
+
+    // Direct video file: .mp4, .webm, .mov (case-insensitive)
+    if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) {
+      return (
+        `<video src="${url}" controls width="100%" />`
+      );
+    }
+
+    // Fallback: wrap in iframe and let the author tweak. MDX-safe self-close.
+    return (
+      `<iframe\n` +
+      `  width="100%"\n` +
+      `  height="420"\n` +
+      `  src="${url}"\n` +
+      `  title="Embedded video"\n` +
+      `  frameborder="0"\n` +
+      `  allowfullscreen\n` +
+      `/>`
+    );
+  }
+
+  videoBtn.addEventListener('click', () => {
+    const url = window.prompt(
+      'Video URL\n\n' +
+      'Supported:\n' +
+      '  • YouTube (watch, embed, youtu.be, shorts)\n' +
+      '  • Vimeo (vimeo.com/123, player.vimeo.com/video/123)\n' +
+      '  • Direct file (.mp4, .webm, .mov)\n' +
+      '  • Anything else (wrapped in a generic iframe)',
+      '',
+    );
+    if (!url) return;
+    const embed = buildVideoEmbed(url);
+    if (!embed) return;
+    const snippet = `\n${embed}\n`;
+    const start = mdEditor.selectionStart;
+    const end = mdEditor.selectionEnd;
+    mdEditor.value = mdEditor.value.slice(0, start) + snippet + mdEditor.value.slice(end);
+    mdEditor.selectionStart = mdEditor.selectionEnd = start + snippet.length;
+    dirty = true;
+    schedulePreview();
+    status('Video embed inserted — review and save', 'ok');
+  });
+
+  async function uploadImage(file) {
+    if (!currentDraftId) {
+      status('Save the draft first (image upload needs a draft id)', 'error');
+      return;
+    }
+    status('Uploading image…');
+    try {
+      const form = new FormData();
+      form.append('file', file, file.name);
+      const res = await api(`/api/drafts/${currentDraftId}/upload-image`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown' }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      // Insert markdown snippet at the cursor
+      const snippet = `\n${data.markdown_snippet}\n`;
+      const start = mdEditor.selectionStart;
+      const end = mdEditor.selectionEnd;
+      mdEditor.value = mdEditor.value.slice(0, start) + snippet + mdEditor.value.slice(end);
+      mdEditor.selectionStart = mdEditor.selectionEnd = start + snippet.length;
+      dirty = true;
+      schedulePreview();
+      status(`Image uploaded · ${data.public_url}`, 'ok');
+    } catch (e) {
+      status(`Upload failed: ${e.message}`, 'error');
+    }
+  }
+
+  // ---- Bootstrap --------------------------------------------------------
+  async function bootstrap() {
+    if (!getToken()) { showGate(); return; }
+    showSurface();
+    await loadDraftsList();
+    schedulePreview();
+  }
+  bootstrap();
+</script>

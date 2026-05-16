@@ -1,0 +1,290 @@
+---
+// Owner-only "write a new post" affordance — a small icon button on
+// public pages that, when clicked:
+//   1. Checks localStorage for `write-token` → if present, redirects
+//      straight to /admin/write
+//   2. Otherwise opens a small modal asking for the CHAT_TOKEN
+//   3. Validates the token by hitting an owner-only endpoint on the
+//      chat-worker (GET /api/artifacts returns 401 for non-owner)
+//   4. On valid token, saves to localStorage and redirects
+//   5. On invalid token, shows an inline error
+//
+// The icon is visible to everyone (since this page is statically built
+// and we can't gate render on auth) but does nothing without a valid
+// token — no leaked surface, no cost.
+---
+
+<button
+  type="button"
+  id="writer-launcher-button"
+  aria-label="Open writer"
+  title="Write a new post (owner only)"
+  class="writer-launcher-btn"
+>
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <!-- Pencil-edit icon: writing affordance reads more clearly than a
+         generic person icon for "go author a post". -->
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+</button>
+
+<div
+  id="writer-launcher-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="writer-launcher-title"
+  hidden
+  class="writer-launcher-modal"
+>
+  <div class="writer-launcher-backdrop" data-action="close"></div>
+  <div class="writer-launcher-panel">
+    <header class="writer-launcher-head">
+      <h2 id="writer-launcher-title">Owner mode</h2>
+      <button
+        type="button"
+        class="writer-launcher-close"
+        data-action="close"
+        aria-label="Close"
+      >×</button>
+    </header>
+    <p class="writer-launcher-help">
+      Enter your compose token to open the writer. Saved to this device only.
+    </p>
+    <form id="writer-launcher-form">
+      <input
+        type="password"
+        id="writer-launcher-token"
+        autocomplete="off"
+        placeholder="Compose token"
+        required
+      />
+      <button type="submit" class="writer-launcher-submit">
+        <span class="writer-launcher-submit-label">Verify &amp; open</span>
+        <span class="writer-launcher-spinner" hidden></span>
+      </button>
+    </form>
+    <p id="writer-launcher-error" class="writer-launcher-error" hidden></p>
+  </div>
+</div>
+
+<style>
+  .writer-launcher-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-fg-muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .writer-launcher-btn:hover {
+    color: var(--color-fg);
+    border-color: var(--color-fg-muted);
+    background: var(--color-bg-subtle, rgba(0, 0, 0, 0.03));
+  }
+  .writer-launcher-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .writer-launcher-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+  }
+  .writer-launcher-panel {
+    position: relative;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 1.25rem 1.4rem 1.1rem;
+    width: min(380px, calc(100vw - 2rem));
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.25);
+  }
+  .writer-launcher-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+  }
+  .writer-launcher-head h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .writer-launcher-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-fg-muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: 0 0.2rem;
+  }
+  .writer-launcher-close:hover { color: var(--color-fg); }
+  .writer-launcher-help {
+    font-size: 0.85rem;
+    color: var(--color-fg-muted);
+    margin: 0 0 0.8rem;
+  }
+  #writer-launcher-form {
+    display: flex;
+    gap: 0.5rem;
+  }
+  #writer-launcher-token {
+    flex: 1;
+    min-width: 0;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font: inherit;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+  #writer-launcher-token:focus {
+    outline: 2px solid var(--color-fg-muted);
+    outline-offset: 1px;
+  }
+  .writer-launcher-submit {
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--color-fg);
+    border-radius: 6px;
+    background: var(--color-fg);
+    color: var(--color-bg);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .writer-launcher-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .writer-launcher-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: wl-spin 0.7s linear infinite;
+  }
+  @keyframes wl-spin {
+    to { transform: rotate(360deg); }
+  }
+  .writer-launcher-error {
+    margin: 0.7rem 0 0;
+    padding: 0.5rem 0.7rem;
+    background: rgba(198, 40, 40, 0.08);
+    border-left: 3px solid #c62828;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    color: #c62828;
+  }
+</style>
+
+<script>
+  const WORKER_URL = 'https://chat-worker.sfrancis2017.workers.dev';
+  const TOKEN_KEY = 'write-token';
+
+  const btn = document.getElementById('writer-launcher-button')!;
+  const modal = document.getElementById('writer-launcher-modal')!;
+  const form = document.getElementById('writer-launcher-form')! as HTMLFormElement;
+  const tokenInput = document.getElementById('writer-launcher-token')! as HTMLInputElement;
+  const submitBtn = form.querySelector('.writer-launcher-submit') as HTMLButtonElement;
+  const submitLabel = form.querySelector('.writer-launcher-submit-label')!;
+  const spinner = form.querySelector('.writer-launcher-spinner') as HTMLElement;
+  const errorEl = document.getElementById('writer-launcher-error')!;
+
+  function openModal() {
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+    tokenInput.value = '';
+    modal.removeAttribute('hidden');
+    setTimeout(() => tokenInput.focus(), 50);
+  }
+  function closeModal() {
+    modal.setAttribute('hidden', '');
+  }
+  function showError(msg: string) {
+    errorEl.textContent = msg;
+    errorEl.hidden = false;
+  }
+  function setLoading(loading: boolean) {
+    submitBtn.disabled = loading;
+    (submitLabel as HTMLElement).hidden = loading;
+    spinner.hidden = !loading;
+  }
+
+  btn.addEventListener('click', () => {
+    // If a token is already saved, skip the prompt entirely.
+    const existing = localStorage.getItem(TOKEN_KEY);
+    if (existing) {
+      window.location.href = '/admin/write';
+      return;
+    }
+    openModal();
+  });
+
+  modal.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.dataset.action === 'close') closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeModal();
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = tokenInput.value.trim();
+    if (!token) return;
+    setLoading(true);
+    errorEl.hidden = true;
+    try {
+      // Probe an owner-only endpoint that exists in prod regardless of
+      // DRAFTS_KV state. /api/artifacts (ARTIFACTS_KV is already wired)
+      // returns 200 with valid token, 401 with bad token.
+      const res = await fetch(`${WORKER_URL}/api/artifacts?limit=1`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        showError('Invalid token.');
+        setLoading(false);
+        return;
+      }
+      if (!res.ok && res.status !== 503) {
+        // 503 means owner is fine but a KV binding is missing — still a
+        // valid token, just an infra gap. Anything else is unexpected.
+        showError(`Token check failed: HTTP ${res.status}. Please verify the worker is reachable.`);
+        setLoading(false);
+        return;
+      }
+      // Token good — persist and hand off to the editor.
+      localStorage.setItem(TOKEN_KEY, token);
+      window.location.href = '/admin/write';
+    } catch (err: any) {
+      showError(`Network error: ${err?.message ?? err}`);
+      setLoading(false);
+    }
+  });
+</script>
