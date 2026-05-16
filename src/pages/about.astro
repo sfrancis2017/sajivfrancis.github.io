@@ -4,16 +4,51 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
 <BaseLayout
   title="About"
-  description="About Sajiv Francis — Enterprise Architect, AI programmes, TOGAF 10."
+  description="About Sajiv Francis — Enterprise Architect leading AI programmes at a Fortune 50 technology company. Indo-Canadian living in Arizona."
+  mainClass="max-w-5xl"
 >
-  <article class="prose dark:prose-invert max-w-none">
-    <h1>About</h1>
+  <!-- Hero: text left, curved portrait right.
+       The photo's left edge is shaped with an elliptical border-radius so
+       it reads editorial rather than a fitted rectangle. Stacks on mobile. -->
+  <section class="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-10 md:gap-14 items-center mb-16">
+    <div>
+      <p class="text-sm uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-3">
+        About
+      </p>
+      <h1 class="text-4xl md:text-5xl font-semibold tracking-tight mb-4">
+        Sajiv Francis
+      </h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300 mb-6 leading-snug">
+        Enterprise Architect — AI programmes, cloud, and SAP ecosystems.
+      </p>
+      <p class="text-base text-neutral-600 dark:text-neutral-400 leading-relaxed">
+        Indo-Canadian living in Arizona. I lead AI programmes at a Fortune 50
+        technology company and build
+        <a href="/" class="underline underline-offset-4 decoration-neutral-400 hover:decoration-current">Gravitite</a>
+        on the side.
+      </p>
+    </div>
 
-    <p class="lead text-lg">
-      Enterprise Architect at a Fortune 50 technology company, leading AI
-      programmes at the intersection of enterprise systems, cloud architecture,
-      and large language models.
-    </p>
+    <div class="hero-photo-frame">
+      <img
+        src="/img/authors/sajivfrancis.jpg"
+        alt="Portrait of Sajiv Francis"
+        class="hero-photo"
+        width="399"
+        height="450"
+        loading="eager"
+      />
+    </div>
+  </section>
+
+  <article class="prose dark:prose-invert max-w-none">
+    <h2>Now <span class="not-prose text-sm font-normal text-neutral-500 dark:text-neutral-400 align-middle">— May 2026</span></h2>
+    <ul>
+      <li>Leading AI programmes at a Fortune 50 technology company.</li>
+      <li>Building Gravitite, an AI-native enterprise architecture platform.</li>
+      <li>Writing about agentic architectures, MCP and A2A protocols, and the SAP S/4HANA ecosystem.</li>
+      <li>TOGAF 10 certified. Stanford AI-Driven Leadership.</li>
+    </ul>
 
     <h2>Background</h2>
     <p>
@@ -25,32 +60,45 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       companies.
     </p>
 
+    <h2>Why this work</h2>
     <p>
-      Currently focused on agentic AI architectures, MCP and A2A protocols, and
-      SAP S/4HANA ecosystems. TOGAF 10 certified. Stanford AI-Driven
-      Leadership.
+      I came into enterprise architecture sideways — through software
+      engineering, then through trying to make AI useful inside organisations
+      that move slowly. What I care about now is the seam where new model
+      capabilities meet decades-old enterprise systems, and how architects
+      translate one to the other without breaking either.
     </p>
 
-    <h2>Education</h2>
-    <ul>
-      <li>
-        M.S. Software Engineering — <a href="https://www.fairfield.edu" target="_blank" rel="noopener noreferrer">Fairfield University</a>
-      </li>
-      <li>
-        Applied Data Science — <a href="https://www.engineering.columbia.edu" target="_blank" rel="noopener noreferrer">Columbia Engineering</a>
-      </li>
-      <li>
-        AI-Driven Leadership — <a href="https://online.stanford.edu" target="_blank" rel="noopener noreferrer">Stanford</a>
-      </li>
-    </ul>
+    <h2>Life outside work</h2>
+    <p>
+      Married, two kids. Most weekends are theirs.
+    </p>
+    <p>
+      When time allows: I ride a Harley, collect stamps (a habit my
+      grandfather used to do, decades ago, that I've never quite outgrown)
+      and I also pretend to follow Formula 1 and MotoGP as closely as I once did.
+    </p>
 
-    <h2>Communities</h2>
-    <ul>
-      <li>Association of Enterprise Architects (AEA)</li>
-      <li>ASUG (Americas' SAP Users' Group)</li>
-      <li>The Open Group — TOGAF certified member</li>
-      <li>Arizona Science &amp; Engineering Fair (judge)</li>
-    </ul>
+    <h2>Education &amp; communities</h2>
+    <div class="not-prose grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-2 my-6 text-base">
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">Education</h3>
+        <ul class="space-y-1 list-none p-0">
+          <li>M.S. Software Engineering — <a href="https://www.fairfield.edu" target="_blank" rel="noopener noreferrer" class="underline underline-offset-4 decoration-neutral-400">Fairfield University</a></li>
+          <li>Applied Data Science — <a href="https://www.engineering.columbia.edu" target="_blank" rel="noopener noreferrer" class="underline underline-offset-4 decoration-neutral-400">Columbia Engineering</a></li>
+          <li>AI-Driven Leadership — <a href="https://online.stanford.edu" target="_blank" rel="noopener noreferrer" class="underline underline-offset-4 decoration-neutral-400">Stanford</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-2">Communities</h3>
+        <ul class="space-y-1 list-none p-0">
+          <li>Association of Enterprise Architects (AEA)</li>
+          <li>ASUG (Americas' SAP Users' Group)</li>
+          <li>The Open Group — TOGAF certified member</li>
+          <li>Arizona Science &amp; Engineering Fair (judge)</li>
+        </ul>
+      </div>
+    </div>
 
     <h2>Writing</h2>
     <p>
@@ -65,3 +113,41 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     </p>
   </article>
 </BaseLayout>
+
+<style>
+  /* Curved-edge portrait. The left edge is shaped by an asymmetric
+     elliptical border-radius — gentler at the bottom-left than the
+     top-left so it reads organic rather than half-pill. Right edge
+     stays square so the photo can visually bleed into the page edge
+     on wide screens without fighting the curve. */
+  .hero-photo-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 55% 12px 12px 55% / 60% 12px 12px 50%;
+    box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.25);
+  }
+
+  .hero-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+  }
+
+  /* On wide screens, let the photo nudge slightly past the page
+     gutter so it feels like it "spans" the right side rather than
+     sitting politely inside the column. */
+  @media (min-width: 1024px) {
+    .hero-photo-frame {
+      margin-right: -2rem;
+    }
+  }
+
+  /* Soften the shadow in dark mode (deep shadows on a dark bg look muddy). */
+  :global(html[data-theme='dark']) .hero-photo-frame {
+    box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+  }
+</style>
