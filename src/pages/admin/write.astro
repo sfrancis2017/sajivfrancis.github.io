@@ -207,14 +207,20 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   }
   @media (max-width: 900px) {
     .editor-grid { grid-template-columns: 1fr; }
+    .drafts-panel {
+      position: static;
+      top: auto;
+      max-height: none;
+      overflow-y: visible;
+    }
   }
 
   /* Drafts panel */
   .drafts-panel {
-    position: sticky;
-    top: 5rem;
-    max-height: calc(100vh - 7rem);
-    overflow-y: auto;
+    position: static;
+    top: auto;
+    max-height: none;
+    overflow-y: visible;
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 0.75rem;
