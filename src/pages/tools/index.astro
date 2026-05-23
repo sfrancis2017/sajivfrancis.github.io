@@ -1,0 +1,85 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+const tools = [
+  {
+    title: 'PDF Splitter',
+    href: '/tools/pdf-splitter/',
+    desc: 'Split a single PDF into fixed-size chunks or custom page ranges in your browser.',
+    status: 'migrated',
+  },
+  {
+    title: 'PDF Compressor',
+    href: 'https://tools.sajivfrancis.com/pdf-compressor.html',
+    desc: 'Browser-side PDF compression with quality presets and split fallback.',
+    status: 'legacy',
+  },
+  {
+    title: 'Architecture Writer',
+    href: 'https://tools.sajivfrancis.com/architecture-writer.html',
+    desc: 'Generate and score architecture writeups with a rubric-based draft workflow.',
+    status: 'legacy',
+  },
+];
+---
+
+<BaseLayout
+  title="Tools"
+  description="Practical browser-based tools for document workflows and architecture writing."
+  mainClass="max-w-4xl"
+>
+  <article>
+    <header class="mb-10">
+      <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] font-semibold">
+        Toolkit
+      </p>
+      <h1 class="mt-2 text-3xl md:text-4xl font-semibold tracking-tight leading-tight">Tools</h1>
+      <p class="mt-3 text-base text-[var(--color-fg-muted)] max-w-2xl">
+        Browser-first utilities for document-heavy work. Migrated tools inherit the main-site
+        design system and theme behavior automatically.
+      </p>
+    </header>
+
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {tools.map((tool) => (
+        <a
+          href={tool.href}
+          class="tool-card no-underline hover:no-underline"
+          target={tool.status === 'legacy' ? '_blank' : undefined}
+          rel={tool.status === 'legacy' ? 'noopener noreferrer' : undefined}
+        >
+          <p class="tool-badge">{tool.status === 'migrated' ? 'Main Site' : 'Legacy'}</p>
+          <h2 class="mt-2 text-lg font-semibold text-[var(--color-fg)]">{tool.title}</h2>
+          <p class="mt-2 text-sm text-[var(--color-fg-muted)] leading-relaxed">{tool.desc}</p>
+        </a>
+      ))}
+    </section>
+  </article>
+</BaseLayout>
+
+<style>
+  .tool-card {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg-elevated);
+    padding: 18px;
+    transition: border-color 180ms ease, transform 180ms ease;
+  }
+
+  .tool-card:hover {
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+
+  .tool-badge {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-fg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+</style>
