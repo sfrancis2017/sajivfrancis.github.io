@@ -1,16 +1,23 @@
 ---
 const navLinks = [
   { href: '/', label: 'Home' },
-  { href: '/blog/', label: 'Writing' },
-  { href: '/news/', label: 'News' },
   { href: '/about/', label: 'About' },
-  { href: '/lab/ea-explorer/', label: 'Lab' },
-  { href: '/tools/', label: 'Tools' },
+  { href: '/blog/', label: 'Writing' },
   { href: 'https://docs.sajivfrancis.com/', label: 'Docs' },
   { href: 'https://chat.sajivfrancis.com/', label: 'Chat' },
+  { href: '/about/#contact', label: 'Contact' },
+];
+
+const utilityLinks = [
+  { href: '/news/', label: 'News' },
+  { href: '/lab/ea-explorer/', label: 'Lab' },
+  { href: '/tools/', label: 'Tools' },
 ];
 
 const currentPath = Astro.url.pathname;
+const isUtilitiesActive = utilityLinks.some(({ href }) =>
+  href === '/' ? currentPath === '/' : currentPath.startsWith(href)
+);
 ---
 
 <header
@@ -54,6 +61,42 @@ const currentPath = Astro.url.pathname;
           );
         })
       }
+
+      <div class="utilities-group relative">
+        <button
+          type="button"
+          class={`no-underline hover:no-underline transition-colors inline-flex items-center gap-1 ${
+            isUtilitiesActive
+              ? 'text-[var(--color-fg)] font-medium'
+              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+          }`}
+          aria-haspopup="true"
+          aria-label="Open utilities menu"
+        >
+          Utilities
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+
+        <div class="utilities-popover absolute right-0 mt-2 min-w-[170px] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1 shadow-lg">
+          {
+            utilityLinks.map(({ href, label }) => {
+              const isActive = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+              return (
+                <a
+                  href={href}
+                  class={`block px-3 py-2 no-underline hover:no-underline text-sm ${
+                    isActive
+                      ? 'text-[var(--color-fg)] font-medium'
+                      : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                  }`}
+                >
+                  {label}
+                </a>
+              );
+            })
+          }
+        </div>
+      </div>
     </nav>
 
     {/* Always-visible icon cluster: search, theme, hamburger (mobile only) */}
@@ -120,6 +163,44 @@ const currentPath = Astro.url.pathname;
           );
         })
       }
+
+      <li>
+        <button
+          type="button"
+          id="mobile-utilities-toggle"
+          aria-expanded="false"
+          aria-controls="mobile-utilities-menu"
+          class={`w-full text-left py-3 no-underline hover:no-underline inline-flex items-center justify-between ${
+            isUtilitiesActive
+              ? 'text-[var(--color-fg)] font-medium'
+              : 'text-[var(--color-fg-muted)]'
+          }`}
+        >
+          <span>Utilities</span>
+          <svg class="mobile-utilities-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <ul id="mobile-utilities-menu" class="hidden pl-3 pb-2">
+          {
+            utilityLinks.map(({ href, label }) => {
+              const isActive = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+              return (
+                <li>
+                  <a
+                    href={href}
+                    class={`block py-2 no-underline hover:no-underline text-sm ${
+                      isActive
+                        ? 'text-[var(--color-fg)] font-medium'
+                        : 'text-[var(--color-fg-muted)]'
+                    }`}
+                  >
+                    {label}
+                  </a>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </li>
     </ul>
   </nav>
 </header>
@@ -155,6 +236,9 @@ const currentPath = Astro.url.pathname;
   const mobileMenu = document.getElementById('mobile-menu');
   const menuIconOpen = document.querySelector('.menu-icon-open');
   const menuIconClose = document.querySelector('.menu-icon-close');
+  const mobileUtilitiesToggle = document.getElementById('mobile-utilities-toggle');
+  const mobileUtilitiesMenu = document.getElementById('mobile-utilities-menu');
+  const mobileUtilitiesIcon = document.querySelector('.mobile-utilities-icon');
 
   function setMenuOpen(open: boolean) {
     if (!menuToggle || !mobileMenu) return;
@@ -177,7 +261,19 @@ const currentPath = Astro.url.pathname;
 
   // Close on resize to desktop (avoid stuck-open state)
   window.addEventListener('resize', () => {
-    if (window.innerWidth >= 768) setMenuOpen(false);
+    if (window.innerWidth >= 768) {
+      setMenuOpen(false);
+      mobileUtilitiesMenu?.classList.add('hidden');
+      mobileUtilitiesToggle?.setAttribute('aria-expanded', 'false');
+      mobileUtilitiesIcon?.classList.remove('rotate-180');
+    }
+  });
+
+  mobileUtilitiesToggle?.addEventListener('click', () => {
+    const isOpen = mobileUtilitiesToggle.getAttribute('aria-expanded') === 'true';
+    mobileUtilitiesToggle.setAttribute('aria-expanded', String(!isOpen));
+    mobileUtilitiesMenu?.classList.toggle('hidden', isOpen);
+    mobileUtilitiesIcon?.classList.toggle('rotate-180', !isOpen);
   });
 </script>
 
@@ -196,5 +292,19 @@ const currentPath = Astro.url.pathname;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
     }
+  }
+
+  .utilities-popover {
+    display: none;
+    z-index: 30;
+  }
+
+  .utilities-group:hover .utilities-popover,
+  .utilities-group:focus-within .utilities-popover {
+    display: block;
+  }
+
+  .mobile-utilities-icon {
+    transition: transform 180ms ease;
   }
 </style>
