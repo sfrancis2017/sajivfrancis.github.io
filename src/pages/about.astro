@@ -113,9 +113,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
     <section id="contact" class="not-prose about-contact-strip" aria-label="Keep in touch">
       <p class="about-contact-kicker">Keep in touch</p>
-      <h2 class="about-contact-title">Get updates from my writing and docs</h2>
+      <h2 class="about-contact-title">Stay in touch on writing and docs</h2>
       <p class="about-contact-copy">
-        One short note at a time: new essays, architecture references, and AI implementation learnings.
+        Share your email and I will follow up directly when relevant.
       </p>
 
       <form
@@ -462,7 +462,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         }
 
         form.reset();
-        setStatus('Thanks — you are on the update list.', 'is-success');
+        setStatus('Thanks — received. I will follow up directly.', 'is-success');
       } catch (err) {
         setStatus('Could not submit right now. Please email connectsfrancis@gmail.com.', 'is-error');
         console.error('[about-contact] submit failed', err);
