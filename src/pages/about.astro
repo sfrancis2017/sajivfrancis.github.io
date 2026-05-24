@@ -111,8 +111,36 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <a href="/blog/">writing</a> page.
     </p>
 
-    <h2 id="contact">Contact</h2>
-    <p><a href="mailto:connectsfrancis@gmail.com">connectsfrancis@gmail.com</a></p>
+    <section id="contact" class="not-prose about-contact-strip" aria-label="Keep in touch">
+      <p class="about-contact-kicker">Keep in touch</p>
+      <h2 class="about-contact-title">Get updates from my writing and docs</h2>
+      <p class="about-contact-copy">
+        One short note at a time: new essays, architecture references, and AI implementation learnings.
+      </p>
+
+      <form
+        class="about-contact-form"
+        action="mailto:connectsfrancis@gmail.com"
+        method="post"
+        enctype="text/plain"
+      >
+        <input
+          class="about-contact-input"
+          type="email"
+          name="email"
+          placeholder="you@company.com"
+          autocomplete="email"
+          required
+          aria-label="Email address"
+        />
+        <button class="about-contact-btn" type="submit">Stay in touch</button>
+      </form>
+
+      <p class="about-contact-meta">
+        Prefer direct contact?
+        <a href="mailto:connectsfrancis@gmail.com">connectsfrancis@gmail.com</a>
+      </p>
+    </section>
   </article>
 </BaseLayout>
 
@@ -277,5 +305,81 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     flex-direction: column;
     gap: 0.3rem;
     font-size: 0.95rem;
+  }
+
+  .about-contact-strip {
+    margin-top: 2.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background:
+      radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--color-accent) 16%, transparent) 0%, transparent 42%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 92%, var(--color-accent) 8%) 0%, var(--color-bg) 100%);
+  }
+  .about-contact-kicker {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-muted);
+  }
+  .about-contact-title {
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .about-contact-copy {
+    margin: 0.5rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: var(--color-fg-muted);
+  }
+  .about-contact-form {
+    margin-top: 0.8rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .about-contact-input {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 0.5rem;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font: inherit;
+    font-size: 0.92rem;
+    line-height: 1.2;
+    padding: 0.52rem 0.68rem;
+  }
+  .about-contact-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+  .about-contact-btn {
+    border: 1px solid var(--color-border-strong);
+    border-radius: 999px;
+    background: var(--color-bg-elevated, var(--color-bg));
+    color: var(--color-fg);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    padding: 0.6rem 0.95rem;
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  }
+  .about-contact-btn:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+  .about-contact-meta {
+    margin: 0.6rem 0 0;
+    font-size: 0.78rem;
+    color: var(--color-fg-muted);
   }
 </style>

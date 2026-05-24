@@ -5,7 +5,6 @@ const navLinks = [
   { href: '/blog/', label: 'Writing' },
   { href: 'https://docs.sajivfrancis.com/', label: 'Docs' },
   { href: 'https://chat.sajivfrancis.com/', label: 'Chat' },
-  { href: '/about/#contact', label: 'Contact' },
 ];
 
 const utilityLinks = [
@@ -97,6 +96,17 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
           }
         </div>
       </div>
+
+      <a
+        href="/about/#contact"
+        class={`no-underline hover:no-underline transition-colors ${
+          currentPath.startsWith('/about/')
+            ? 'text-[var(--color-fg)] font-medium'
+            : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+        }`}
+      >
+        Contact
+      </a>
     </nav>
 
     {/* Always-visible icon cluster: search, theme, hamburger (mobile only) */}
@@ -200,6 +210,19 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
             })
           }
         </ul>
+      </li>
+
+      <li>
+        <a
+          href="/about/#contact"
+          class={`block py-3 no-underline hover:no-underline ${
+            currentPath.startsWith('/about/')
+              ? 'text-[var(--color-fg)] font-medium'
+              : 'text-[var(--color-fg-muted)]'
+          }`}
+        >
+          Contact
+        </a>
       </li>
     </ul>
   </nav>
