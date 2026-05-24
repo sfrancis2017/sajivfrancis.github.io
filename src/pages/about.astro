@@ -70,17 +70,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       </p>
     </article>
 
-    <!-- Background image element + mobile fallback <img>. Hidden on
-         narrow screens; the mobile <img> stacks above the text. -->
-    <div class="about-portrait-bg" aria-hidden="true"></div>
-    <img
-      src="/img/authors/sajivfrancis-about.png"
-      alt="Portrait of Sajiv Francis"
-      class="about-portrait-mobile"
-      width="1241"
-      height="1400"
-      loading="eager"
-    />
   </div>
 
   <article class="prose dark:prose-invert max-w-none about-content">
@@ -139,33 +128,55 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
      Mobile: the absolutely-positioned image is hidden; an <img> tag
      stacks above the text instead. Cleaner stacking and accessible alt.
      ---------------------------------------------------------------------- */
-  /* Wrapper that holds Hero + Now + Background + Why on the LEFT,
-     with the cutout portrait as a background image on the RIGHT,
-     bleeding past the page gutter to the viewport edge. */
+  /* Wrapper with portrait as a subtle underlay behind text.
+     The image is intentionally desaturated and overlaid so text remains
+     readable in both themes. */
   .about-with-portrait {
     position: relative;
     margin-bottom: 3rem;
     padding-top: 2rem;
-  }
-  .about-portrait-bg {
-    position: absolute;
-    top: 0;
-    right: calc((100vw - 100%) / -2);
-    width: 50%;
-    height: 100%;
     background-image: url('/img/authors/sajivfrancis-about.png');
+    background-size: cover;
+    background-position: center top;
     background-repeat: no-repeat;
-    background-position: top right;
-    background-size: contain;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  .about-with-portrait::before {
+    content: '';
+    position: absolute;
+    inset: 0;
     pointer-events: none;
+    background:
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--color-bg) 82%, transparent),
+        color-mix(in oklab, var(--color-bg) 90%, transparent)
+      );
     z-index: 0;
   }
-  .about-portrait-mobile { display: none; }
+  .about-with-portrait::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 16%, color-mix(in oklab, var(--color-bg) 86%, transparent), transparent 46%),
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-border) 20%, transparent) 0,
+        color-mix(in srgb, var(--color-border) 20%, transparent) 1px,
+        transparent 1px,
+        transparent 7px
+      );
+    opacity: 0.55;
+    z-index: 0;
+  }
 
   .about-hero {
     position: relative;
     z-index: 1;
-    max-width: 32rem;
+    max-width: 36rem;
     padding-right: 1rem;
     margin-bottom: 2rem;
   }
@@ -204,23 +215,15 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .about-content-narrow {
     position: relative;
     z-index: 1;
-    max-width: 32rem;
+    max-width: 36rem;
     padding-right: 1rem;
   }
 
-  /* Below ~900px: hide the background image, show a stacked mobile
-     <img> above the text, and let the content expand full-width. */
   @media (max-width: 900px) {
     .about-with-portrait {
-      padding-top: 0;
-    }
-    .about-portrait-bg { display: none; }
-    .about-portrait-mobile {
-      display: block;
-      width: 100%;
-      max-width: 22rem;
-      height: auto;
-      margin: 0 auto 1.5rem;
+      padding-top: 0.5rem;
+      background-size: 145%;
+      background-position: center top;
     }
     .about-hero,
     .about-content-narrow {
