@@ -10,15 +10,15 @@ const tools = [
   },
   {
     title: 'PDF Compressor',
-    href: 'https://tools.sajivfrancis.com/pdf-compressor.html',
+    href: '/tools/pdf-compressor/',
     desc: 'Browser-side PDF compression with quality presets and split fallback.',
-    status: 'legacy',
+    status: 'migrated',
   },
   {
     title: 'Architecture Writer',
-    href: 'https://tools.sajivfrancis.com/architecture-writer.html',
+    href: '/tools/architecture-writer/',
     desc: 'Generate and score architecture writeups with a rubric-based draft workflow.',
-    status: 'legacy',
+    status: 'migrated',
   },
 ];
 ---
@@ -45,8 +45,8 @@ const tools = [
         <a
           href={tool.href}
           class="tool-card no-underline hover:no-underline"
-          target={tool.status === 'legacy' ? '_blank' : undefined}
-          rel={tool.status === 'legacy' ? 'noopener noreferrer' : undefined}
+          target={undefined}
+          rel={undefined}
         >
           <p class="tool-badge">{tool.status === 'migrated' ? 'Main Site' : 'Legacy'}</p>
           <h2 class="mt-2 text-lg font-semibold text-[var(--color-fg)]">{tool.title}</h2>
