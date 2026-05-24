@@ -120,9 +120,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
       <form
         class="about-contact-form"
-        action="mailto:connectsfrancis@gmail.com"
-        method="post"
-        enctype="text/plain"
+        id="about-contact-form"
+        novalidate
       >
         <input
           class="about-contact-input"
@@ -133,8 +132,18 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
           required
           aria-label="Email address"
         />
+        <input
+          class="about-contact-honeypot"
+          type="text"
+          name="website"
+          tabindex="-1"
+          autocomplete="off"
+          aria-hidden="true"
+        />
         <button class="about-contact-btn" type="submit">Stay in touch</button>
       </form>
+
+      <p id="about-contact-status" class="about-contact-status" aria-live="polite"></p>
 
       <p class="about-contact-meta">
         Prefer direct contact?
@@ -377,9 +386,89 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     border-color: var(--color-accent);
     transform: translateY(-1px);
   }
+  .about-contact-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .about-contact-honeypot {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .about-contact-status {
+    margin: 0.55rem 0 0;
+    min-height: 1.1rem;
+    font-size: 0.78rem;
+    color: var(--color-fg-muted);
+  }
+  .about-contact-status.is-error {
+    color: var(--color-accent);
+  }
+  .about-contact-status.is-success {
+    color: #2e7d32;
+  }
   .about-contact-meta {
     margin: 0.6rem 0 0;
     font-size: 0.78rem;
     color: var(--color-fg-muted);
   }
 </style>
+
+<script is:inline>
+  (() => {
+    const form = document.getElementById('about-contact-form');
+    if (!form) return;
+
+    const statusEl = document.getElementById('about-contact-status');
+    const emailInput = form.querySelector('input[name="email"]');
+    const websiteInput = form.querySelector('input[name="website"]');
+    const submitBtn = form.querySelector('.about-contact-btn');
+    const endpoint = 'https://chat-worker.sfrancis2017.workers.dev/contact';
+
+    const setStatus = (message, tone) => {
+      if (!statusEl) return;
+      statusEl.textContent = message;
+      statusEl.classList.remove('is-error', 'is-success');
+      if (tone) statusEl.classList.add(tone);
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = (emailInput?.value || '').trim();
+      const website = (websiteInput?.value || '').trim();
+
+      if (!email) {
+        setStatus('Enter an email address first.', 'is-error');
+        return;
+      }
+
+      setStatus('Submitting...');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, website }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || `HTTP ${response.status}`);
+        }
+
+        form.reset();
+        setStatus('Thanks — you are on the update list.', 'is-success');
+      } catch (err) {
+        setStatus('Could not submit right now. Please email connectsfrancis@gmail.com.', 'is-error');
+        console.error('[about-contact] submit failed', err);
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  })();
+</script>
