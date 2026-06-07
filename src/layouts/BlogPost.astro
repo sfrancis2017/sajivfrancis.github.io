@@ -428,6 +428,11 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
       });
     };
 
+    // Title font that fits the chart width — long titles clip on mobile, so
+    // shrink the header as the card narrows.
+    const titleSize = (w: number): number =>
+      w < 380 ? 11 : w < 520 ? 12.5 : w < 680 ? 14 : 16;
+
     loadPlotly()
       .then((Plotly) => {
         for (const { div, spec } of slots) {
@@ -435,22 +440,39 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
           // full block width. A grid/centered placeholder mis-measures on
           // mobile and the chart overflows the viewport.
           div.removeAttribute('aria-busy');
-          const layout = Object.assign({ autosize: true }, spec.layout || {});
+          const layout: any = Object.assign({ autosize: true }, spec.layout || {});
           // Let axes auto-expand their margins so long category labels fit on
           // narrow screens instead of overflowing / being clipped.
           layout.xaxis = Object.assign({ automargin: true }, layout.xaxis || {});
           layout.yaxis = Object.assign({ automargin: true }, layout.yaxis || {});
+          // Normalise the title so the header can't clip on mobile: object
+          // form, automargin (reserves vertical room), centered, and a
+          // width-responsive font size (prevents horizontal cut-off).
+          const t = layout.title;
+          const title: any =
+            typeof t === 'string' ? { text: t } : Object.assign({}, t || {});
+          title.automargin = true;
+          title.xref = 'paper';
+          title.x = 0.5;
+          title.xanchor = 'center';
+          title.font = Object.assign({}, title.font || {}, {
+            size: titleSize(div.clientWidth || 680),
+          });
+          layout.title = title;
           try {
             Plotly.newPlot(div, spec.data, layout, {
               responsive: true,
               displayModeBar: false,
             });
-            // Container-based responsiveness: redraw whenever the card width
-            // changes (rotation, narrow viewports) — more reliable than the
-            // window-only `responsive` listener.
+            // Container-based responsiveness: redraw + re-fit the title font
+            // whenever the card width changes (rotation, narrow viewports) —
+            // more reliable than the window-only `responsive` listener.
             new ResizeObserver(() => {
               try {
                 Plotly.Plots.resize(div);
+                Plotly.relayout(div, {
+                  'title.font.size': titleSize(div.clientWidth),
+                });
               } catch {
                 /* chart removed */
               }
