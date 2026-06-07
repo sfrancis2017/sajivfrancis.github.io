@@ -1,4 +1,12 @@
+# https://sajivfrancis.com/robots.txt
+#
+# One portable group, honored identically by every major crawler
+# (Googlebot; Bingbot — which also feeds DuckDuckGo, Yahoo & Ecosia; Yandex)
+# and by AI crawlers (GPTBot, ClaudeBot, Google-Extended, PerplexityBot,
+# CCBot). AI crawlers are intentionally allowed — all content here is public.
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /pagefind/
 
 Sitemap: https://sajivfrancis.com/sitemap-index.xml
