@@ -431,16 +431,32 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
     loadPlotly()
       .then((Plotly) => {
         for (const { div, spec } of slots) {
+          // Drop the loading state BEFORE rendering so Plotly measures the
+          // full block width. A grid/centered placeholder mis-measures on
+          // mobile and the chart overflows the viewport.
+          div.removeAttribute('aria-busy');
           const layout = Object.assign({ autosize: true }, spec.layout || {});
+          // Let axes auto-expand their margins so long category labels fit on
+          // narrow screens instead of overflowing / being clipped.
+          layout.xaxis = Object.assign({ automargin: true }, layout.xaxis || {});
+          layout.yaxis = Object.assign({ automargin: true }, layout.yaxis || {});
           try {
             Plotly.newPlot(div, spec.data, layout, {
               responsive: true,
               displayModeBar: false,
             });
-            div.removeAttribute('aria-busy');
+            // Container-based responsiveness: redraw whenever the card width
+            // changes (rotation, narrow viewports) — more reliable than the
+            // window-only `responsive` listener.
+            new ResizeObserver(() => {
+              try {
+                Plotly.Plots.resize(div);
+              } catch {
+                /* chart removed */
+              }
+            }).observe(div);
           } catch (err) {
             console.warn('Plotly render failed:', err);
-            div.removeAttribute('aria-busy');
           }
         }
       })
