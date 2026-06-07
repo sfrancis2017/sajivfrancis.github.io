@@ -380,3 +380,70 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
     });
   }
 </script>
+
+<script>
+  // Lazy-render Plotly charts embedded as ```plotly fenced blocks.
+  //
+  // Shiki has no "plotly" grammar, so Astro renders the fence as a plain
+  // `<pre data-language="plaintext">` — the JSON figure spec sits in the DOM
+  // but nothing draws it. We DETECT BY CONTENT rather than language tag:
+  // any <pre> whose text parses to a Plotly figure (an object with a `data`
+  // array) is a chart. Plotly (~1MB) is only fetched if a post has one, so
+  // chart-free posts pay nothing.
+  type PlotlySpec = { data: unknown[]; layout?: Record<string, unknown> };
+
+  const candidates: { pre: HTMLElement; spec: PlotlySpec }[] = [];
+  for (const pre of document.querySelectorAll<HTMLElement>('pre')) {
+    if (pre.dataset.language === 'mermaid') continue;
+    const raw = (pre.textContent || '').trim();
+    if (raw[0] !== '{' && raw[0] !== '[') continue;
+    try {
+      const spec = JSON.parse(raw);
+      if (spec && Array.isArray(spec.data)) candidates.push({ pre, spec });
+    } catch {
+      /* not JSON — leave the code block alone */
+    }
+  }
+
+  if (candidates.length > 0) {
+    // Swap each raw-JSON <pre> for a placeholder immediately, so the JSON
+    // never lingers on screen, then fill once Plotly loads.
+    const slots = candidates.map(({ pre, spec }) => {
+      const div = document.createElement('div');
+      div.className = 'plotly-rendered';
+      div.setAttribute('aria-busy', 'true');
+      pre.replaceWith(div);
+      return { div, spec };
+    });
+
+    const loadPlotly = (): Promise<any> => {
+      const w = window as any;
+      if (w.Plotly) return Promise.resolve(w.Plotly);
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js';
+        s.onload = () => resolve(w.Plotly);
+        s.onerror = () => reject(new Error('Plotly failed to load'));
+        document.head.appendChild(s);
+      });
+    };
+
+    loadPlotly()
+      .then((Plotly) => {
+        for (const { div, spec } of slots) {
+          const layout = Object.assign({ autosize: true }, spec.layout || {});
+          try {
+            Plotly.newPlot(div, spec.data, layout, {
+              responsive: true,
+              displayModeBar: false,
+            });
+            div.removeAttribute('aria-busy');
+          } catch (err) {
+            console.warn('Plotly render failed:', err);
+            div.removeAttribute('aria-busy');
+          }
+        }
+      })
+      .catch((err) => console.warn(err));
+  }
+</script>

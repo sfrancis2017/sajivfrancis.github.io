@@ -145,6 +145,32 @@
   text-align: center;
 }
 
+/* Plotly charts embedded as ```plotly fenced blocks. The wrapper replaces the
+   raw-JSON <pre>; Plotly draws into it responsively. White chart bg sits on a
+   bordered card so it reads cleanly in both light and dark themes. */
+.plotly-rendered {
+  margin: 1.5rem 0;
+  padding: 0.5rem;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  min-height: 60px;
+}
+.plotly-rendered .js-plotly-plot,
+.plotly-rendered .plot-container,
+.plotly-rendered .svg-container { width: 100% !important; }
+.plotly-rendered[aria-busy='true'] {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+}
+.plotly-rendered[aria-busy='true']::after {
+  content: 'Loading chart…';
+  color: var(--color-fg-subtle);
+  font-size: 0.85rem;
+}
+
 /* Expand-to-fullscreen button on each diagram (top-right). Subtle by
    default; brightens on hover. Always tap-visible on touch screens. */
 .mermaid-expand {
