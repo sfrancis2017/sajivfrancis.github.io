@@ -288,20 +288,19 @@ flowchart LR
 | Data access compliance | Unity Catalog + Snowflake RBAC | Days 1–30 |
 
 ```mermaid
-flowchart TD
-  classDef foundation fill:#fff3b0,stroke:#cc9a06,color:#000
-  classDef implement fill:#e8f5e9,stroke:#2e7d32,color:#000
-  classDef optimise fill:#e3f2fd,stroke:#1565c0,color:#000
+flowchart TB
+  P1["📋 Days 1–30 · Foundation"]
+  P2["⚙️ Days 31–60 · Implementation"]
+  P3["🚀 Days 61–90 · Optimisation"]
 
-  F["📋 Days 1–30: Foundation<br/>PMO framework · Baseline workflows<br/>RBAC · Purview metadata mapping<br/>Langfuse tracing setup"]
-  I["⚙️ Days 31–60: Implementation<br/>Preprocessing pipelines · Pilot dashboards<br/>PRISM prompt templates<br/>Pilot champions · Change resistance mgmt"]
-  O["🚀 Days 61–90: Optimisation<br/>Scale across teams<br/>100–200 annotated golden dataset<br/>AI metrics embedded in perf reviews<br/>12-month roadmap finalised"]
+  P1 --> a1(["PMO framework"]) --> a2(["Baseline workflows"]) --> a3(["RBAC + Purview metadata mapping"]) --> a4(["Langfuse tracing setup"]) --> P2
+  P2 --> b1(["Preprocessing pipelines"]) --> b2(["Pilot dashboards"]) --> b3(["PRISM prompt templates"]) --> b4(["Pilot champions + change-resistance mgmt"]) --> P3
+  P3 --> c1(["Scale across teams"]) --> c2(["100–200 annotated golden dataset"]) --> c3(["AI metrics in perf reviews"]) --> c4(["12-month roadmap finalised"])
 
-  F --> I --> O
-
-  class F foundation
-  class I implement
-  class O optimise
+  classDef phase fill:#fff3b0,stroke:#cc9a06,color:#000
+  classDef chip fill:#f7f7f7,stroke:#bbbbbb,color:#000
+  class P1,P2,P3 phase
+  class a1,a2,a3,a4,b1,b2,b3,b4,c1,c2,c3,c4 chip
 ```
 
 **Key risk mitigations baked into each phase:**

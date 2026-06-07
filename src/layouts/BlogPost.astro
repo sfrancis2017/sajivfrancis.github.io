@@ -428,10 +428,30 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
       });
     };
 
-    // Title font that fits the chart width — long titles clip on mobile, so
-    // shrink the header as the card narrows.
+    // Title fitting that keeps the FULL header visible on mobile: shrink the
+    // font with width, AND wrap long titles onto balanced multiple lines
+    // (automargin then reserves the vertical room) instead of clipping them.
     const titleSize = (w: number): number =>
       w < 380 ? 11 : w < 520 ? 12.5 : w < 680 ? 14 : 16;
+    const wrapTitle = (text: string, w: number, fontSize: number): string => {
+      if (!text) return text;
+      const maxChars = Math.max(14, Math.floor((w * 0.9) / (fontSize * 0.55)));
+      if (text.length <= maxChars) return text;
+      const nLines = Math.ceil(text.length / maxChars);
+      const target = Math.ceil(text.length / nLines); // balance the lines
+      const lines: string[] = [];
+      let cur = '';
+      for (const word of text.split(/\s+/)) {
+        if (cur && (cur + ' ' + word).length > target) {
+          lines.push(cur);
+          cur = word;
+        } else {
+          cur = cur ? cur + ' ' + word : word;
+        }
+      }
+      if (cur) lines.push(cur);
+      return lines.join('<br>');
+    };
 
     loadPlotly()
       .then((Plotly) => {
@@ -446,32 +466,36 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
           layout.xaxis = Object.assign({ automargin: true }, layout.xaxis || {});
           layout.yaxis = Object.assign({ automargin: true }, layout.yaxis || {});
           // Normalise the title so the header can't clip on mobile: object
-          // form, automargin (reserves vertical room), centered, and a
-          // width-responsive font size (prevents horizontal cut-off).
+          // form, automargin (reserves vertical room), centered, responsive
+          // font, and word-wrapped text.
           const t = layout.title;
           const title: any =
             typeof t === 'string' ? { text: t } : Object.assign({}, t || {});
+          const originalTitle: string = title.text || '';
+          const w0 = div.clientWidth || 680;
+          const fs0 = titleSize(w0);
           title.automargin = true;
           title.xref = 'paper';
           title.x = 0.5;
           title.xanchor = 'center';
-          title.font = Object.assign({}, title.font || {}, {
-            size: titleSize(div.clientWidth || 680),
-          });
+          title.font = Object.assign({}, title.font || {}, { size: fs0 });
+          title.text = wrapTitle(originalTitle, w0, fs0);
           layout.title = title;
           try {
             Plotly.newPlot(div, spec.data, layout, {
               responsive: true,
               displayModeBar: false,
             });
-            // Container-based responsiveness: redraw + re-fit the title font
-            // whenever the card width changes (rotation, narrow viewports) —
-            // more reliable than the window-only `responsive` listener.
+            // Container-based responsiveness: redraw + re-fit/re-wrap the title
+            // whenever the card width changes (rotation, narrow viewports).
             new ResizeObserver(() => {
               try {
                 Plotly.Plots.resize(div);
+                const w = div.clientWidth;
+                const fs = titleSize(w);
                 Plotly.relayout(div, {
-                  'title.font.size': titleSize(div.clientWidth),
+                  'title.font.size': fs,
+                  'title.text': wrapTitle(originalTitle, w, fs),
                 });
               } catch {
                 /* chart removed */
