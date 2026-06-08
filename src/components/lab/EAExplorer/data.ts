@@ -38,6 +38,7 @@ export const VENDORS: VendorMap = {
       { id: 'petrel',    name: 'Schlumberger Petrel',        desc: 'Geological modelling' },
       { id: 'landmark',  name: 'Halliburton Landmark',       desc: 'Reservoir engineering' },
       { id: 'p2energy',  name: 'P2 Energy Solutions',        desc: 'Revenue & royalty accounting' },
+      { id: 'aspentech', name: 'AspenTech (aspenONE)',       desc: 'Process optimization & engineering' },
     ],
     ot: [
       { id: 'pi_system', name: 'AVEVA PI System',         desc: 'Real-time sensor historian' },
@@ -89,6 +90,8 @@ export const VENDORS: VendorMap = {
       { id: 'murex',     name: 'Murex MX.3',        desc: 'Trading & risk management' },
       { id: 'bloomberg', name: 'Bloomberg B-PIPE',  desc: 'Market data feed' },
       { id: 'simcorp',   name: 'SimCorp Dimension', desc: 'Investment management' },
+      { id: 'fis',       name: 'FIS Modern Banking',desc: 'Core banking & payments' },
+      { id: 'aladdin',   name: 'BlackRock Aladdin', desc: 'Investment & risk platform' },
     ],
     ot: [],
     erp: [
@@ -125,6 +128,8 @@ export const VENDORS: VendorMap = {
       { id: 'aws_bedrock',name: 'AWS Bedrock',            desc: 'Foundation models' },
       { id: 'ibm_wx',     name: 'IBM watsonx',            desc: 'Trusted AI for FS' },
       { id: 'datarobot',  name: 'DataRobot',              desc: 'Risk model automation' },
+      { id: 'sas',        name: 'SAS Viya',               desc: 'Risk, fraud & analytics' },
+      { id: 'fico',       name: 'FICO Platform',          desc: 'Fraud & decisioning' },
     ],
   },
   manufacturing: {
@@ -141,6 +146,7 @@ export const VENDORS: VendorMap = {
       { id: 'aveva_ww',  name: 'AVEVA Wonderware',     desc: 'Industrial operations' },
       { id: 'ge_proficy',name: 'GE Digital Proficy',   desc: 'MES & plant operations' },
       { id: 'kepware',   name: 'PTC Kepware',          desc: 'Industrial connectivity' },
+      { id: 'thingworx', name: 'PTC ThingWorx',        desc: 'Industrial IoT platform' },
     ],
     erp: [
       { id: 'sap_s4',    name: 'SAP S/4HANA',                desc: 'Discrete & process mfg' },
@@ -185,6 +191,7 @@ export const VENDORS: VendorMap = {
       { id: 'meditech', name: 'Meditech Expanse', desc: 'Community hospital EHR' },
       { id: 'veeva',    name: 'Veeva Vault',      desc: 'Life sciences content' },
       { id: 'hl7_fhir', name: 'HL7 FHIR Sources', desc: 'Interoperability feeds' },
+      { id: 'athena',   name: 'athenahealth',     desc: 'Ambulatory EHR & RCM' },
     ],
     ot: [],
     erp: [
@@ -207,6 +214,7 @@ export const VENDORS: VendorMap = {
       { id: 'fabric',    name: 'Microsoft Fabric',         desc: 'Azure health analytics' },
       { id: 'aws_hl',    name: 'AWS HealthLake',           desc: 'FHIR datastore' },
       { id: 'oracle_hdi',name: 'Oracle Health Data Intel', desc: 'Clinical intelligence' },
+      { id: 'health_cat',name: 'Health Catalyst',          desc: 'Healthcare data & analytics' },
     ],
     bi: [
       { id: 'powerbi',    name: 'Power BI',               desc: 'Clinical ops dashboards' },
@@ -221,6 +229,7 @@ export const VENDORS: VendorMap = {
       { id: 'claude_api', name: 'Anthropic Claude API',     desc: 'Medical documentation AI' },
       { id: 'google_v',   name: 'Google Vertex AI',         desc: 'Med-PaLM integration' },
       { id: 'ibm_wx',     name: 'IBM watsonx',              desc: 'Trusted healthcare AI' },
+      { id: 'nuance_dax', name: 'Nuance DAX (Microsoft)',   desc: 'Ambient clinical documentation' },
     ],
   },
   retail_cpg: {
@@ -230,6 +239,7 @@ export const VENDORS: VendorMap = {
       { id: 'relex',     name: 'RELEX Solutions',          desc: 'Demand forecasting' },
       { id: 'o9',        name: 'o9 Solutions',             desc: 'Integrated business planning' },
       { id: 'sf_cc',     name: 'Salesforce Commerce Cloud',desc: 'Omnichannel commerce' },
+      { id: 'sap_car',   name: 'SAP Customer Activity Repo',desc: 'Omnichannel POS & demand data' },
     ],
     ot: [],
     erp: [
@@ -266,6 +276,7 @@ export const VENDORS: VendorMap = {
       { id: 'aws_bedrock',name: 'AWS Bedrock',          desc: 'Generative AI for retail' },
       { id: 'claude_api', name: 'Anthropic Claude API', desc: 'Product content AI' },
       { id: 'c3ai',       name: 'C3.ai',                desc: 'Demand forecasting AI' },
+      { id: 'dyield',     name: 'Dynamic Yield',        desc: 'Personalization & recommendations' },
     ],
   },
   utilities: {
@@ -282,6 +293,7 @@ export const VENDORS: VendorMap = {
       { id: 'abb_sc',   name: 'ABB Ability SCADA',        desc: 'Substation automation' },
       { id: 'siemens_eg',name: 'Siemens Energy Grid',     desc: 'Smart grid operations' },
       { id: 'pi_system',name: 'AVEVA PI System',          desc: 'Real-time historian' },
+      { id: 'schneider',name: 'Schneider EcoStruxure',    desc: 'ADMS & grid automation' },
     ],
     erp: [
       { id: 'sap_s4',    name: 'SAP S/4HANA',             desc: 'Utilities IS-U / BRIM' },
