@@ -44,7 +44,7 @@ export function IndustryPicker({ onSelect }: Props) {
         <span>
           Generations are rate-limited (3 per day per IP) and the output includes
           three architecture variants — primary plus a cloud-native alternate and a
-          cost-optimised alternate. Each is exportable as a PDF.
+          cost-optimized alternate. Each is exportable as a PDF.
         </span>
       </div>
     </div>
