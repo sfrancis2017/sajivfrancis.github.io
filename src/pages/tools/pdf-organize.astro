@@ -22,10 +22,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script is:inline>
     const $ = (id) => document.getElementById(id);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     let srcBytes = null, pages = []; // pages: {orig, rot, thumb}
 
     async function load(file) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       srcBytes = new Uint8Array(await file.arrayBuffer());
       $('status').textContent = 'Rendering thumbnails…';
       const doc = await pdfjsLib.getDocument({ data: srcBytes.slice() }).promise;

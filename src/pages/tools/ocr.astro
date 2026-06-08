@@ -47,7 +47,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <script is:inline>
     const $ = (id) => document.getElementById(id);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     let file = null;
 
     function setProgress(p) { $('progwrap').hidden = false; $('bar').style.width = Math.round(p * 100) + '%'; }
@@ -59,6 +58,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) sel(f); });
 
     async function pdfToCanvases(f) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
       const out = [];
       for (let p = 1; p <= doc.numPages; p++) {

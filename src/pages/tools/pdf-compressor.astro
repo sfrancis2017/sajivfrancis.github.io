@@ -113,9 +113,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script is:inline>
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
+    // pdf.js loads as a deferred module (after this inline script), so set the
+    // worker lazily inside loadPdfWithTimeout instead of at top level.
     const TARGET_BYTES = 25 * 1024 * 1024;
     const LOAD_TIMEOUT_MS = 120_000;
     const YIELD_EVERY = 6;
@@ -234,6 +233,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     };
 
     async function loadPdfWithTimeout(data, fileSize, id) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       let elapsed = 0;
       const heartbeat = setInterval(() => {
         elapsed++;

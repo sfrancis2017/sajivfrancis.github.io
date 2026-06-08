@@ -244,7 +244,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     $('pdf-btn').addEventListener('click', downloadPdf);
     $('word-btn').addEventListener('click', downloadWord);
     $('md-input').value = SAMPLE;
-    renderPreview();
+    // marked/DOMPurify load as deferred module scripts (after this inline script),
+    // so kick off the first preview once they're available.
+    if (window.marked && window.DOMPurify) renderPreview();
+    else window.addEventListener('DOMContentLoaded', renderPreview);
   </script>
 </BaseLayout>
 

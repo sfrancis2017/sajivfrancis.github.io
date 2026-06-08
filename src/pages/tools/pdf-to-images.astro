@@ -31,7 +31,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script is:inline>
     const $ = (id) => document.getElementById(id);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     let file = null, outputs = [];
     const fmt = (n) => (n / 1024 / 1024).toFixed(1) + ' MB';
 
@@ -49,6 +48,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png', ext = format === 'jpeg' ? 'jpg' : 'png';
       const base = file.name.replace(/\.pdf$/i, '');
       try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
         outputs = [];
         for (let p = 1; p <= doc.numPages; p++) {

@@ -105,9 +105,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const $ = (id) => document.getElementById(id);
     const SKEY = 'sf_signatures';
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
     let pdfBytes = null;       // original PDF (Uint8Array)
     let pdfDoc = null;         // pdf.js doc for preview
     let pageNum = 1, pageCount = 1;
@@ -237,6 +234,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
     // ---- load PDF + render page ----------------------------------------
     async function loadPdf(file) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       pdfBytes = new Uint8Array(await file.arrayBuffer());
       pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
       pageCount = pdfDoc.numPages; pageNum = 1;
