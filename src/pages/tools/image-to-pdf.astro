@@ -1,0 +1,132 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Images to PDF" description="Combine JPG/PNG images into a single PDF in your browser — reorder, choose page size and margins." mainClass="max-w-4xl">
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Organize</p>
+      <h1>Images → PDF</h1>
+      <p class="sub">Combine images into one PDF, in the order you choose. Nothing is uploaded.</p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="drop" id="drop"><input type="file" id="file" accept="image/png,image/jpeg" multiple /><div class="dl">Select images (or drag them here)</div><div class="ds">JPG &amp; PNG · reorder below.</div></div>
+
+    <div class="panel" id="settings" style="display:none;">
+      <h2>Files <span class="pill" id="count"></span></h2>
+      <ol class="flist" id="list"></ol>
+      <div class="grid">
+        <label class="f"><span>Page size</span><select id="size"><option value="fit" selected>Fit to image</option><option value="a4">A4</option><option value="letter">Letter</option></select></label>
+        <label class="f"><span>Orientation</span><select id="orient"><option value="auto" selected>Auto</option><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
+        <label class="f"><span>Margin (pt)</span><input type="number" id="margin" min="0" max="120" value="0" /></label>
+      </div>
+    </div>
+
+    <div class="status" id="status">Select two or more images to begin.</div>
+    <button class="btn primary" id="go" disabled>Create PDF</button>
+    <div class="summary" id="summary"><div class="st" id="stitle">Ready</div><div class="sm" id="smeta"></div><button class="btn primary" id="dl">Download PDF</button></div>
+  </article>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    let items = [], outBlob = null, uid = 0;
+    const fmt = (n) => (n / 1024 / 1024).toFixed(2) + ' MB';
+    const SIZES = { a4: [595.28, 841.89], letter: [612, 792] };
+
+    function render() {
+      const list = $('list'); list.innerHTML = '';
+      items.forEach((it, i) => {
+        const li = document.createElement('li'); li.className = 'frow';
+        li.innerHTML = `<span class="idx">${i + 1}</span><img class="thumb" src="${it.url}" alt=""><span class="meta"><span class="nm">${it.file.name.replace(/</g, '&lt;')}</span><span class="su">${fmt(it.file.size)}</span></span><span class="ctrl"><button class="ib" data-a="up" data-i="${it.id}" ${i === 0 ? 'disabled' : ''}>↑</button><button class="ib" data-a="dn" data-i="${it.id}" ${i === items.length - 1 ? 'disabled' : ''}>↓</button><button class="ib dgr" data-a="rm" data-i="${it.id}">✕</button></span>`;
+        list.appendChild(li);
+      });
+      $('settings').style.display = items.length ? '' : 'none';
+      $('count').textContent = items.length || '';
+      $('go').disabled = items.length < 1;
+      $('status').textContent = items.length < 1 ? 'Add images to begin.' : `Ready — ${items.length} image(s).`;
+      $('summary').classList.remove('on');
+    }
+    function add(files) {
+      const imgs = [...files].filter((f) => /image\/(png|jpe?g)/.test(f.type));
+      if (!imgs.length) { $('status').textContent = 'No PNG/JPG images found.'; return; }
+      imgs.forEach((file) => items.push({ id: ++uid, file, url: URL.createObjectURL(file) }));
+      render();
+    }
+    $('list').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-a]'); if (!b) return;
+      const i = items.findIndex((x) => x.id == b.dataset.i); if (i < 0) return;
+      const a = b.dataset.a;
+      if (a === 'rm') items.splice(i, 1);
+      else if (a === 'up' && i > 0) [items[i - 1], items[i]] = [items[i], items[i - 1]];
+      else if (a === 'dn' && i < items.length - 1) [items[i + 1], items[i]] = [items[i], items[i + 1]];
+      render();
+    });
+    $('file').addEventListener('change', (e) => { add(e.target.files); e.target.value = ''; });
+    const dz = $('drop');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer?.files?.length) add(e.dataTransfer.files); });
+
+    $('go').addEventListener('click', async () => {
+      $('go').disabled = true; $('status').textContent = 'Building PDF…';
+      try {
+        const doc = await PDFLib.PDFDocument.create();
+        const sizeMode = $('size').value, orient = $('orient').value, margin = Math.max(0, +$('margin').value || 0);
+        for (const it of items) {
+          const bytes = new Uint8Array(await it.file.arrayBuffer());
+          const img = /png/.test(it.file.type) ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+          let pw, ph;
+          if (sizeMode === 'fit') { pw = img.width + margin * 2; ph = img.height + margin * 2; }
+          else { let [a, b] = SIZES[sizeMode]; const land = orient === 'landscape' || (orient === 'auto' && img.width > img.height); pw = land ? b : a; ph = land ? a : b; }
+          const page = doc.addPage([pw, ph]);
+          const maxW = pw - margin * 2, maxH = ph - margin * 2;
+          const s = Math.min(maxW / img.width, maxH / img.height, sizeMode === 'fit' ? 1 : Infinity);
+          const w = img.width * s, h = img.height * s;
+          page.drawImage(img, { x: (pw - w) / 2, y: (ph - h) / 2, width: w, height: h });
+        }
+        const out = await doc.save(); outBlob = new Blob([out], { type: 'application/pdf' });
+        $('stitle').textContent = 'PDF ready'; $('smeta').textContent = `${items.length} pages · ${fmt(outBlob.size)}`;
+        $('summary').classList.add('on'); $('status').textContent = 'Done.';
+      } catch (err) { $('status').textContent = 'Error: ' + (err.message || err); } finally { $('go').disabled = false; }
+    });
+    $('dl').addEventListener('click', () => { if (!outBlob) return; const a = document.createElement('a'); a.href = URL.createObjectURL(outBlob); a.download = 'images.pdf'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 20000); });
+  </script>
+</BaseLayout>
+
+<style>
+  .tool { max-width: 700px; margin: 0 auto; }
+  .thead { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+  .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+  .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg-elevated); }
+  .drop.drag { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-elevated)); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+  .panel { background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  .pill { text-transform: none; font-size: 11px; border: 1px solid var(--color-border); border-radius: 999px; padding: 1px 8px; }
+  .flist { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .frow { display: flex; align-items: center; gap: 10px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .idx { width: 20px; text-align: center; font-size: 11px; font-family: var(--font-mono); color: var(--color-fg-muted); }
+  .thumb { width: 38px; height: 38px; object-fit: cover; border-radius: 4px; border: 1px solid var(--color-border); }
+  .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .nm { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .su { font-size: 11px; color: var(--color-fg-muted); font-family: var(--font-mono); }
+  .ctrl { display: flex; gap: 4px; }
+  .ib { width: 28px; height: 28px; border: 1px solid var(--color-border); background: var(--color-bg-elevated); color: var(--color-fg); border-radius: 6px; cursor: pointer; }
+  .ib:hover:not(:disabled) { border-color: var(--color-accent); } .ib:disabled { opacity: 0.35; } .dgr:hover { border-color: #b94a48; color: #b94a48; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .f { display: flex; flex-direction: column; gap: 5px; } .f span { font-size: 12px; color: var(--color-fg-muted); }
+  .f input, .f select { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); margin-bottom: 8px; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--color-accent); } .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; } .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .summary { display: none; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 12px; margin-top: 12px; } .summary.on { display: block; }
+  .st { color: #2f7a4d; font-weight: 600; font-size: 14px; margin-bottom: 6px; } :root[data-theme=dark] .st { color: #78d69c; }
+  .sm { font-family: var(--font-mono); font-size: 12px; color: var(--color-fg-muted); margin-bottom: 10px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,114 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Number PDF Pages" description="Add page numbers or legal Bates numbering to a PDF in your browser." mainClass="max-w-4xl">
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Edit &amp; Annotate</p>
+      <h1>Page Numbers &amp; Bates</h1>
+      <p class="sub">Add page numbers, or sequential Bates numbering for legal/discovery. Nothing is uploaded.</p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="drop" id="drop"><input type="file" id="file" accept=".pdf,application/pdf" /><div class="dl">Select a PDF</div><div class="ds">Processing runs locally in your browser.</div></div>
+
+    <div class="panel" id="settings" style="display:none;">
+      <div class="tabs"><button class="tab tab-on" data-m="pages" type="button">Page numbers</button><button class="tab" data-m="bates" type="button">Bates numbering</button></div>
+
+      <div class="mbody" data-b="pages">
+        <div class="grid">
+          <label class="f"><span>Format</span><select id="pformat"><option value="full" selected>Page n of N</option><option value="short">n of N</option><option value="n">n</option><option value="dash">- n -</option></select></label>
+          <label class="f"><span>Start at</span><input type="number" id="pstart" min="1" value="1" /></label>
+          <label class="f"><span>Skip first N pages</span><input type="number" id="pskip" min="0" value="0" /></label>
+        </div>
+      </div>
+
+      <div class="mbody" data-b="bates" hidden>
+        <div class="grid">
+          <label class="f"><span>Prefix</span><input type="text" id="bprefix" value="ABC" maxlength="20" /></label>
+          <label class="f"><span>Start number</span><input type="number" id="bstart" min="0" value="1" /></label>
+          <label class="f"><span>Digits</span><input type="number" id="bdigits" min="1" max="10" value="6" /></label>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:10px;">
+        <label class="f"><span>Position</span><select id="pos"><option value="center" selected>Bottom centre</option><option value="right">Bottom right</option><option value="left">Bottom left</option></select></label>
+        <label class="f"><span>Font size</span><input type="number" id="fsize" min="6" max="24" value="9" /></label>
+      </div>
+    </div>
+
+    <div class="status" id="status">Select a PDF to begin.</div>
+    <button class="btn primary" id="go" disabled>Apply &amp; download</button>
+  </article>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    let bytes = null, mode = 'pages';
+    document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+      mode = t.dataset.m;
+      document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('tab-on', x === t));
+      document.querySelectorAll('.mbody').forEach((b) => (b.hidden = b.dataset.b !== mode));
+    }));
+    $('file').addEventListener('change', async (e) => { const f = e.target.files?.[0]; if (f) sel(f); });
+    const dz = $('drop');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) sel(f); });
+    async function sel(f) { bytes = new Uint8Array(await f.arrayBuffer()); $('settings').style.display = ''; $('go').disabled = false; $('status').textContent = 'Selected: ' + f.name; }
+
+    $('go').addEventListener('click', async () => {
+      if (!bytes) return; $('go').disabled = true; $('status').textContent = 'Numbering pages…';
+      try {
+        const doc = await PDFLib.PDFDocument.load(bytes);
+        const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+        const pages = doc.getPages(), total = pages.length, size = +$('fsize').value || 9, pos = $('pos').value;
+        const skip = mode === 'pages' ? Math.max(0, +$('pskip').value || 0) : 0;
+        const FMT = { full: 'Page {n} of {N}', short: '{n} of {N}', n: '{n}', dash: '- {n} -' };
+        const pstart = +$('pstart').value || 1, format = FMT[$('pformat').value] || '{n}';
+        const prefix = $('bprefix').value || '', bstart = +$('bstart').value || 0, digits = Math.max(1, +$('bdigits').value || 6);
+        let count = 0;
+        pages.forEach((page, i) => {
+          if (mode === 'pages' && i < skip) return;
+          let label;
+          if (mode === 'pages') { const n = pstart + count; label = format.replace('{n}', n).replace('{N}', pstart - 1 + (total - skip)); }
+          else { label = prefix + String(bstart + count).padStart(digits, '0'); }
+          count++;
+          const { width: W } = page.getSize();
+          const tw = font.widthOfTextAtSize(label, size);
+          const x = pos === 'center' ? (W - tw) / 2 : pos === 'right' ? W - tw - 40 : 40;
+          page.drawText(label, { x, y: 24, size, font, color: PDFLib.rgb(0.2, 0.2, 0.2) });
+        });
+        const out = await doc.save();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'application/pdf' })); a.download = mode === 'bates' ? 'bates.pdf' : 'numbered.pdf'; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+        $('status').textContent = `Done — ${count} pages numbered.`;
+      } catch (err) { $('status').textContent = 'Error: ' + (err.message || err); } finally { $('go').disabled = false; }
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .tool { max-width: 700px; margin: 0 auto; }
+  .thead { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+  .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+  .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg-elevated); }
+  .drop.drag { border-color: var(--color-accent); } .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+  .panel { background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tab { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg-muted); border-radius: 8px; padding: 7px 11px; font-size: 13px; cursor: pointer; }
+  .tab-on { border-color: var(--color-accent); color: var(--color-fg); background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg)); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .f { display: flex; flex-direction: column; gap: 5px; } .f span { font-size: 12px; color: var(--color-fg-muted); }
+  .f input, .f select { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); margin: 8px 0; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; } .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
+</style>

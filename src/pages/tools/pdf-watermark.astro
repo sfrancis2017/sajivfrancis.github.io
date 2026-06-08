@@ -1,0 +1,95 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Watermark PDF" description="Stamp a text watermark across every page of a PDF in your browser." mainClass="max-w-4xl">
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Edit &amp; Annotate</p>
+      <h1>Watermark PDF</h1>
+      <p class="sub">Stamp text like “CONFIDENTIAL” across your pages. Nothing is uploaded.</p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="drop" id="drop"><input type="file" id="file" accept=".pdf,application/pdf" /><div class="dl">Select a PDF</div><div class="ds">Processing runs locally in your browser.</div></div>
+
+    <div class="panel" id="settings" style="display:none;">
+      <h2>Watermark</h2>
+      <label class="f"><span>Text</span><input type="text" id="text" value="CONFIDENTIAL" maxlength="60" /></label>
+      <div class="grid">
+        <label class="f"><span>Layout</span><select id="layout"><option value="center" selected>Single (diagonal)</option><option value="tile">Tiled</option></select></label>
+        <label class="f"><span>Font size</span><input type="number" id="fsize" min="8" max="160" value="60" /></label>
+        <label class="f"><span>Angle°</span><input type="number" id="angle" min="-90" max="90" value="45" /></label>
+        <label class="f"><span>Opacity %</span><input type="range" id="opacity" min="5" max="100" value="18" /></label>
+        <label class="f"><span>Colour</span><input type="color" id="color" value="#888888" /></label>
+      </div>
+    </div>
+
+    <div class="status" id="status">Select a PDF to begin.</div>
+    <button class="btn primary" id="go" disabled>Apply watermark &amp; download</button>
+  </article>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    let bytes = null;
+    const hex = (h) => { const n = parseInt(h.slice(1), 16); return PDFLib.rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
+
+    $('file').addEventListener('change', async (e) => { const f = e.target.files?.[0]; if (f) sel(f); });
+    const dz = $('drop');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) sel(f); });
+    async function sel(f) { bytes = new Uint8Array(await f.arrayBuffer()); $('settings').style.display = ''; $('go').disabled = false; $('status').textContent = 'Selected: ' + f.name; }
+
+    $('go').addEventListener('click', async () => {
+      if (!bytes) return; $('go').disabled = true; $('status').textContent = 'Applying watermark…';
+      try {
+        const doc = await PDFLib.PDFDocument.load(bytes);
+        const font = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+        const text = $('text').value || 'CONFIDENTIAL';
+        const size = +$('fsize').value || 60, angle = +$('angle').value || 0, op = (+$('opacity').value || 18) / 100, color = hex($('color').value);
+        const tiled = $('layout').value === 'tile';
+        const tw = font.widthOfTextAtSize(text, size);
+        for (const page of doc.getPages()) {
+          const { width: W, height: H } = page.getSize();
+          const draw = (x, y) => page.drawText(text, { x, y, size, font, color, opacity: op, rotate: PDFLib.degrees(angle) });
+          if (tiled) {
+            const stepX = Math.max(tw + 80, 240), stepY = Math.max(size + 90, 150);
+            for (let y = -stepY; y < H + stepY; y += stepY) for (let x = -tw; x < W + stepX; x += stepX) draw(x, y);
+          } else {
+            const rad = angle * Math.PI / 180;
+            draw(W / 2 - (tw / 2) * Math.cos(rad), H / 2 - (tw / 2) * Math.sin(rad));
+          }
+        }
+        const out = await doc.save();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'application/pdf' })); a.download = 'watermarked.pdf'; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+        $('status').textContent = 'Done — watermarked PDF downloaded.';
+      } catch (err) { $('status').textContent = 'Error: ' + (err.message || err); } finally { $('go').disabled = false; }
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .tool { max-width: 700px; margin: 0 auto; }
+  .thead { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+  .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+  .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg-elevated); }
+  .drop.drag { border-color: var(--color-accent); } .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+  .panel { background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .f { display: flex; flex-direction: column; gap: 5px; } .f span { font-size: 12px; color: var(--color-fg-muted); }
+  .f input, .f select { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .f input[type=color] { height: 38px; padding: 2px; }
+  .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); margin: 8px 0; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; } .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
+</style>
