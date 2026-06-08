@@ -322,6 +322,19 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
     z-index: 30;
   }
 
+  /* Transparent bridge over the `mt-2` gap between the trigger and the menu.
+     Without it the pointer loses :hover crossing the gap and the menu flickers
+     on/off (most visibly in Safari). The bridge keeps the group hovered so the
+     menu stays open while the pointer travels from button to menu. */
+  .utilities-popover::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -0.6rem;
+    height: 0.6rem;
+  }
+
   .utilities-group:hover .utilities-popover,
   .utilities-group:focus-within .utilities-popover {
     display: block;

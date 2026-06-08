@@ -1,0 +1,285 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Markdown to PDF & Word"
+  description="Convert Markdown to PDF or Word in your browser — Mermaid diagrams and Plotly charts render precisely as images."
+  mainClass="max-w-5xl"
+>
+  <article class="md-page">
+    <header class="splitter-head">
+      <p class="splitter-kicker">Tools · Convert</p>
+      <h1>Markdown → PDF &amp; Word</h1>
+      <p class="splitter-subtitle">Paste Markdown, preview it live, and export to PDF or Word. <code>```mermaid</code> and <code>```plotly</code> blocks render as real diagrams/charts. Everything runs in your browser.</p>
+      <a class="back-link" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="md-toolbar">
+      <label class="btn file-btn">Open .md<input type="file" id="md-file" accept=".md,.markdown,text/markdown,text/plain" hidden /></label>
+      <button class="btn" id="sample-btn" type="button">Load sample</button>
+      <span class="grow"></span>
+      <button class="btn btn-primary" id="pdf-btn" type="button">Download PDF</button>
+      <button class="btn btn-primary" id="word-btn" type="button">Download Word</button>
+    </div>
+
+    <div class="md-grid">
+      <textarea id="md-input" class="md-input" spellcheck="false" placeholder="# Type Markdown here…"></textarea>
+      <div id="md-preview" class="md-preview markdown"></div>
+    </div>
+
+    <div class="status" id="status">Mermaid &amp; Plotly fences render in the preview and embed as images in the export.</div>
+  </article>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    const BRAND = '#13304A', ACCENT = '#21496B', MONO = 'Courier';
+
+    // ---- lazy ESM/CDN loaders -----------------------------------------
+    let _mermaid, _plotly, _docx;
+    async function mermaidLib() {
+      if (!_mermaid) {
+        _mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')).default;
+        _mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+      }
+      return _mermaid;
+    }
+    function plotlyLib() {
+      if (_plotly) return Promise.resolve(_plotly);
+      if (window.Plotly) { _plotly = window.Plotly; return Promise.resolve(_plotly); }
+      return new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js';
+        s.onload = () => { _plotly = window.Plotly; res(_plotly); };
+        s.onerror = () => rej(new Error('Plotly failed to load'));
+        document.head.appendChild(s);
+      });
+    }
+    async function docxLib() { if (!_docx) _docx = await import('https://esm.sh/docx@9.0.2'); return _docx; }
+
+    // ---- fence → PNG (offscreen) --------------------------------------
+    async function svgToPng(svg, scale = 2) {
+      const m = svg.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
+      let w = m ? +m[1] : 760, h = m ? +m[2] : 480;
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      try {
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+        const cv = document.createElement('canvas'); cv.width = w * scale; cv.height = h * scale;
+        const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        return { dataUrl: cv.toDataURL('image/png'), w, h };
+      } finally { URL.revokeObjectURL(url); }
+    }
+    async function mermaidPng(code) {
+      try {
+        const mer = await mermaidLib();
+        const { svg } = await mer.render('mmd-' + Math.random().toString(36).slice(2), code);
+        return await svgToPng(svg, 2);
+      } catch { return null; }
+    }
+    async function plotlyPng(body) {
+      let spec; try { spec = JSON.parse(body); } catch { return null; }
+      const Plotly = await plotlyLib();
+      const div = document.createElement('div');
+      div.style.cssText = 'position:absolute;left:-9999px;top:0;width:760px;height:440px;';
+      document.body.appendChild(div);
+      try {
+        const data = Array.isArray(spec) ? spec : (spec.data || []);
+        const layout = Object.assign({ width: 760, height: 440, autosize: false }, Array.isArray(spec) ? {} : (spec.layout || {}));
+        await Plotly.newPlot(div, data, layout, { staticPlot: true });
+        const dataUrl = await Plotly.toImage(div, { format: 'png', width: 760, height: 440, scale: 2 });
+        return { dataUrl, w: 760, h: 440 };
+      } catch { return null; } finally { try { Plotly.purge(div); } catch {} div.remove(); }
+    }
+    const fenceLang = (t) => (t.lang || '').trim().toLowerCase().split(/\s+/)[0];
+
+    // ---- live preview --------------------------------------------------
+    let previewTimer = null;
+    function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeout(renderPreview, 250); }
+    async function renderPreview() {
+      const md = $('md-input').value;
+      const html = DOMPurify.sanitize(marked.parse(md, { breaks: true }), { ADD_TAGS: ['pre'], ADD_ATTR: ['class'] });
+      $('md-preview').innerHTML = html;
+      // render mermaid/plotly code blocks in the preview
+      for (const pre of $('md-preview').querySelectorAll('pre > code')) {
+        const cls = pre.className || '';
+        const body = pre.textContent || '';
+        if (/language-mermaid/.test(cls)) {
+          const png = await mermaidPng(body);
+          if (png) { const img = new Image(); img.src = png.dataUrl; img.className = 'md-fig'; pre.closest('pre').replaceWith(img); }
+        } else if (/language-plotly/.test(cls)) {
+          const png = await plotlyPng(body);
+          if (png) { const img = new Image(); img.src = png.dataUrl; img.className = 'md-fig'; pre.closest('pre').replaceWith(img); }
+        }
+      }
+    }
+
+    // ---- shared inline walk -------------------------------------------
+    function inlineRuns(tokens) {
+      // returns [{text, bold, italics, mono, link}]
+      const out = [];
+      const walk = (toks, sty) => {
+        for (const t of toks || []) {
+          if (t.type === 'text' || t.type === 'escape') out.push({ ...sty, text: decode(t.text) });
+          else if (t.type === 'strong') walk(t.tokens, { ...sty, bold: true });
+          else if (t.type === 'em') walk(t.tokens, { ...sty, italics: true });
+          else if (t.type === 'codespan') out.push({ ...sty, mono: true, text: decode(t.text) });
+          else if (t.type === 'link') walk(t.tokens, { ...sty, link: t.href });
+          else if (t.type === 'br') out.push({ ...sty, text: '\n' });
+          else if (t.tokens) walk(t.tokens, sty);
+          else if (t.text != null) out.push({ ...sty, text: decode(t.text) });
+        }
+      };
+      walk(tokens, {});
+      return out.length ? out : [{ text: '' }];
+    }
+    let _dec; function decode(s) { if (!s || s.indexOf('&') < 0) return s || ''; if (!_dec) _dec = document.createElement('textarea'); _dec.innerHTML = s; return _dec.value; }
+
+    // ---- Markdown -> pdfmake ------------------------------------------
+    async function toPdfContent(tokens) {
+      const content = [];
+      const H = [22, 18, 15, 13, 12, 11];
+      for (const t of tokens) {
+        if (t.type === 'heading') {
+          content.push({ text: decode(t.text), fontSize: H[t.depth - 1] || 11, bold: true, color: BRAND, margin: [0, t.depth <= 2 ? 12 : 8, 0, 4] });
+        } else if (t.type === 'paragraph') {
+          content.push({ text: inlineRuns(t.tokens).map((r) => ({ text: r.text, bold: r.bold, italics: r.italics, font: r.mono ? 'Courier' : undefined, color: r.link ? ACCENT : undefined })), margin: [0, 0, 0, 8], lineHeight: 1.25 });
+        } else if (t.type === 'list') {
+          const items = t.items.map((it) => ({ text: inlineRuns(it.tokens?.[0]?.tokens || it.tokens || []).map((r) => ({ text: r.text, bold: r.bold, italics: r.italics, font: r.mono ? 'Courier' : undefined })) }));
+          content.push({ [t.ordered ? 'ol' : 'ul']: items, margin: [0, 0, 0, 8] });
+        } else if (t.type === 'code') {
+          const lang = fenceLang(t);
+          if (lang === 'mermaid' || lang === 'plotly') {
+            const png = lang === 'mermaid' ? await mermaidPng(t.text) : await plotlyPng(t.text);
+            if (png) content.push({ image: png.dataUrl, width: 480, alignment: 'center', margin: [0, 6, 0, 10] });
+            else content.push({ text: t.text, font: 'Courier', fontSize: 9, margin: [0, 0, 0, 8] });
+          } else {
+            content.push({ text: decode(t.text), font: 'Courier', fontSize: 9, color: '#333', margin: [0, 0, 0, 8], preserveLeadingSpaces: true });
+          }
+        } else if (t.type === 'blockquote') {
+          const inner = await toPdfContent(t.tokens);
+          content.push({ margin: [12, 0, 0, 8], stack: inner.map((c) => ({ ...c, italics: true, color: '#555' })) });
+        } else if (t.type === 'table') {
+          const header = t.header.map((c) => ({ text: decode(c.text), bold: true, color: '#fff', fillColor: ACCENT, margin: [2, 3, 2, 3] }));
+          const rows = t.rows.map((r) => r.map((c) => ({ text: inlineRuns(c.tokens).map((x) => ({ text: x.text, bold: x.bold, italics: x.italics })), margin: [2, 3, 2, 3], fontSize: 9 })));
+          content.push({ table: { headerRows: 1, widths: t.header.map(() => '*'), body: [header, ...rows] }, layout: 'lightHorizontalLines', margin: [0, 4, 0, 10], fontSize: 9 });
+        } else if (t.type === 'hr') {
+          content.push({ canvas: [{ type: 'line', x1: 0, y1: 2, x2: 515, y2: 2, lineWidth: 0.5, lineColor: '#ccc' }], margin: [0, 6, 0, 10] });
+        } else if (t.type === 'space') { /* skip */ }
+      }
+      return content;
+    }
+    async function downloadPdf() {
+      $('status').textContent = 'Building PDF (rendering diagrams)…';
+      try {
+        const tokens = marked.lexer($('md-input').value);
+        const content = await toPdfContent(tokens);
+        const docDef = {
+          content, pageSize: 'LETTER', pageMargins: [54, 56, 54, 56],
+          defaultStyle: { font: 'Roboto', fontSize: 10.5, color: '#1a1a1a' },
+        };
+        window.pdfMake.createPdf(docDef).download('document.pdf');
+        $('status').textContent = 'PDF downloaded.';
+      } catch (e) { $('status').textContent = 'PDF error: ' + (e.message || e); }
+    }
+
+    // ---- Markdown -> docx ---------------------------------------------
+    async function toDocxChildren(tokens, docx) {
+      const { Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, ImageRun, WidthType, AlignmentType, BorderStyle } = docx;
+      const HLEVELS = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_5, HeadingLevel.HEADING_6];
+      const runs = (toks) => inlineRuns(toks).map((r) => new TextRun({ text: r.text === '\n' ? '' : r.text, break: r.text === '\n' ? 1 : 0, bold: r.bold, italics: r.italics, font: r.mono ? 'Courier New' : undefined, color: r.link ? '21496B' : undefined }));
+      const dataUrlToU8 = (d) => { const b = atob(d.split(',')[1] || ''); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+      const out = [];
+      for (const t of tokens) {
+        if (t.type === 'heading') out.push(new Paragraph({ heading: HLEVELS[t.depth - 1], children: runs(t.tokens) }));
+        else if (t.type === 'paragraph') out.push(new Paragraph({ spacing: { after: 140 }, children: runs(t.tokens) }));
+        else if (t.type === 'list') t.items.forEach((it) => out.push(new Paragraph({ [t.ordered ? 'numbering' : 'bullet']: t.ordered ? { reference: 'num', level: 0 } : { level: 0 }, children: runs(it.tokens?.[0]?.tokens || it.tokens || []) })));
+        else if (t.type === 'blockquote') (await toDocxChildren(t.tokens, docx)).forEach((p) => out.push(p));
+        else if (t.type === 'hr') out.push(new Paragraph({ thematicBreak: true }));
+        else if (t.type === 'code') {
+          const lang = fenceLang(t);
+          if (lang === 'mermaid' || lang === 'plotly') {
+            const png = lang === 'mermaid' ? await mermaidPng(t.text) : await plotlyPng(t.text);
+            if (png) { const w = Math.min(560, png.w), h = w * (png.h / png.w); out.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 80, after: 160 }, children: [new ImageRun({ data: dataUrlToU8(png.dataUrl), transformation: { width: w, height: h } })] })); }
+          } else {
+            decode(t.text).split('\n').forEach((line) => out.push(new Paragraph({ children: [new TextRun({ text: line, font: 'Courier New', size: 18, color: '333333' })] })));
+          }
+        } else if (t.type === 'table') {
+          const cell = (children, head) => new TableCell({ shading: head ? { fill: '21496B' } : undefined, margins: { top: 40, bottom: 40, left: 60, right: 60 }, children: [new Paragraph({ children })] });
+          const headRow = new TableRow({ tableHeader: true, children: t.header.map((c) => cell([new TextRun({ text: decode(c.text), bold: true, color: 'FFFFFF' })], true)) });
+          const bodyRows = t.rows.map((r) => new TableRow({ children: r.map((c) => cell(runs(c.tokens), false)) }));
+          out.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [headRow, ...bodyRows] }));
+          out.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+        }
+      }
+      return out;
+    }
+    async function downloadWord() {
+      $('status').textContent = 'Building Word (rendering diagrams)…';
+      try {
+        const docx = await docxLib();
+        const tokens = marked.lexer($('md-input').value);
+        const children = await toDocxChildren(tokens, docx);
+        const doc = new docx.Document({
+          numbering: { config: [{ reference: 'num', levels: [{ level: 0, format: 'decimal', text: '%1.', alignment: 'start' }] }] },
+          sections: [{ properties: {}, children }],
+        });
+        const blob = await docx.Packer.toBlob(doc);
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'document.docx'; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+        $('status').textContent = 'Word document downloaded.';
+      } catch (e) { $('status').textContent = 'Word error: ' + (e.message || e); }
+    }
+
+    // ---- wire up -------------------------------------------------------
+    const SAMPLE = `# Quarterly Architecture Review\n\nA short brief with a **diagram** and a *chart*.\n\n## Data Flow\n\n\`\`\`mermaid\nflowchart LR\n  A[Source] --> B[ETL] --> C[(Warehouse)] --> D[BI]\n\`\`\`\n\n## Cost vs Quality\n\n\`\`\`plotly\n{"data":[{"type":"bar","x":["A","B","C"],"y":[3,7,5]}],"layout":{"title":{"text":"Sample"}}}\n\`\`\`\n\n| Item | Status |\n|---|---|\n| Ingest | Done |\n| Model | In progress |\n\n> Diagrams and charts export as crisp images.\n`;
+    $('md-input').addEventListener('input', schedulePreview);
+    $('sample-btn').addEventListener('click', () => { $('md-input').value = SAMPLE; renderPreview(); });
+    $('md-file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => { $('md-input').value = r.result; renderPreview(); }; r.readAsText(f); });
+    $('pdf-btn').addEventListener('click', downloadPdf);
+    $('word-btn').addEventListener('click', downloadWord);
+    $('md-input').value = SAMPLE;
+    renderPreview();
+  </script>
+</BaseLayout>
+
+<style>
+  .md-page { max-width: 1000px; margin: 0 auto; }
+  .splitter-head { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .splitter-kicker { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .splitter-head h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; letter-spacing: -0.02em; }
+  .splitter-subtitle { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+  .splitter-subtitle code { font-family: var(--font-mono); font-size: 12px; background: var(--color-bg-elevated); padding: 1px 5px; border-radius: 4px; }
+  .back-link { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back-link:hover { color: var(--color-fg); border-color: var(--color-accent); }
+
+  .md-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .grow { flex: 1; }
+  .file-btn { cursor: pointer; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--color-accent); }
+  .btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+
+  .md-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 62vh; min-height: 420px; }
+  .md-input { width: 100%; height: 100%; resize: none; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-elevated); color: var(--color-fg); padding: 14px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; }
+  .md-preview { overflow: auto; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-elevated); padding: 16px 18px; }
+  .md-preview :global(.md-fig) { max-width: 100%; display: block; margin: 12px auto; }
+  .md-preview :global(table) { border-collapse: collapse; width: 100%; margin: 10px 0; }
+  .md-preview :global(th), .md-preview :global(td) { border: 1px solid var(--color-border); padding: 6px 9px; font-size: 13px; text-align: left; }
+  .md-preview :global(th) { background: var(--color-bg); }
+  .md-preview :global(pre) { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; overflow: auto; font-size: 12px; }
+  .md-preview :global(h1), .md-preview :global(h2), .md-preview :global(h3) { margin: 14px 0 6px; line-height: 1.2; }
+
+  .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); margin-top: 10px; }
+
+  @media (max-width: 760px) {
+    .md-grid { grid-template-columns: 1fr; height: auto; }
+    .md-input, .md-preview { height: 44vh; min-height: 280px; }
+    .splitter-head h1 { font-size: 24px; }
+  }
+</style>
