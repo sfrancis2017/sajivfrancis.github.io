@@ -41,6 +41,9 @@ export async function generateArchitectures(
     body: JSON.stringify({
       industryLabel: industry.label,
       selections: resolved,
+      // SEC grounding so the model targets a realistic filer in this industry.
+      sic: industry.sic,
+      representativeFilers: industry.examples,
     }),
   });
 
