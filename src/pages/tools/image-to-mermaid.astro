@@ -1,0 +1,111 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Image to Mermaid" description="Turn a picture of a diagram into editable Mermaid code using vision AI." mainClass="max-w-5xl">
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Extract &amp; Analyze</p>
+      <h1>Image → Mermaid</h1>
+      <p class="sub">Upload a picture of a diagram (flowchart, architecture, sequence…) and get editable <strong>Mermaid</strong> code back, rendered live. Powered by vision AI.</p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="drop" id="drop"><input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" /><div class="dl">Select a diagram image</div><div class="ds">PNG, JPG, WebP, or GIF (≤ 6 MB). The image is sent to the AI service for conversion.</div></div>
+
+    <div class="preview-img" id="previmg" hidden><img id="thumb" alt="upload preview" /></div>
+
+    <div class="status" id="status">Select an image to begin.</div>
+    <button class="btn primary" id="go" disabled>Convert to Mermaid</button>
+
+    <div class="grid2" id="result" hidden>
+      <div class="col">
+        <h2>Mermaid <button class="btn sm" id="rerender" title="Re-render after edits">↻ Render</button></h2>
+        <textarea id="code" class="code" spellcheck="false"></textarea>
+        <div class="row"><button class="btn" id="copy">Copy</button><button class="btn" id="dl">Download .mmd</button><button class="btn" id="live">Open in mermaid.live ↗</button></div>
+      </div>
+      <div class="col">
+        <h2>Preview</h2>
+        <div id="preview" class="preview"></div>
+      </div>
+    </div>
+  </article>
+
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    const WORKER = 'https://ea-explorer-worker.sfrancis2017.workers.dev';
+    let file = null, _mermaid = null;
+
+    async function mermaidLib() {
+      if (!_mermaid) { _mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')).default; _mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'default' }); }
+      return _mermaid;
+    }
+    function sel(f) {
+      if (f.size > 6 * 1024 * 1024) { $('status').textContent = 'Image too large (max 6 MB).'; return; }
+      file = f; $('thumb').src = URL.createObjectURL(f); $('previmg').hidden = false; $('go').disabled = false; $('status').textContent = 'Ready: ' + f.name;
+    }
+    $('file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) sel(f); });
+    const dz = $('drop');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) sel(f); });
+
+    async function render() {
+      const code = $('code').value.trim(); if (!code) return;
+      try { const mer = await mermaidLib(); const { svg } = await mer.render('m' + Math.random().toString(36).slice(2), code); $('preview').innerHTML = svg; }
+      catch (e) { $('preview').innerHTML = `<div class="err">Diagram didn't parse — edit the code and re-render.<br><small>${(e.message || e).toString().replace(/</g, '&lt;').slice(0, 200)}</small></div>`; }
+    }
+
+    $('go').addEventListener('click', async () => {
+      if (!file) return; $('go').disabled = true; $('status').textContent = 'Reading the diagram with vision AI…';
+      try {
+        const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+        const b64 = String(dataUrl).split(',')[1];
+        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: b64, mediaType: file.type || 'image/png' }) });
+        const j = await resp.json();
+        if (!resp.ok) throw new Error(j.error || ('HTTP ' + resp.status));
+        $('code').value = (j.mermaid || '').trim();
+        $('result').hidden = false;
+        await render();
+        $('status').textContent = 'Done — edit the code if needed, then re-render.';
+      } catch (e) { $('status').textContent = 'Error: ' + (e.message || e); } finally { $('go').disabled = false; }
+    });
+
+    $('rerender').addEventListener('click', render);
+    $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('code').value); $('status').textContent = 'Copied.'; } catch { $('status').textContent = 'Copy failed.'; } });
+    $('dl').addEventListener('click', () => { const blob = new Blob([$('code').value], { type: 'text/plain' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'diagram.mmd'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000); });
+    $('live').addEventListener('click', () => {
+      const state = { code: $('code').value, mermaid: '{\n  "theme": "default"\n}', autoSync: true, updateDiagram: true };
+      const utf8 = new TextEncoder().encode(JSON.stringify(state)); let bin = '';
+      for (let i = 0; i < utf8.length; i++) bin += String.fromCharCode(utf8[i]);
+      const b64 = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      window.open('https://mermaid.live/edit#base64:' + b64, '_blank', 'noopener,noreferrer');
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .tool { max-width: 1000px; margin: 0 auto; }
+  .thead { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+  .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+  .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg-elevated); }
+  .drop.drag { border-color: var(--color-accent); } .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+  .preview-img { text-align: center; margin-bottom: 10px; } .preview-img img { max-height: 220px; max-width: 100%; border: 1px solid var(--color-border); border-radius: 8px; }
+  .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); margin-bottom: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .col h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
+  .code { width: 100%; min-height: 340px; resize: vertical; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); color: var(--color-fg); padding: 12px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+  .preview { min-height: 340px; border: 1px solid var(--color-border); border-radius: 10px; background: #fff; padding: 12px; overflow: auto; display: grid; place-items: center; }
+  .preview :global(svg) { max-width: 100%; height: auto; }
+  .err { color: #b94a48; font-size: 13px; text-align: center; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .btn.sm { padding: 3px 8px; font-size: 11px; }
+  .btn:hover { border-color: var(--color-accent); } .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; } .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
