@@ -1,0 +1,140 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="OCR — Extract Text" description="Extract editable text from images or scanned PDFs in your browser. Files never leave your device." mainClass="max-w-4xl">
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Extract &amp; Analyze</p>
+      <h1>OCR — Extract Text</h1>
+      <p class="sub">Pull editable text out of an image or scanned PDF, then copy, edit, or download it. Runs locally — nothing is uploaded.</p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="drop" id="drop"><input type="file" id="file" accept="image/*,.pdf,application/pdf" /><div class="dl">Select an image or PDF</div><div class="ds">PNG, JPG, or a scanned PDF. Processing runs in your browser.</div></div>
+
+    <div class="panel" id="settings" style="display:none;">
+      <div class="row">
+        <label class="f"><span>Language</span>
+          <select id="lang">
+            <option value="eng" selected>English</option>
+            <option value="spa">Spanish</option>
+            <option value="fra">French</option>
+            <option value="deu">German</option>
+            <option value="por">Portuguese</option>
+            <option value="ita">Italian</option>
+            <option value="eng+spa">English + Spanish</option>
+          </select>
+        </label>
+        <button class="btn primary" id="go">Extract text</button>
+      </div>
+      <div class="prog" id="progwrap" hidden><div class="bar" id="bar"></div></div>
+      <div class="status" id="status">Pick a language and extract.</div>
+    </div>
+
+    <div class="panel" id="outwrap" hidden>
+      <h2>Extracted text <span class="pill" id="chars"></span></h2>
+      <textarea id="out" class="out" spellcheck="false" placeholder="Extracted text will appear here…"></textarea>
+      <div class="row">
+        <button class="btn" id="copy">Copy</button>
+        <button class="btn" id="dltxt">Download .txt</button>
+        <button class="btn" id="dlmd">Download .md</button>
+      </div>
+    </div>
+  </article>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script is:inline>
+    const $ = (id) => document.getElementById(id);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    let file = null;
+
+    function setProgress(p) { $('progwrap').hidden = false; $('bar').style.width = Math.round(p * 100) + '%'; }
+    function sel(f) { file = f; $('settings').style.display = ''; $('status').textContent = 'Ready: ' + f.name; }
+    $('file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) sel(f); });
+    const dz = $('drop');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) sel(f); });
+
+    async function pdfToCanvases(f) {
+      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+      const out = [];
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p);
+        const vp = page.getViewport({ scale: 2 });
+        const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+        const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        out.push(cv);
+      }
+      return out;
+    }
+
+    $('go').addEventListener('click', async () => {
+      if (!file) return;
+      $('go').disabled = true; setProgress(0.02);
+      $('status').textContent = 'Loading OCR engine…';
+      let worker;
+      try {
+        const isPdf = /pdf$/i.test(file.name) || file.type === 'application/pdf';
+        const pages = isPdf ? await pdfToCanvases(file) : [file];
+        const total = pages.length;
+        let donePages = 0, text = '';
+        worker = await Tesseract.createWorker($('lang').value, 1, {
+          logger: (m) => {
+            if (m.status === 'recognizing text') $('status').textContent = `Reading${total > 1 ? ` (page ${donePages + 1} / ${total})` : ''}… ${Math.round(m.progress * 100)}%`;
+            else $('status').textContent = m.status + (m.progress ? ` ${Math.round(m.progress * 100)}%` : '');
+          },
+        });
+        for (const pg of pages) {
+          const { data } = await worker.recognize(pg);
+          text += (total > 1 ? `\n\n----- Page ${donePages + 1} -----\n\n` : '') + (data.text || '').trim();
+          donePages++;
+          setProgress(donePages / total);
+        }
+        await worker.terminate();
+        $('out').value = text.trim();
+        $('outwrap').hidden = false;
+        $('chars').textContent = `${$('out').value.length.toLocaleString()} chars`;
+        $('status').textContent = `Done — ${donePages} ${donePages === 1 ? 'page/image' : 'pages'} read.`;
+        setProgress(1);
+      } catch (err) {
+        $('status').textContent = 'Error: ' + (err.message || err);
+        try { await worker?.terminate(); } catch {}
+      } finally { $('go').disabled = false; }
+    });
+
+    $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('out').value); $('status').textContent = 'Copied to clipboard.'; } catch { $('status').textContent = 'Copy failed — select and copy manually.'; } });
+    function download(name, type) { const blob = new Blob([$('out').value], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000); }
+    $('dltxt').addEventListener('click', () => download('extracted.txt', 'text/plain'));
+    $('dlmd').addEventListener('click', () => download('extracted.md', 'text/markdown'));
+    $('chars') && $('out').addEventListener('input', () => { $('chars').textContent = `${$('out').value.length.toLocaleString()} chars`; });
+  </script>
+</BaseLayout>
+
+<style>
+  .tool { max-width: 760px; margin: 0 auto; }
+  .thead { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+  .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+  .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg-elevated); }
+  .drop.drag { border-color: var(--color-accent); } .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+  .panel { background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  .pill { text-transform: none; font-size: 11px; border: 1px solid var(--color-border); border-radius: 999px; padding: 1px 8px; font-family: var(--font-mono); }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .f { display: flex; flex-direction: column; gap: 5px; } .f span { font-size: 12px; color: var(--color-fg-muted); }
+  .f select { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .prog { height: 6px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 999px; overflow: hidden; margin: 12px 0 6px; }
+  .bar { height: 100%; width: 0; background: var(--color-accent); transition: width 200ms ease; }
+  .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); }
+  .out { width: 100%; min-height: 320px; resize: vertical; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); color: var(--color-fg); padding: 12px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--color-accent); } .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; } .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
