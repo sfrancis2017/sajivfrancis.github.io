@@ -6,6 +6,8 @@ export interface Industry {
   icon: string;
   desc: string;
   accent: string; // hex, used for subtle layer accents
+  sic?: string[]; // representative SEC SIC codes (grounds the taxonomy in EDGAR)
+  examples?: string[]; // representative public filers in this SIC industry
 }
 
 export interface Layer {

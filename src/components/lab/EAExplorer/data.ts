@@ -4,18 +4,25 @@
 
 import type { Industry, Layer, VendorMap } from './types';
 
+// Industry taxonomy mirrors scripts/sic_map.json (the SEC-corpus source of
+// truth): same ids + representative SIC codes. `examples` are representative
+// public filers in each SIC bucket — they ground the picker in real EDGAR
+// membership (not a claim about which systems any one company runs).
 export const INDUSTRIES: Industry[] = [
-  { id: 'oil_gas',       label: 'Oil & Gas',          icon: '⛽', desc: 'Upstream, midstream & downstream',     accent: '#c2741f' },
-  { id: 'financial',     label: 'Financial Services', icon: '🏦', desc: 'Banking, capital markets & insurance', accent: '#3b82f6' },
-  { id: 'manufacturing', label: 'Manufacturing',      icon: '🏭', desc: 'Discrete & process manufacturing',     accent: '#10b981' },
-  { id: 'healthcare',    label: 'Healthcare',         icon: '🏥', desc: 'Providers, payers & life sciences',    accent: '#dc2626' },
-  { id: 'retail_cpg',    label: 'Retail / CPG',       icon: '🛒', desc: 'Retail, e-commerce & consumer goods',  accent: '#7c3aed' },
-  { id: 'utilities',     label: 'Utilities',          icon: '⚡', desc: 'Power, gas & water utilities',         accent: '#0891b2' },
+  { id: 'oil_gas',           label: 'Oil & Gas',                  icon: '⛽', desc: 'Upstream, midstream & downstream',        accent: '#c2741f', sic: ['1311', '1381', '2911', '4922', '4924'], examples: ['ExxonMobil', 'Chevron', 'ConocoPhillips', 'Schlumberger'] },
+  { id: 'financial',         label: 'Financial Services',         icon: '🏦', desc: 'Banking, capital markets & insurance',    accent: '#3b82f6', sic: ['6021', '6022', '6199', '6211', '6311'], examples: ['JPMorgan Chase', 'Bank of America', 'Goldman Sachs', 'BlackRock'] },
+  { id: 'manufacturing',     label: 'Manufacturing',              icon: '🏭', desc: 'Discrete & process manufacturing',        accent: '#10b981', sic: ['3711', '3559', '3312', '2821', '3724'], examples: ['Boeing', 'Ford', 'General Motors', 'Caterpillar'] },
+  { id: 'healthcare',        label: 'Healthcare',                 icon: '🏥', desc: 'Providers, payers & life sciences',       accent: '#dc2626', sic: ['2834', '2836', '3841', '3845', '8060'], examples: ['Pfizer', 'Johnson & Johnson', 'UnitedHealth', 'Medtronic'] },
+  { id: 'retail_cpg',        label: 'Retail / CPG',               icon: '🛒', desc: 'Retail, e-commerce & consumer goods',     accent: '#7c3aed', sic: ['5311', '5411', '5961', '2000', '2080'], examples: ['Walmart', 'Costco', 'Procter & Gamble', 'PepsiCo'] },
+  { id: 'utilities',         label: 'Utilities',                  icon: '⚡', desc: 'Power, gas & water utilities',            accent: '#0891b2', sic: ['4911', '4924', '4931', '4941'],         examples: ['NextEra Energy', 'Duke Energy', 'Southern Company', 'Dominion'] },
+  { id: 'semiconductors',    label: 'Semiconductors',             icon: '🔬', desc: 'Chip design, fabrication & equipment',    accent: '#0ea5e9', sic: ['3674', '3559', '3827'],                 examples: ['NVIDIA', 'AMD', 'Broadcom', 'Qualcomm', 'Micron'] },
+  { id: 'software_internet', label: 'Software & Internet',        icon: '💻', desc: 'SaaS, cloud & internet platforms',        accent: '#6366f1', sic: ['7372', '7371', '7373', '7374', '7370'], examples: ['Microsoft', 'Salesforce', 'Oracle', 'ServiceNow', 'Adobe'] },
+  { id: 'hardware_comms',    label: 'Hardware & Communications',  icon: '📡', desc: 'Devices, networking & telecom gear',      accent: '#14b8a6', sic: ['3571', '3576', '3577', '3661', '3663'], examples: ['Cisco', 'Dell', 'HPE', 'Arista', 'Motorola Solutions'] },
 ];
 
 export const LAYERS: Layer[] = [
   { id: 'source',     label: 'Industry Input Systems',   sublabel: 'Operational source of truth',           icon: '📥', accent: '#6b7280' },
-  { id: 'ot',         label: 'OT / Industrial Systems',  sublabel: 'Plant floor & field data',              icon: '🏗️', accent: '#c2741f', onlyFor: ['oil_gas', 'manufacturing', 'utilities'] },
+  { id: 'ot',         label: 'OT / Industrial Systems',  sublabel: 'Plant floor & field data',              icon: '🏗️', accent: '#c2741f', onlyFor: ['oil_gas', 'manufacturing', 'utilities', 'semiconductors'] },
   { id: 'erp',        label: 'ERP Platform',             sublabel: 'Core business system of record',        icon: '🏢', accent: '#0891b2' },
   { id: 'middleware', label: 'Integration / Middleware', sublabel: 'API management & event streaming',     icon: '🔗', accent: '#7c3aed' },
   { id: 'data',       label: 'Data Platform',            sublabel: 'Warehouse, lakehouse & data fabric',   icon: '🗄️', accent: '#047857' },
@@ -310,6 +317,150 @@ export const VENDORS: VendorMap = {
       { id: 'c3ai',       name: 'C3.ai',               desc: 'Energy demand forecasting' },
       { id: 'palantir',   name: 'Palantir AIP',        desc: 'Grid operations AI' },
       { id: 'sap_ai',     name: 'SAP AI Core',         desc: 'Embedded AI in SAP' },
+    ],
+  },
+
+  semiconductors: {
+    source: [
+      { id: 'cadence',    name: 'Cadence',               desc: 'EDA design & verification' },
+      { id: 'synopsys',   name: 'Synopsys',              desc: 'EDA, IP & design tools' },
+      { id: 'siemens_eda',name: 'Siemens EDA (Calibre)', desc: 'Physical verification & signoff' },
+      { id: 'teamcenter', name: 'Siemens Teamcenter',    desc: 'PLM for chip & package' },
+      { id: 'ansys',      name: 'Ansys',                 desc: 'Multiphysics & reliability sim' },
+    ],
+    ot: [
+      { id: 'opcenter_cs',name: 'Siemens Opcenter (Camstar)', desc: 'Semiconductor MES' },
+      { id: 'applied_sf', name: 'Applied SmartFactory',       desc: 'Fab automation & scheduling' },
+      { id: 'criticalmfg',name: 'Critical Manufacturing MES', desc: 'Modern fab MES' },
+      { id: 'peer_group', name: 'PEER Group FactoryWorks',    desc: 'Equipment integration (SECS/GEM)' },
+      { id: 'pi_system',  name: 'AVEVA PI System',            desc: 'Fab equipment historian' },
+    ],
+    erp: [
+      { id: 'sap_s4',    name: 'SAP S/4HANA',            desc: 'Dominant ERP in semis' },
+      { id: 'oracle_fc', name: 'Oracle Fusion Cloud',    desc: 'Cloud ERP suite' },
+      { id: 'ms_d365',   name: 'Microsoft Dynamics 365', desc: 'Cloud ERP + CRM' },
+      { id: 'kinaxis',   name: 'Kinaxis RapidResponse',  desc: 'Supply-chain planning' },
+      { id: 'sap_ibp',   name: 'SAP IBP',                desc: 'Integrated demand/supply planning' },
+    ],
+    middleware: [
+      { id: 'mulesoft',  name: 'MuleSoft Anypoint',          desc: 'API-led connectivity' },
+      { id: 'sap_is',    name: 'SAP Integration Suite',      desc: 'SAP-native integration' },
+      { id: 'confluent', name: 'Confluent (Kafka)',          desc: 'Fab event streaming' },
+      { id: 'azure_is',  name: 'Azure Integration Services', desc: 'Logic Apps + Service Bus' },
+      { id: 'boomi',     name: 'Boomi',                      desc: 'Cloud integration platform' },
+    ],
+    data: [
+      { id: 'snowflake', name: 'Snowflake',            desc: 'Cloud data warehouse' },
+      { id: 'databricks',name: 'Databricks Lakehouse', desc: 'Yield & test analytics at scale' },
+      { id: 'bigquery',  name: 'Google BigQuery',      desc: 'Serverless analytics' },
+      { id: 'fabric',    name: 'Microsoft Fabric',     desc: 'Unified analytics SaaS' },
+      { id: 'aws_rs',    name: 'AWS Redshift',         desc: 'Cloud data lake' },
+    ],
+    bi: [
+      { id: 'pdf_exensio',name: 'PDF Solutions Exensio', desc: 'Semiconductor yield analytics' },
+      { id: 'spotfire',   name: 'TIBCO Spotfire',        desc: 'Engineering & yield analysis' },
+      { id: 'powerbi',    name: 'Microsoft Power BI',    desc: 'Self-service analytics' },
+      { id: 'tableau',    name: 'Tableau (Salesforce)',  desc: 'Visual analytics' },
+      { id: 'sac',        name: 'SAP Analytics Cloud',   desc: 'Planning + BI unified' },
+    ],
+    ai: [
+      { id: 'nvidia_ai',  name: 'NVIDIA AI Enterprise', desc: 'GPU AI/ML platform' },
+      { id: 'azure_ai',   name: 'Azure AI / OpenAI',    desc: 'Microsoft AI ecosystem' },
+      { id: 'aws_bedrock',name: 'AWS Bedrock',          desc: 'Foundation model platform' },
+      { id: 'claude_api', name: 'Anthropic Claude API', desc: 'Enterprise-grade LLM' },
+      { id: 'vertex_ai',  name: 'Google Vertex AI',     desc: 'Managed ML platform' },
+    ],
+  },
+
+  software_internet: {
+    source: [
+      { id: 'salesforce', name: 'Salesforce',        desc: 'CRM system of record' },
+      { id: 'hubspot',    name: 'HubSpot',           desc: 'CRM & marketing platform' },
+      { id: 'stripe',     name: 'Stripe Billing',    desc: 'Payments & revenue' },
+      { id: 'zuora',      name: 'Zuora',             desc: 'Subscription billing' },
+      { id: 'amplitude',  name: 'Amplitude',         desc: 'Product usage analytics' },
+    ],
+    ot: [],
+    erp: [
+      { id: 'netsuite',  name: 'Oracle NetSuite',        desc: 'Dominant cloud ERP for SaaS' },
+      { id: 'workday',   name: 'Workday',                desc: 'Cloud finance & HCM' },
+      { id: 'sap_s4',    name: 'SAP S/4HANA',            desc: 'Enterprise ERP at scale' },
+      { id: 'intacct',   name: 'Sage Intacct',           desc: 'Mid-market finance' },
+      { id: 'ms_d365',   name: 'Microsoft Dynamics 365', desc: 'Cloud ERP + CRM' },
+    ],
+    middleware: [
+      { id: 'mulesoft',  name: 'MuleSoft Anypoint', desc: 'API-led connectivity' },
+      { id: 'workato',   name: 'Workato',           desc: 'SaaS automation & iPaaS' },
+      { id: 'boomi',     name: 'Boomi',             desc: 'Cloud integration platform' },
+      { id: 'confluent', name: 'Confluent (Kafka)', desc: 'Event streaming backbone' },
+      { id: 'kong',      name: 'Kong',              desc: 'API gateway & service mesh' },
+    ],
+    data: [
+      { id: 'snowflake', name: 'Snowflake',            desc: 'Cloud data warehouse' },
+      { id: 'databricks',name: 'Databricks Lakehouse', desc: 'Unified analytics + ML' },
+      { id: 'bigquery',  name: 'Google BigQuery',      desc: 'Serverless analytics' },
+      { id: 'fivetran',  name: 'Fivetran + dbt',       desc: 'ELT pipelines & transforms' },
+      { id: 'aws_rs',    name: 'AWS Redshift',         desc: 'Cloud data lake' },
+    ],
+    bi: [
+      { id: 'looker',    name: 'Looker (Google)',  desc: 'Modeled BI for product data' },
+      { id: 'tableau',   name: 'Tableau',          desc: 'Visual analytics' },
+      { id: 'powerbi',   name: 'Microsoft Power BI',desc: 'Self-service analytics' },
+      { id: 'sigma',     name: 'Sigma Computing',  desc: 'Cloud spreadsheet BI' },
+      { id: 'thoughtspot',name: 'ThoughtSpot',     desc: 'Search & AI analytics' },
+    ],
+    ai: [
+      { id: 'openai',     name: 'OpenAI API',           desc: 'GPT model platform' },
+      { id: 'claude_api', name: 'Anthropic Claude API', desc: 'Enterprise-grade LLM' },
+      { id: 'azure_ai',   name: 'Azure OpenAI',         desc: 'Governed OpenAI on Azure' },
+      { id: 'vertex_ai',  name: 'Google Vertex AI',     desc: 'Managed ML platform' },
+      { id: 'aws_bedrock',name: 'AWS Bedrock',          desc: 'Foundation model platform' },
+    ],
+  },
+
+  hardware_comms: {
+    source: [
+      { id: 'teamcenter', name: 'Siemens Teamcenter', desc: 'PLM system of record' },
+      { id: 'windchill',  name: 'PTC Windchill',      desc: 'Product lifecycle management' },
+      { id: 'agile_plm',  name: 'Oracle Agile PLM',   desc: 'Hi-tech PLM & change control' },
+      { id: 'arena',      name: 'Arena PLM',          desc: 'Cloud-native PLM/QMS' },
+      { id: 'sap_plm',    name: 'SAP PLM',            desc: 'SAP-native product lifecycle' },
+    ],
+    ot: [],
+    erp: [
+      { id: 'sap_s4',    name: 'SAP S/4HANA',            desc: 'Hi-tech & supply-chain ERP' },
+      { id: 'oracle_fc', name: 'Oracle Fusion Cloud',    desc: 'Cloud ERP suite' },
+      { id: 'ms_d365',   name: 'Microsoft Dynamics 365', desc: 'Cloud ERP + CRM' },
+      { id: 'infor_ln',  name: 'Infor CloudSuite',       desc: 'Industrial / hi-tech ERP' },
+      { id: 'kinaxis',   name: 'Kinaxis RapidResponse',  desc: 'Supply-chain planning' },
+    ],
+    middleware: [
+      { id: 'mulesoft',  name: 'MuleSoft Anypoint',     desc: 'API-led connectivity' },
+      { id: 'sap_is',    name: 'SAP Integration Suite',  desc: 'SAP-native integration' },
+      { id: 'boomi',     name: 'Boomi',                  desc: 'Cloud integration platform' },
+      { id: 'confluent', name: 'Confluent (Kafka)',      desc: 'Telemetry event streaming' },
+      { id: 'ibm_app',   name: 'IBM App Connect',        desc: 'Enterprise integration' },
+    ],
+    data: [
+      { id: 'snowflake', name: 'Snowflake',            desc: 'Cloud data warehouse' },
+      { id: 'databricks',name: 'Databricks Lakehouse', desc: 'Device telemetry analytics' },
+      { id: 'fabric',    name: 'Microsoft Fabric',     desc: 'Unified analytics SaaS' },
+      { id: 'bigquery',  name: 'Google BigQuery',      desc: 'Serverless analytics' },
+      { id: 'aws_rs',    name: 'AWS Redshift',         desc: 'Cloud data lake' },
+    ],
+    bi: [
+      { id: 'powerbi',   name: 'Microsoft Power BI',   desc: 'Self-service analytics' },
+      { id: 'tableau',   name: 'Tableau (Salesforce)', desc: 'Visual analytics' },
+      { id: 'sac',       name: 'SAP Analytics Cloud',  desc: 'Planning + BI unified' },
+      { id: 'qlik',      name: 'Qlik Sense',           desc: 'Associative analytics' },
+      { id: 'thoughtspot',name: 'ThoughtSpot',         desc: 'Search & AI analytics' },
+    ],
+    ai: [
+      { id: 'azure_ai',   name: 'Azure AI / OpenAI',    desc: 'Microsoft AI ecosystem' },
+      { id: 'aws_bedrock',name: 'AWS Bedrock',          desc: 'Foundation model platform' },
+      { id: 'claude_api', name: 'Anthropic Claude API', desc: 'Enterprise-grade LLM' },
+      { id: 'vertex_ai',  name: 'Google Vertex AI',     desc: 'Managed ML platform' },
+      { id: 'nvidia_ai',  name: 'NVIDIA AI Enterprise', desc: 'Edge & device AI' },
     ],
   },
 };

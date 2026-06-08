@@ -30,6 +30,11 @@ export function IndustryPicker({ onSelect }: Props) {
             </div>
             <div className="ea-industry-label">{ind.label}</div>
             <div className="ea-industry-desc">{ind.desc}</div>
+            {ind.examples && ind.examples.length > 0 && (
+              <div className="ea-industry-examples" title="Representative SEC filers in this SIC industry">
+                {ind.examples.slice(0, 4).join(' · ')}
+              </div>
+            )}
           </button>
         ))}
       </div>
