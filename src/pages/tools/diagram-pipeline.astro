@@ -613,7 +613,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         wsA['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 20 }, { wch: 22 }];
         XLSX.utils.book_append_sheet(wb, wsA, 'Nodes');
 
-        XLSX.writeFile(wb, 'flow-register.xlsx');
+        // Build bytes and download via our own helper — more reliable across
+        // browsers than SheetJS writeFile's internal download.
+        const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+        download(out, 'flow-register.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         $('statusX').textContent = `Exported ${reg.hopRows.length} hop${reg.hopRows.length === 1 ? '' : 's'}` +
           ($('optChains').checked ? ` · ${reg.chainCount} chain${reg.chainCount === 1 ? '' : 's'}${reg.truncated ? ' (capped)' : ''}` : '') + '.';
       } catch (e) { $('statusX').textContent = 'Export failed: ' + (e.message || e); }
