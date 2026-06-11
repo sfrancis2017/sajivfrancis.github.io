@@ -28,9 +28,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         straight to step 2 by pasting Mermaid below.
       </p>
       <div class="drop" id="drop">
-        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg" />
         <div class="dl">Select a diagram image</div>
-        <div class="ds">PNG, JPG, WebP, or GIF (≤ 6 MB).</div>
+        <div class="ds">PNG, JPG, WebP, GIF, or SVG (≤ 6 MB). SVGs are rasterised in your browser before conversion.</div>
       </div>
       <div class="preview-img" id="previmg" hidden><img id="thumb" alt="upload preview" /></div>
       <div class="row">
@@ -418,9 +418,44 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     function currentGraph() { return parseMermaid($('code').value); }
 
     // ---------- STEP 1: image upload ----------
+    // The vision API takes PNG/JPG/WebP/GIF — not SVG. So an uploaded SVG is
+    // rasterised to PNG in-browser (canvas) before it's sent. No server change.
+    function isSvgFile(f) { return f.type === 'image/svg+xml' || /\.svg$/i.test(f.name || ''); }
+    function svgIntrinsicSize(text) {
+      const head = text.slice(0, (text.indexOf('>', text.indexOf('<svg')) + 1) || 600);
+      const num = (re) => { const m = re.exec(head); return m && !/%/.test(m[1]) ? parseFloat(m[1]) : 0; };
+      let w = num(/\bwidth\s*=\s*"([^"]+)"/i), h = num(/\bheight\s*=\s*"([^"]+)"/i);
+      if (!w || !h) { const vb = /\bviewBox\s*=\s*"([-\d.\s,]+)"/i.exec(head); if (vb) { const p = vb[1].trim().split(/[\s,]+/).map(Number); if (p.length === 4) { w = w || p[2]; h = h || p[3]; } } }
+      if (!w || w > 100000) w = 1200; if (!h || h > 100000) h = 800;
+      return { w: Math.round(w), h: Math.round(h) };
+    }
+    function ensureSvgSize(text, w, h) {
+      return text.replace(/<svg\b([^>]*)>/i, (m, attrs) => { let a = attrs; if (!/\bwidth\s*=/.test(a)) a += ` width="${w}"`; if (!/\bheight\s*=/.test(a)) a += ` height="${h}"`; return `<svg${a}>`; });
+    }
+    async function svgToPngB64(f) {
+      const text = await f.text();
+      const { w, h } = svgIntrinsicSize(text);
+      const scale = Math.min(Math.max(1600 / Math.max(w, h), 1), 4); // upscale small SVGs for legible OCR, cap 4×
+      const tw = Math.min(Math.round(w * scale), 4000), th = Math.min(Math.round(h * scale), 4000);
+      const url = URL.createObjectURL(new Blob([ensureSvgSize(text, w, h)], { type: 'image/svg+xml' }));
+      try {
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('Could not render the SVG.')); i.src = url; });
+        const canvas = document.createElement('canvas'); canvas.width = tw; canvas.height = th;
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, tw, th); ctx.drawImage(img, 0, 0, tw, th);
+        let dataUrl;
+        try { dataUrl = canvas.toDataURL('image/png'); }
+        catch (_) { throw new Error('This SVG embeds external images or HTML the browser can’t rasterise — export it as PNG and upload that instead.'); }
+        return dataUrl.split(',')[1];
+      } finally { URL.revokeObjectURL(url); }
+    }
+    async function imagePayload(f) {
+      if (isSvgFile(f)) return { b64: await svgToPngB64(f), mediaType: 'image/png' };
+      const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+      return { b64: String(dataUrl).split(',')[1], mediaType: f.type || 'image/png' };
+    }
     function selFile(f) {
       if (f.size > 6 * 1024 * 1024) { $('status').textContent = 'Image too large (max 6 MB).'; return; }
-      file = f; $('thumb').src = URL.createObjectURL(f); $('previmg').hidden = false; $('go').disabled = false; $('status').textContent = 'Ready: ' + f.name;
+      file = f; $('thumb').src = URL.createObjectURL(f); $('previmg').hidden = false; $('go').disabled = false; $('status').textContent = 'Ready: ' + f.name + (isSvgFile(f) ? ' (SVG — will be rasterised)' : '');
     }
     $('file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) selFile(f); });
     const dz = $('drop');
@@ -428,11 +463,11 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
     dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) selFile(f); });
     $('go').addEventListener('click', async () => {
-      if (!file) return; $('go').disabled = true; $('status').textContent = 'Reading the diagram with vision AI…';
+      if (!file) return; $('go').disabled = true; $('status').textContent = isSvgFile(file) ? 'Rasterising SVG…' : 'Reading the diagram with vision AI…';
       try {
-        const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
-        const b64 = String(dataUrl).split(',')[1];
-        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: b64, mediaType: file.type || 'image/png' }) });
+        const { b64, mediaType } = await imagePayload(file);
+        $('status').textContent = 'Reading the diagram with vision AI…';
+        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: b64, mediaType }) });
         const j = await resp.json();
         if (!resp.ok) throw new Error(j.error || ('HTTP ' + resp.status));
         $('code').value = (j.mermaid || '').trim();
