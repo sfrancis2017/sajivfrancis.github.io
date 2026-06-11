@@ -137,7 +137,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const $ = (id) => document.getElementById(id);
     const WORKER = 'https://ea-explorer-worker.sfrancis2017.workers.dev';
     const REF_KEY = 'diagram-pipeline:ref';
-    let file = null, _mermaid = null, lastXml = '', drawioScheme = 'archimate';
+    let file = null, _mermaid = null, lastXml = '', drawioScheme = 'archimate', typeLookup = {};
 
     async function mermaidLib() {
       if (!_mermaid) {
@@ -331,7 +331,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     };
     function drawioStyleFor(n) {
       let style = SHAPE_STYLE[n.shape] || SHAPE_STYLE.rect;
-      const p = PALETTES[drawioScheme]; const c = p && p[inferType(n)];
+      const t = typeLookup[n.label.toLowerCase().trim()] || inferType(n); // grid override wins
+      const p = PALETTES[drawioScheme]; const c = p && p[t];
       if (c) style += `fillColor=${c.fill};strokeColor=${c.stroke};`;
       return style;
     }
@@ -458,6 +459,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     function genDrawio() {
       const g = currentGraph();
       if (g.nodes.size === 0) { $('statusD').textContent = 'No nodes found — add a flowchart in step 2.'; return; }
+      typeLookup = fullTypeMap(g, typeMapFromGrid()); // pick up any Type overrides from step 4
       lastXml = toDrawio(g, layout(g));
       const ta = $('drawioXml'); ta.hidden = false; ta.value = lastXml;
       $('dlDrawio').disabled = false; $('openDrawio').disabled = false; $('copyDrawio').disabled = false;

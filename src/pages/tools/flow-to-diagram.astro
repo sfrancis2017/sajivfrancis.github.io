@@ -217,19 +217,14 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     // ---------- graph -> Mermaid (typed shapes + scheme classes) ----------
     function escMermaid(s) { return String(s).replace(/"/g, "'").replace(/[\[\]{}()<>|]/g, ' ').replace(/\s+/g, ' ').trim(); }
     const MERMAID_SHAPE = { rect: (l) => `["${l}"]`, cylinder: (l) => `[("${l}")]`, hexagon: (l) => `{{"${l}"}}`, diamond: (l) => `{"${l}"}`, stadium: (l) => `(["${l}"])`, subroutine: (l) => `[["${l}"]]` };
-    const TYPE_CLASS = { 'Application': 'tApp', 'Strategy/Objective': 'tStrat', 'Actor/External': 'tActor', 'Process/Other': 'tProc', 'Database': 'tData', 'Platform': 'tPlat' };
-    function mermaidClassDefs() {
-      const p = PALETTES[scheme]; if (!p) return [];
-      return Object.entries(TYPE_CLASS).map(([type, cls]) => { const c = p[type]; return c ? `  classDef ${cls} fill:${c.fill},stroke:${c.stroke},color:#1a1a1a;` : ''; }).filter(Boolean);
-    }
     function toMermaid(graph) {
       const lines = ['flowchart ' + (graph.direction || 'LR')];
       for (const [id, n] of graph.nodes) lines.push(`  ${id}${(MERMAID_SHAPE[n.shape] || MERMAID_SHAPE.rect)(escMermaid(n.label))}`);
       for (const e of graph.edges) { const lbl = e.label ? `|"${escMermaid(e.label)}"|` : ''; lines.push(`  ${e.from} -->${lbl} ${e.to}`); }
-      lines.push(...mermaidClassDefs());
-      const byClass = {};
-      for (const [id, n] of graph.nodes) { const cls = TYPE_CLASS[n.type]; if (cls && PALETTES[scheme] && PALETTES[scheme][n.type]) { (byClass[cls] = byClass[cls] || []).push(id); } }
-      for (const [cls, ids] of Object.entries(byClass)) lines.push(`  class ${ids.join(',')} ${cls};`);
+      // Per-node `style` directives colour reliably across mermaid versions
+      // (classDef/class fills don't always apply with htmlLabels in v11).
+      const p = PALETTES[scheme];
+      if (p) for (const [id, n] of graph.nodes) { const c = p[n.type]; if (c) lines.push(`  style ${id} fill:${c.fill},stroke:${c.stroke},color:#1a1a1a`); }
       return lines.join('\n');
     }
 
