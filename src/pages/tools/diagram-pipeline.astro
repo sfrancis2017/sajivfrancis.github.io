@@ -121,7 +121,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
       <div class="row export-row">
         <button class="btn primary" id="exportXlsx">Export Excel (.xlsx)</button>
-        <label class="chk"><input type="checkbox" id="optChains" checked /> Include end-to-end chains sheet</label>
+        <label class="chk"><input type="checkbox" id="optChains" /> Include end-to-end chains sheet (repeats shared hops across every path)</label>
         <span class="status" id="statusX"></span>
       </div>
     </section>
@@ -396,13 +396,21 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       const labelOf = (id) => (nodes.get(id)?.label || id);
       const ref = (label) => refMap[label.toLowerCase().trim()] || { database: '', platform: '' };
       const typ = (label) => (typeMap && typeMap[label.toLowerCase().trim()]) || '';
-      const { chains, truncated } = flowChains(graph);
+      // Dedupe edges first — a diagram (or vision output) can repeat the same
+      // connection, which would otherwise duplicate rows.
+      const seen = new Set();
+      const edges = graph.edges.filter((e) => {
+        if (!nodes.has(e.from) || !nodes.has(e.to)) return false;
+        const k = e.from + ' ' + e.to + ' ' + (e.label || '');
+        if (seen.has(k)) return false; seen.add(k); return true;
+      });
+      const { chains, truncated } = flowChains({ nodes, edges });
       const flowRows = [];
       chains.forEach((hops, ci) => hops.forEach((h, hi) => {
         const fromL = labelOf(h.from), toL = labelOf(h.to), fr = ref(fromL), tr = ref(toL);
         flowRows.push([`F${ci + 1}`, hi + 1, fromL, typ(fromL), h.label || '', toL, typ(toL), fr.database, fr.platform, tr.database, tr.platform]);
       }));
-      const hopRows = graph.edges.filter((e) => nodes.has(e.from) && nodes.has(e.to)).map((e) => {
+      const hopRows = edges.map((e) => {
         const fromL = labelOf(e.from), toL = labelOf(e.to), fr = ref(fromL), tr = ref(toL);
         return [fromL, typ(fromL), e.label || '', toL, typ(toL), fr.database, fr.platform, tr.database, tr.platform];
       });
