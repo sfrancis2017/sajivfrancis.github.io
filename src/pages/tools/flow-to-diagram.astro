@@ -4,19 +4,21 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
 <BaseLayout
   title="Flow Register → Diagrams"
-  description="Upload an Excel/CSV flow register and rebuild it as Mermaid and draw.io diagrams, split into application, database, and technology layers that share the same hops."
+  description="Upload an Excel/CSV flow register and rebuild it as Mermaid and draw.io diagrams — split into application, database, and technology layers, and by node type (strategy, objective, people, projects) that share the same hops."
   mainClass="max-w-5xl"
 >
   <article class="tool">
     <header class="thead">
-      <p class="kick">Tools · Extract &amp; Analyze</p>
+      <p class="kick">Tools · Architecture</p>
       <h1>Flow Register → Diagrams</h1>
       <p class="sub">
         The reverse pipeline. Upload an Excel or CSV <strong>flow register</strong> (the kind
         the <a href="/tools/diagram-pipeline/">Diagram Pipeline</a> exports) and rebuild it as
-        diagrams — split into three layers that share the same hops:
-        <strong>application</strong>, <strong>database</strong>, and <strong>technology platform</strong>.
-        Every layer comes back as editable Mermaid and a draw.io file.
+        diagrams that share the same hops. If the register has a <code>Type</code> column it
+        splits by node type — a clean <strong>application</strong> map, plus
+        <strong>strategy/objective</strong>, <strong>people</strong>, and <strong>project</strong>
+        layers — alongside <strong>database</strong> and <strong>technology</strong> projections.
+        Every layer is editable Mermaid and a draw.io file.
       </p>
       <a class="back" href="/tools/">Back to all tools</a>
     </header>
@@ -26,8 +28,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <h2 class="step-h"><span class="n">1</span> Upload flow register</h2>
       <p class="hint">
         Needs at least <code>From Application</code> and <code>To Application</code> columns;
-        <code>Interface Mechanism</code>, <code>From/To Database</code>, and
-        <code>From/To Platform</code> are used when present. Parsed entirely in your browser.
+        <code>From/To Type</code>, <code>Interface Mechanism</code>, <code>From/To Database</code>,
+        and <code>From/To Platform</code> are used when present. Parsed entirely in your browser.
       </p>
       <div class="drop" id="drop">
         <input type="file" id="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" />
@@ -49,17 +51,21 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <div class="out-head">
         <h2 class="step-h"><span class="n">2</span> Diagrams</h2>
         <div class="row tight">
-          <button class="btn" id="dlCombined">Download all 3 as one .drawio ↧</button>
+          <label class="field">
+            <span>Colour scheme</span>
+            <select id="scheme">
+              <option value="archimate">ArchiMate</option>
+              <option value="togaf">TOGAF</option>
+              <option value="azure">Azure</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <button class="btn" id="dlCombined">Download all as one .drawio ↧</button>
           <button class="btn" id="openCombined">Open all in diagrams.net ↗</button>
         </div>
       </div>
 
-      <div class="tabs" id="tabs">
-        <button class="tab active" data-layer="application">Application <span class="badge" id="b-application"></span></button>
-        <button class="tab" data-layer="database">Database <span class="badge" id="b-database"></span></button>
-        <button class="tab" data-layer="technology">Technology <span class="badge" id="b-technology"></span></button>
-      </div>
-
+      <div class="tabs" id="tabs"></div>
       <p class="layer-note" id="layerNote"></p>
 
       <div class="grid2">
@@ -84,8 +90,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script is:inline>
     const $ = (id) => document.getElementById(id);
     let _mermaid = null, _xlsx = null;
-    let workbook = null, layers = null, active = 'application';
-    // layers = { application:{graph, code, skipped}, database:{...}, technology:{...} }
+    let workbook = null, layerList = [], active = null, scheme = 'archimate';
 
     async function mermaidLib() {
       if (!_mermaid) {
@@ -104,11 +109,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       });
     }
 
-    // ---------- column mapping ----------
+    // ---------- column mapping (incl. From/To Type) ----------
     const COL_SYNONYMS = {
       fromApp: ['fromapplication', 'fromapp', 'sourceapplication', 'sourceapp', 'from', 'source'],
+      fromType: ['fromtype', 'sourcetype', 'fromnodetype'],
       interface: ['interfacemechanism', 'interface', 'mechanism', 'protocol', 'connection'],
       toApp: ['toapplication', 'toapp', 'targetapplication', 'targetapp', 'to', 'target', 'destination'],
+      toType: ['totype', 'targettype', 'tonodetype'],
       fromDb: ['fromdatabase', 'fromdb', 'sourcedatabase'],
       fromPlat: ['fromplatform', 'fromtechnologyplatform', 'fromtech', 'sourceplatform'],
       toDb: ['todatabase', 'todb', 'targetdatabase'],
@@ -138,68 +145,155 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         const row = aoa[r] || [];
         const fromApp = get(row, 'fromApp'), toApp = get(row, 'toApp');
         if (!fromApp && !toApp) continue;
-        hops.push({ fromApp, toApp, interface: get(row, 'interface'), fromDb: get(row, 'fromDb'), toDb: get(row, 'toDb'), fromPlat: get(row, 'fromPlat'), toPlat: get(row, 'toPlat') });
+        hops.push({ fromApp, toApp, interface: get(row, 'interface'), fromType: get(row, 'fromType'), toType: get(row, 'toType'), fromDb: get(row, 'fromDb'), toDb: get(row, 'toDb'), fromPlat: get(row, 'fromPlat'), toPlat: get(row, 'toPlat') });
       }
-      return { hops, columns: idx };
+      return { hops };
     }
 
-    // ---------- build 3 layered graphs ----------
-    function buildLayer(hops, fromKey, toKey, shape) {
-      const labelToId = new Map(), nodes = new Map(), seenEdge = new Set(), edges = [];
+    // ---------- types → shape & labels ----------
+    const TYPE_SHAPE = { 'Application': 'rect', 'Strategy/Objective': 'diamond', 'Actor/External': 'stadium', 'Process/Other': 'subroutine', 'Database': 'cylinder', 'Platform': 'hexagon' };
+    const typeShape = (t) => TYPE_SHAPE[t] || 'rect';
+    const TYPE_ORDER = ['Application', 'Strategy/Objective', 'Actor/External', 'Process/Other'];
+    const TYPE_LABEL = { 'Application': 'Applications', 'Strategy/Objective': 'Strategy & Objectives', 'Actor/External': 'Actors / People', 'Process/Other': 'Process / Projects' };
+
+    function collectAppTypes(hops) {
+      const t = new Map();
+      for (const h of hops) {
+        if (h.fromApp && h.fromType && !t.has(h.fromApp)) t.set(h.fromApp, h.fromType);
+        if (h.toApp && h.toType && !t.has(h.toApp)) t.set(h.toApp, h.toType);
+      }
+      return t;
+    }
+    function buildAppGraph(hops, appTypes, only) {
+      const labelToId = new Map(), nodes = new Map(), seen = new Set(), edges = [];
       let missing = 0, self = 0;
-      const idFor = (label) => {
-        if (!labelToId.has(label)) { const id = 'n' + labelToId.size; labelToId.set(label, id); nodes.set(id, { id, label, shape }); }
-        return labelToId.get(label);
-      };
+      const idFor = (label) => { if (!labelToId.has(label)) { const id = 'n' + labelToId.size; const type = appTypes.get(label) || ''; labelToId.set(label, id); nodes.set(id, { id, label, type, shape: typeShape(type) }); } return labelToId.get(label); };
+      for (const h of hops) {
+        const from = h.fromApp, to = h.toApp;
+        if (only && (appTypes.get(from) || '') !== only) continue;
+        if (from) idFor(from); if (to) idFor(to);
+        if (!from || !to) { missing++; continue; }
+        if (from === to) { self++; continue; }
+        const fid = idFor(from), tid = idFor(to);
+        const key = fid + ' ' + tid + ' ' + (h.interface || ''); if (seen.has(key)) continue; seen.add(key);
+        edges.push({ from: fid, to: tid, label: h.interface || '' });
+      }
+      return { direction: 'LR', nodes, edges, skipped: { missing, self } };
+    }
+    function buildProj(hops, fromKey, toKey, type) {
+      const labelToId = new Map(), nodes = new Map(), seen = new Set(), edges = [];
+      let missing = 0, self = 0;
+      const idFor = (label) => { if (!labelToId.has(label)) { const id = 'n' + labelToId.size; labelToId.set(label, id); nodes.set(id, { id, label, type, shape: typeShape(type) }); } return labelToId.get(label); };
       for (const h of hops) {
         const from = h[fromKey], to = h[toKey];
         if (from) idFor(from); if (to) idFor(to);
         if (!from || !to) { missing++; continue; }
         if (from === to) { self++; continue; }
         const fid = idFor(from), tid = idFor(to);
-        const key = fid + ' ' + tid + ' ' + (h.interface || '');
-        if (seenEdge.has(key)) continue;
-        seenEdge.add(key);
+        const key = fid + ' ' + tid + ' ' + (h.interface || ''); if (seen.has(key)) continue; seen.add(key);
         edges.push({ from: fid, to: tid, label: h.interface || '' });
       }
       return { direction: 'LR', nodes, edges, skipped: { missing, self } };
     }
-    function buildLayerGraphs(hops) {
-      return {
-        application: buildLayer(hops, 'fromApp', 'toApp', 'rect'),
-        database: buildLayer(hops, 'fromDb', 'toDb', 'cylinder'),
-        technology: buildLayer(hops, 'fromPlat', 'toPlat', 'hexagon'),
-      };
+    function buildLayers(hops) {
+      const appTypes = collectAppTypes(hops);
+      const hasTypes = appTypes.size > 0;
+      const layers = [];
+      const full = buildAppGraph(hops, appTypes, null);
+      if (hasTypes) {
+        layers.push({ id: 'full', label: 'Full map', graph: full });
+        for (const T of TYPE_ORDER) { const g = buildAppGraph(hops, appTypes, T); if (g.edges.length) layers.push({ id: 'type:' + T, label: TYPE_LABEL[T] || T, graph: g }); }
+      } else {
+        layers.push({ id: 'full', label: 'Application', graph: full });
+      }
+      const db = buildProj(hops, 'fromDb', 'toDb', 'Database');
+      if (db.nodes.size) layers.push({ id: 'database', label: 'Database', graph: db });
+      const tech = buildProj(hops, 'fromPlat', 'toPlat', 'Platform');
+      if (tech.nodes.size) layers.push({ id: 'technology', label: 'Technology', graph: tech });
+      for (const l of layers) l.code = toMermaid(l.graph);
+      return layers;
     }
 
-    // ---------- graph -> Mermaid ----------
+    // ---------- graph -> Mermaid (typed shapes + scheme classes) ----------
     function escMermaid(s) { return String(s).replace(/"/g, "'").replace(/[\[\]{}()<>|]/g, ' ').replace(/\s+/g, ' ').trim(); }
-    const MERMAID_SHAPE = { rect: (l) => `["${l}"]`, cylinder: (l) => `[("${l}")]`, hexagon: (l) => `{{"${l}"}}` };
+    const MERMAID_SHAPE = { rect: (l) => `["${l}"]`, cylinder: (l) => `[("${l}")]`, hexagon: (l) => `{{"${l}"}}`, diamond: (l) => `{"${l}"}`, stadium: (l) => `(["${l}"])`, subroutine: (l) => `[["${l}"]]` };
+    const TYPE_CLASS = { 'Application': 'tApp', 'Strategy/Objective': 'tStrat', 'Actor/External': 'tActor', 'Process/Other': 'tProc', 'Database': 'tData', 'Platform': 'tPlat' };
+    function mermaidClassDefs() {
+      const p = PALETTES[scheme]; if (!p) return [];
+      return Object.entries(TYPE_CLASS).map(([type, cls]) => { const c = p[type]; return c ? `  classDef ${cls} fill:${c.fill},stroke:${c.stroke},color:#1a1a1a;` : ''; }).filter(Boolean);
+    }
     function toMermaid(graph) {
       const lines = ['flowchart ' + (graph.direction || 'LR')];
       for (const [id, n] of graph.nodes) lines.push(`  ${id}${(MERMAID_SHAPE[n.shape] || MERMAID_SHAPE.rect)(escMermaid(n.label))}`);
       for (const e of graph.edges) { const lbl = e.label ? `|"${escMermaid(e.label)}"|` : ''; lines.push(`  ${e.from} -->${lbl} ${e.to}`); }
+      lines.push(...mermaidClassDefs());
+      const byClass = {};
+      for (const [id, n] of graph.nodes) { const cls = TYPE_CLASS[n.type]; if (cls && PALETTES[scheme] && PALETTES[scheme][n.type]) { (byClass[cls] = byClass[cls] || []).push(id); } }
+      for (const [cls, ids] of Object.entries(byClass)) lines.push(`  class ${ids.join(',')} ${cls};`);
       return lines.join('\n');
     }
 
-    // ---------- layered layout (cycle-safe) + draw.io ----------
+    // ---------- colour palettes (scheme → type → fill/stroke) ----------
+    const PALETTES = {
+      archimate: {
+        'Application': { fill: '#dae8fc', stroke: '#6c8ebf' },
+        'Strategy/Objective': { fill: '#ffe6cc', stroke: '#d79b00' },
+        'Actor/External': { fill: '#fff2cc', stroke: '#d6b656' },
+        'Process/Other': { fill: '#d5e8d4', stroke: '#82b366' },
+        'Database': { fill: '#dae8fc', stroke: '#6c8ebf' },
+        'Platform': { fill: '#d5e8d4', stroke: '#82b366' },
+      },
+      togaf: {
+        'Application': { fill: '#cfe2f3', stroke: '#3d85c6' },
+        'Strategy/Objective': { fill: '#fce5cd', stroke: '#e69138' },
+        'Actor/External': { fill: '#fff2cc', stroke: '#f1c232' },
+        'Process/Other': { fill: '#d9ead3', stroke: '#6aa84f' },
+        'Database': { fill: '#d0e0e3', stroke: '#45818e' },
+        'Platform': { fill: '#d9d2e9', stroke: '#674ea7' },
+      },
+      azure: {
+        'Application': { fill: '#cce4f6', stroke: '#0078d4' },
+        'Strategy/Objective': { fill: '#e6e6fa', stroke: '#5c2d91' },
+        'Actor/External': { fill: '#e1f0da', stroke: '#107c10' },
+        'Process/Other': { fill: '#fff4ce', stroke: '#ffb900' },
+        'Database': { fill: '#cce4f6', stroke: '#0078d4' },
+        'Platform': { fill: '#deecf9', stroke: '#005ba1' },
+      },
+    };
+
+    // ---------- graph -> draw.io (typed style + scheme colour) ----------
+    const BASE_SHAPE = { rect: 'rounded=0;', cylinder: 'shape=cylinder3;boundedLbl=1;backgroundOutline=1;', hexagon: 'shape=hexagon;', diamond: 'rhombus;', stadium: 'rounded=1;arcSize=40;', subroutine: 'shape=process;' };
+    const xmlEscape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    function styleFor(n) {
+      let style = (BASE_SHAPE[n.shape] || BASE_SHAPE.rect) + 'whiteSpace=wrap;html=1;';
+      const p = PALETTES[scheme]; const c = p && n.type && p[n.type];
+      if (c) style += `fillColor=${c.fill};strokeColor=${c.stroke};`;
+      return style;
+    }
+    function graphCells(graph, pos) {
+      const { nodes, edges } = graph; const cells = [];
+      for (const [id, n] of nodes) {
+        const p = pos.get(id) || { x: 40, y: 40, w: 170, h: 60 };
+        cells.push(`        <mxCell id="${id}" value="${xmlEscape(n.label)}" style="${styleFor(n)}" vertex="1" parent="1"><mxGeometry x="${Math.round(p.x)}" y="${Math.round(p.y)}" width="${p.w}" height="${p.h}" as="geometry" /></mxCell>`);
+      }
+      edges.forEach((e, idx) => {
+        if (!nodes.has(e.from) || !nodes.has(e.to)) return;
+        cells.push(`        <mxCell id="e_${idx}" value="${xmlEscape(e.label || '')}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="${e.from}" target="${e.to}"><mxGeometry relative="1" as="geometry" /></mxCell>`);
+      });
+      return cells.join('\n');
+    }
+    // cycle-safe layered layout
     function layout(graph) {
       const { nodes, edges, direction } = graph;
       const ids = [...nodes.keys()];
       const preds = new Map(ids.map((id) => [id, []]));
       for (const e of edges) { if (nodes.has(e.from) && nodes.has(e.to)) preds.get(e.to).push(e.from); }
       const rank = new Map(), onStack = new Set();
-      const rankOf = (id) => {
-        if (rank.has(id)) return rank.get(id);
-        if (onStack.has(id)) return 0;
-        onStack.add(id); let r = 0;
-        for (const p of preds.get(id) || []) r = Math.max(r, rankOf(p) + 1);
-        onStack.delete(id); rank.set(id, r); return r;
-      };
+      const rankOf = (id) => { if (rank.has(id)) return rank.get(id); if (onStack.has(id)) return 0; onStack.add(id); let r = 0; for (const p of preds.get(id) || []) r = Math.max(r, rankOf(p) + 1); onStack.delete(id); rank.set(id, r); return r; };
       for (const id of ids) rankOf(id);
       const byRank = new Map();
       for (const id of ids) { const r = rank.get(id); if (!byRank.has(r)) byRank.set(r, []); byRank.get(r).push(id); }
-      const NW = 170, NH = 60, GX = 80, GY = 60;
+      const NW = 180, NH = 60, GX = 80, GY = 60;
       const horizontal = direction === 'LR' || direction === 'RL';
       const pos = new Map();
       for (const [r, list] of byRank) list.forEach((id, idx) => {
@@ -209,39 +303,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       });
       return pos;
     }
-    const SHAPE_STYLE = {
-      rect: 'rounded=0;whiteSpace=wrap;html=1;',
-      cylinder: 'shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;',
-      hexagon: 'shape=hexagon;whiteSpace=wrap;html=1;',
-    };
-    function xmlEscape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-    function graphCells(graph, pos) {
-      const { nodes, edges } = graph; const cells = [];
-      for (const [id, n] of nodes) {
-        const p = pos.get(id) || { x: 40, y: 40, w: 170, h: 60 };
-        const style = SHAPE_STYLE[n.shape] || SHAPE_STYLE.rect;
-        cells.push(`        <mxCell id="${id}" value="${xmlEscape(n.label)}" style="${style}" vertex="1" parent="1">\n          <mxGeometry x="${Math.round(p.x)}" y="${Math.round(p.y)}" width="${p.w}" height="${p.h}" as="geometry" />\n        </mxCell>`);
-      }
-      edges.forEach((e, idx) => {
-        if (!nodes.has(e.from) || !nodes.has(e.to)) return;
-        const style = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;';
-        cells.push(`        <mxCell id="e_${idx}" value="${xmlEscape(e.label || '')}" style="${style}" edge="1" parent="1" source="${e.from}" target="${e.to}">\n          <mxGeometry relative="1" as="geometry" />\n        </mxCell>`);
-      });
-      return cells.join('\n');
-    }
     function diagramPage(graph, name, id) {
-      return `  <diagram id="${id}" name="${name}">\n    <mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">\n      <root>\n        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${graphCells(graph, layout(graph))}\n      </root>\n    </mxGraphModel>\n  </diagram>`;
+      return `  <diagram id="${id}" name="${xmlEscape(name)}"><mxGraphModel dx="900" dy="600" grid="1" gridSize="10" page="1" pageWidth="1169" pageHeight="826"><root><mxCell id="0" /><mxCell id="1" parent="0" />\n${graphCells(graph, layout(graph))}\n      </root></mxGraphModel></diagram>`;
     }
-    function layerDrawio(graph, name) {
-      return `<mxfile host="app.diagrams.net" agent="flow-to-diagram" version="24.0.0">\n${diagramPage(graph, name, 'layer')}\n</mxfile>\n`;
-    }
+    function layerDrawio(graph, name) { return `<mxfile host="app.diagrams.net" agent="flow-to-diagram">\n${diagramPage(graph, name, 'layer')}\n</mxfile>\n`; }
     function combinedDrawio() {
-      const pages = [];
-      for (const [name, l] of Object.entries(layers)) {
-        if (l.graph.nodes.size === 0) continue;
-        pages.push(diagramPage(l.graph, name[0].toUpperCase() + name.slice(1), 'layer-' + name));
-      }
-      return `<mxfile host="app.diagrams.net" agent="flow-to-diagram" version="24.0.0">\n${pages.join('\n')}\n</mxfile>\n`;
+      const pages = layerList.filter((l) => l.graph.nodes.size).map((l, i) => diagramPage(l.graph, l.label, 'layer-' + i));
+      return `<mxfile host="app.diagrams.net" agent="flow-to-diagram">\n${pages.join('\n')}\n</mxfile>\n`;
     }
 
     // ---------- file handling ----------
@@ -254,7 +322,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
           workbook = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
           const sel = $('sheet'); sel.innerHTML = '';
           workbook.SheetNames.forEach((nm) => { const o = document.createElement('option'); o.value = nm; o.textContent = nm; sel.appendChild(o); });
-          // prefer a sheet that parses; bias toward one named "Hops"
           const preferred = workbook.SheetNames.find((n) => /hop/i.test(n)) || workbook.SheetNames[0];
           sel.value = preferred; $('sheetWrap').hidden = workbook.SheetNames.length < 2;
           useSheet(preferred);
@@ -273,68 +340,72 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         $('status').textContent = 'No usable rows.';
         return;
       }
-      const raw = buildLayerGraphs(parsed.hops);
-      layers = {};
-      for (const [k, g] of Object.entries(raw)) layers[k] = { graph: g, code: toMermaid(g) };
+      layerList = buildLayers(parsed.hops);
+      active = layerList[0].id;
       $('status').textContent = `Parsed ${parsed.hops.length} hop${parsed.hops.length === 1 ? '' : 's'} from “${name}”.`;
-      $('summary').hidden = false;
-      $('summary').innerHTML = summaryHtml(parsed.hops.length);
+      $('summary').hidden = false; $('summary').innerHTML = summaryHtml(parsed.hops.length);
       $('output').hidden = false;
-      for (const k of ['application', 'database', 'technology']) {
-        $('b-' + k).textContent = layers[k].graph.edges.length;
-      }
+      renderTabs();
       showLayer(active);
     }
     function summaryHtml(n) {
-      const a = layers.application.graph, d = layers.database.graph, t = layers.technology.graph;
-      return `<strong>${n}</strong> hops → ` +
-        `<strong>${a.nodes.size}</strong> applications / <strong>${a.edges.length}</strong> flows · ` +
-        `<strong>${d.nodes.size}</strong> databases / <strong>${d.edges.length}</strong> flows · ` +
-        `<strong>${t.nodes.size}</strong> platforms / <strong>${t.edges.length}</strong> flows.`;
+      const parts = layerList.map((l) => `<strong>${l.graph.nodes.size}</strong> ${l.label.toLowerCase()} / <strong>${l.graph.edges.length}</strong> flows`);
+      return `<strong>${n}</strong> hops → ` + parts.join(' · ') + '.';
     }
 
-    // ---------- layer tabs ----------
+    // ---------- tabs ----------
+    function renderTabs() {
+      const host = $('tabs'); host.innerHTML = '';
+      for (const l of layerList) {
+        const b = document.createElement('button');
+        b.className = 'tab' + (l.id === active ? ' active' : '');
+        b.dataset.layer = l.id;
+        b.innerHTML = `${l.label} <span class="badge">${l.graph.edges.length}</span>`;
+        b.addEventListener('click', () => showLayer(l.id));
+        host.appendChild(b);
+      }
+    }
+    function layerById(id) { return layerList.find((l) => l.id === id); }
     function skippedNote(l) {
       const s = l.graph.skipped, bits = [];
-      if (s.missing) bits.push(`${s.missing} hop${s.missing === 1 ? '' : 's'} skipped (one end unmapped)`);
-      if (s.self) bits.push(`${s.self} self-loop${s.self === 1 ? '' : 's'} skipped (both ends identical)`);
+      if (s.missing) bits.push(`${s.missing} hop${s.missing === 1 ? '' : 's'} skipped (one end blank)`);
+      if (s.self) bits.push(`${s.self} self-loop${s.self === 1 ? '' : 's'} skipped`);
       return bits.join(' · ');
     }
-    function showLayer(key) {
-      active = key;
-      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.layer === key));
-      $('code').value = layers[key].code;
-      const note = skippedNote(layers[key]);
-      $('layerNote').textContent = note || '';
-      $('layerNote').hidden = !note;
+    function showLayer(id) {
+      active = id;
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.layer === id));
+      const l = layerById(id);
+      $('code').value = l.code;
+      const note = skippedNote(l); $('layerNote').textContent = note || ''; $('layerNote').hidden = !note;
       render();
     }
-    document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showLayer(t.dataset.layer)));
 
     async function render() {
       const code = $('code').value.trim(); if (!code) { $('preview').innerHTML = ''; return; }
-      // keep edits for the active layer
-      if (layers && layers[active]) layers[active].code = code;
+      const l = layerById(active); if (l) l.code = code;
       try { const mer = await mermaidLib(); const { svg } = await mer.render('m' + Math.random().toString(36).slice(2), code); $('preview').innerHTML = svg; }
       catch (e) { $('preview').innerHTML = `<div class="err">Diagram didn't parse — edit the code and re-render.<br><small>${(e.message || e).toString().replace(/</g, '&lt;').slice(0, 200)}</small></div>`; }
     }
 
     // ---------- buttons ----------
-    function download(content, name, type) {
-      const blob = new Blob([content], { type }); const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000);
-    }
+    function download(content, name, type) { const blob = new Blob([content], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000); }
     function openDrawio(xml) { window.open('https://app.diagrams.net/?title=flow.drawio#R' + encodeURIComponent(xml), '_blank', 'noopener,noreferrer'); }
 
+    function regenAll() {
+      // colour scheme changed → rebuild every layer's Mermaid and refresh preview
+      for (const l of layerList) l.code = toMermaid(l.graph);
+      if (active) showLayer(active);
+    }
+    $('scheme').addEventListener('change', (e) => { scheme = e.target.value; if (layerList.length) regenAll(); });
     $('render').addEventListener('click', render);
     $('copyM').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('code').value); $('status').textContent = 'Mermaid copied.'; } catch { $('status').textContent = 'Copy failed.'; } });
-    $('dlM').addEventListener('click', () => download($('code').value, active + '-flow.mmd', 'text/plain'));
-    $('dlD').addEventListener('click', () => download(layerDrawio(layers[active].graph, active[0].toUpperCase() + active.slice(1)), active + '-flow.drawio', 'application/xml'));
-    $('openD').addEventListener('click', () => openDrawio(layerDrawio(layers[active].graph, active)));
+    $('dlM').addEventListener('click', () => download($('code').value, active.replace(/[^a-z0-9]+/gi, '-') + '.mmd', 'text/plain'));
+    $('dlD').addEventListener('click', () => { const l = layerById(active); download(layerDrawio(l.graph, l.label), active.replace(/[^a-z0-9]+/gi, '-') + '.drawio', 'application/xml'); });
+    $('openD').addEventListener('click', () => { const l = layerById(active); openDrawio(layerDrawio(l.graph, l.label)); });
     $('dlCombined').addEventListener('click', () => download(combinedDrawio(), 'flow-layers.drawio', 'application/xml'));
     $('openCombined').addEventListener('click', () => openDrawio(combinedDrawio()));
 
-    // ---------- input wiring ----------
     $('file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) selFile(f); });
     $('sheet').addEventListener('change', (e) => useSheet(e.target.value));
     const dz = $('drop');
@@ -349,8 +420,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .thead { margin-bottom: 18px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
   .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
   .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
-  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); max-width: 72ch; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); max-width: 74ch; }
   .sub a { color: var(--color-accent); }
+  .sub code, .hint code, .summary code { font-family: var(--font-mono); font-size: 11px; background: var(--color-bg); padding: 1px 4px; border-radius: 4px; border: 1px solid var(--color-border); }
   .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
   .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
 
@@ -359,7 +431,6 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .step-h .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--color-accent); color: var(--color-accent-fg); font-size: 12px; font-weight: 700; }
   .sub-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 8px; }
   .hint { font-size: 12.5px; color: var(--color-fg-muted); margin: 6px 0 12px; line-height: 1.5; }
-  .hint code, .summary code { font-family: var(--font-mono); font-size: 11px; background: var(--color-bg); padding: 1px 4px; border-radius: 4px; border: 1px solid var(--color-border); }
 
   .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg); }
   .drop.drag { border-color: var(--color-accent); }
@@ -369,7 +440,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .field { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-fg-muted); }
   .field select { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
   .status { font-size: 12px; color: var(--color-fg-muted); }
-  .summary { margin-top: 10px; font-size: 13px; color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; line-height: 1.6; }
+  .summary { margin-top: 10px; font-size: 13px; color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; line-height: 1.7; }
 
   .out-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
   .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--color-border); margin-bottom: 12px; flex-wrap: wrap; }
