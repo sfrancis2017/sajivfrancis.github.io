@@ -64,6 +64,15 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <h2 class="step-h"><span class="n">3</span> draw.io <span class="muted2">— generated from the Mermaid above</span></h2>
       <div class="row">
         <button class="btn primary" id="genDrawio">Generate draw.io</button>
+        <label class="field-inline">
+          <span>Colours</span>
+          <select id="scheme">
+            <option value="archimate">ArchiMate</option>
+            <option value="togaf">TOGAF</option>
+            <option value="azure">Azure</option>
+            <option value="none">None</option>
+          </select>
+        </label>
         <button class="btn" id="dlDrawio" disabled>Download .drawio</button>
         <button class="btn" id="openDrawio" disabled>Open in diagrams.net ↗</button>
         <button class="btn" id="copyDrawio" disabled>Copy XML</button>
@@ -71,7 +80,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       </div>
       <p class="hint">
         Layout is a simple layered placement — open it in diagrams.net and run
-        <em>Arrange → Layout</em> for an auto-tidy. Database shapes (<code>[(…)]</code>) become cylinders.
+        <em>Arrange → Layout</em> for an auto-tidy. Shapes follow the Mermaid (databases
+        <code>[(…)]</code> become cylinders); colours are applied by inferred node type
+        (set types in step 4). The Mermaid itself stays faithful to the source.
       </p>
       <textarea id="drawioXml" class="code mono-sm" spellcheck="false" placeholder="Generated draw.io XML appears here." hidden></textarea>
     </section>
@@ -126,7 +137,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const $ = (id) => document.getElementById(id);
     const WORKER = 'https://ea-explorer-worker.sfrancis2017.workers.dev';
     const REF_KEY = 'diagram-pipeline:ref';
-    let file = null, _mermaid = null, lastXml = '';
+    let file = null, _mermaid = null, lastXml = '', drawioScheme = 'archimate';
 
     async function mermaidLib() {
       if (!_mermaid) {
@@ -299,12 +310,37 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       flag: 'shape=card;whiteSpace=wrap;html=1;',
     };
     function xmlEscape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    // Colour schemes — applied to draw.io by inferred node type, so the export
+    // reads like an architecture diagram. Mermaid stays faithful to the source.
+    const PALETTES = {
+      archimate: {
+        'Application': { fill: '#dae8fc', stroke: '#6c8ebf' }, 'Strategy/Objective': { fill: '#ffe6cc', stroke: '#d79b00' },
+        'Actor/External': { fill: '#fff2cc', stroke: '#d6b656' }, 'Process/Other': { fill: '#d5e8d4', stroke: '#82b366' },
+        'Database': { fill: '#dae8fc', stroke: '#6c8ebf' }, 'Platform': { fill: '#d5e8d4', stroke: '#82b366' },
+      },
+      togaf: {
+        'Application': { fill: '#cfe2f3', stroke: '#3d85c6' }, 'Strategy/Objective': { fill: '#fce5cd', stroke: '#e69138' },
+        'Actor/External': { fill: '#fff2cc', stroke: '#f1c232' }, 'Process/Other': { fill: '#d9ead3', stroke: '#6aa84f' },
+        'Database': { fill: '#d0e0e3', stroke: '#45818e' }, 'Platform': { fill: '#d9d2e9', stroke: '#674ea7' },
+      },
+      azure: {
+        'Application': { fill: '#cce4f6', stroke: '#0078d4' }, 'Strategy/Objective': { fill: '#e6e6fa', stroke: '#5c2d91' },
+        'Actor/External': { fill: '#e1f0da', stroke: '#107c10' }, 'Process/Other': { fill: '#fff4ce', stroke: '#ffb900' },
+        'Database': { fill: '#cce4f6', stroke: '#0078d4' }, 'Platform': { fill: '#deecf9', stroke: '#005ba1' },
+      },
+    };
+    function drawioStyleFor(n) {
+      let style = SHAPE_STYLE[n.shape] || SHAPE_STYLE.rect;
+      const p = PALETTES[drawioScheme]; const c = p && p[inferType(n)];
+      if (c) style += `fillColor=${c.fill};strokeColor=${c.stroke};`;
+      return style;
+    }
     function toDrawio(graph, pos) {
       const { nodes, edges } = graph;
       const cells = [];
       for (const [id, n] of nodes) {
         const p = pos.get(id) || { x: 40, y: 40, w: 170, h: 60 };
-        const style = SHAPE_STYLE[n.shape] || SHAPE_STYLE.rect;
+        const style = drawioStyleFor(n);
         cells.push(
           `        <mxCell id="n_${xmlEscape(id)}" value="${xmlEscape(n.label)}" style="${style}" vertex="1" parent="1">\n` +
           `          <mxGeometry x="${Math.round(p.x)}" y="${Math.round(p.y)}" width="${p.w}" height="${p.h}" as="geometry" />\n` +
@@ -419,14 +455,16 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     });
 
     // ---------- STEP 3: draw.io ----------
-    $('genDrawio').addEventListener('click', () => {
+    function genDrawio() {
       const g = currentGraph();
       if (g.nodes.size === 0) { $('statusD').textContent = 'No nodes found — add a flowchart in step 2.'; return; }
       lastXml = toDrawio(g, layout(g));
       const ta = $('drawioXml'); ta.hidden = false; ta.value = lastXml;
       $('dlDrawio').disabled = false; $('openDrawio').disabled = false; $('copyDrawio').disabled = false;
-      $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections.`;
-    });
+      $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections · ${drawioScheme} colours.`;
+    }
+    $('genDrawio').addEventListener('click', genDrawio);
+    $('scheme').addEventListener('change', (e) => { drawioScheme = e.target.value; if (lastXml) genDrawio(); });
     $('dlDrawio').addEventListener('click', () => download(lastXml, 'diagram.drawio', 'application/xml'));
     $('copyDrawio').addEventListener('click', async () => { try { await navigator.clipboard.writeText(lastXml); $('statusD').textContent = 'XML copied.'; } catch { $('statusD').textContent = 'Copy failed.'; } });
     $('openDrawio').addEventListener('click', () => {
@@ -634,6 +672,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   table.ref select { width: 100%; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; font-family: var(--font-sans); }
   table.ref select:focus { outline: none; border-color: var(--color-accent); }
   .chk { font-size: 12.5px; color: var(--color-fg-muted); display: inline-flex; align-items: center; gap: 6px; }
+  .field-inline { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-fg-muted); }
+  .field-inline select { background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg); border-radius: 8px; padding: 7px 8px; font-size: 12.5px; }
 
   @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
 </style>
