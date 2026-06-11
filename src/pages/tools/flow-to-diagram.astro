@@ -273,8 +273,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         $('status').textContent = 'No usable rows.';
         return;
       }
-      layers = buildLayerGraphs(parsed.hops);
-      for (const l of Object.values(layers)) l.code = toMermaid(l.graph);
+      const raw = buildLayerGraphs(parsed.hops);
+      layers = {};
+      for (const [k, g] of Object.entries(raw)) layers[k] = { graph: g, code: toMermaid(g) };
       $('status').textContent = `Parsed ${parsed.hops.length} hop${parsed.hops.length === 1 ? '' : 's'} from “${name}”.`;
       $('summary').hidden = false;
       $('summary').innerHTML = summaryHtml(parsed.hops.length);
