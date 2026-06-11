@@ -1,0 +1,583 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Diagram Pipeline"
+  description="Chain a diagram from image to Mermaid to draw.io to an Excel flow register — hops, applications, interfaces, and a manual app→database→platform reference."
+  mainClass="max-w-5xl"
+>
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Extract &amp; Analyze</p>
+      <h1>Diagram Pipeline</h1>
+      <p class="sub">
+        One chain, four steps: a picture of a diagram → editable <strong>Mermaid</strong> →
+        a <strong>draw.io</strong> file → an <strong>Excel flow register</strong> of every hop
+        (from &amp; to application, interface mechanism) joined to a manual
+        application → database → platform reference.
+      </p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <!-- STEP 1 — INPUT -->
+    <section class="step">
+      <h2 class="step-h"><span class="n">1</span> Input — image or Mermaid</h2>
+      <p class="hint">
+        Upload a diagram image to convert it with vision AI (sent to the AI service), or skip
+        straight to step 2 by pasting Mermaid below.
+      </p>
+      <div class="drop" id="drop">
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <div class="dl">Select a diagram image</div>
+        <div class="ds">PNG, JPG, WebP, or GIF (≤ 6 MB).</div>
+      </div>
+      <div class="preview-img" id="previmg" hidden><img id="thumb" alt="upload preview" /></div>
+      <div class="row">
+        <button class="btn primary" id="go" disabled>Convert image → Mermaid</button>
+        <span class="status" id="status">Select an image, or paste Mermaid in step 2.</span>
+      </div>
+    </section>
+
+    <!-- STEP 2 — MERMAID -->
+    <section class="step">
+      <h2 class="step-h"><span class="n">2</span> Mermaid <span class="muted2">— edit, then render</span></h2>
+      <div class="grid2">
+        <div class="col">
+          <div class="row tight">
+            <button class="btn sm" id="render">↻ Render</button>
+            <button class="btn sm" id="copyM">Copy</button>
+            <button class="btn sm" id="dlM">Download .mmd</button>
+            <button class="btn sm" id="sample">Load sample</button>
+          </div>
+          <textarea id="code" class="code" spellcheck="false" placeholder="flowchart TD&#10;  A[App A] --> B[App B]"></textarea>
+        </div>
+        <div class="col">
+          <h3 class="sub-h">Preview</h3>
+          <div id="preview" class="preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 — DRAW.IO -->
+    <section class="step">
+      <h2 class="step-h"><span class="n">3</span> draw.io <span class="muted2">— generated from the Mermaid above</span></h2>
+      <div class="row">
+        <button class="btn primary" id="genDrawio">Generate draw.io</button>
+        <button class="btn" id="dlDrawio" disabled>Download .drawio</button>
+        <button class="btn" id="openDrawio" disabled>Open in diagrams.net ↗</button>
+        <button class="btn" id="copyDrawio" disabled>Copy XML</button>
+        <span class="status" id="statusD"></span>
+      </div>
+      <p class="hint">
+        Layout is a simple layered placement — open it in diagrams.net and run
+        <em>Arrange → Layout</em> for an auto-tidy. Database shapes (<code>[(…)]</code>) become cylinders.
+      </p>
+      <textarea id="drawioXml" class="code mono-sm" spellcheck="false" placeholder="Generated draw.io XML appears here." hidden></textarea>
+    </section>
+
+    <!-- STEP 4 — FLOW REGISTER -->
+    <section class="step">
+      <h2 class="step-h"><span class="n">4</span> Flow register → Excel</h2>
+      <p class="hint">
+        Each <strong>hop</strong> (one connection) becomes a row: from application, interface
+        mechanism (the edge label), to application. Fill the reference table below to attach a
+        <strong>database</strong> and <strong>technology platform</strong> to each application —
+        it's saved in your browser and joined into the export.
+      </p>
+
+      <div class="ref-head">
+        <h3 class="sub-h">Application reference <span class="muted2" id="refCount"></span></h3>
+        <div class="row tight">
+          <button class="btn sm" id="seedRef">Sync apps from diagram</button>
+          <button class="btn sm" id="addRow">+ Row</button>
+          <label class="btn sm filelbl">Import CSV<input type="file" id="refCsv" accept=".csv,text/csv" hidden /></label>
+          <button class="btn sm" id="exportRefCsv">Export CSV</button>
+          <button class="btn sm danger" id="clearRef">Clear</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="ref" id="refTable">
+          <thead>
+            <tr><th>Application</th><th>Database</th><th>Technology platform</th><th aria-label="remove"></th></tr>
+          </thead>
+          <tbody id="refBody"></tbody>
+        </table>
+      </div>
+
+      <div class="row export-row">
+        <button class="btn primary" id="exportXlsx">Export Excel (.xlsx)</button>
+        <label class="chk"><input type="checkbox" id="optChains" checked /> Include end-to-end chains sheet</label>
+        <span class="status" id="statusX"></span>
+      </div>
+    </section>
+  </article>
+
+  <script is:inline>
+    /* ============================================================
+       Diagram Pipeline — all client-side except the image→Mermaid
+       call (which reuses the existing EA Explorer worker endpoint).
+       Core parser/layout/drawio/register logic is unit-tested in
+       Node (see commit notes) before being inlined here.
+       ============================================================ */
+    const $ = (id) => document.getElementById(id);
+    const WORKER = 'https://ea-explorer-worker.sfrancis2017.workers.dev';
+    const REF_KEY = 'diagram-pipeline:ref';
+    let file = null, _mermaid = null, lastXml = '';
+
+    async function mermaidLib() {
+      if (!_mermaid) {
+        _mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')).default;
+        _mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'default' });
+      }
+      return _mermaid;
+    }
+
+    // ---------- Mermaid flowchart parser ----------
+    const SHAPE_WRAPPERS = [
+      { open: '([', close: '])', shape: 'stadium' },
+      { open: '[[', close: ']]', shape: 'subroutine' },
+      { open: '[(', close: ')]', shape: 'cylinder' },
+      { open: '((', close: '))', shape: 'circle' },
+      { open: '{{', close: '}}', shape: 'hexagon' },
+      { open: '[', close: ']', shape: 'rect' },
+      { open: '(', close: ')', shape: 'round' },
+      { open: '{', close: '}', shape: 'diamond' },
+      { open: '>', close: ']', shape: 'flag' },
+    ];
+    function stripQuotes(s) {
+      s = s.trim();
+      if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) s = s.slice(1, -1);
+      return s.replace(/<br\s*\/?>/gi, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+    }
+    function readNode(str, i) {
+      while (i < str.length && /\s/.test(str[i])) i++;
+      const idMatch = /^[A-Za-z0-9_.]+/.exec(str.slice(i));
+      if (!idMatch) return null;
+      const id = idMatch[0];
+      let j = i + id.length, label = id, shape = 'rect';
+      for (const w of SHAPE_WRAPPERS) {
+        if (str.startsWith(w.open, j)) {
+          const end = str.indexOf(w.close, j + w.open.length);
+          if (end !== -1) { label = stripQuotes(str.slice(j + w.open.length, end)); shape = w.shape; j = end + w.close.length; break; }
+        }
+      }
+      return { id, label, shape, next: j };
+    }
+    function normaliseInlineLabels(line) {
+      return line
+        .replace(/--\s+([^>\n|]+?)\s+-->/g, '-->|$1|')
+        .replace(/==\s+([^>\n|]+?)\s+==>/g, '==>|$1|')
+        .replace(/-\.\s+([^>\n|]+?)\s+\.->/g, '-.->|$1|');
+    }
+    function readLink(str, i) {
+      while (i < str.length && /\s/.test(str[i])) i++;
+      const m = /^([ox<]?[-.=]{1,}[-.=ox>]*[->ox]?)/.exec(str.slice(i));
+      if (!m) return null;
+      let j = i + m[0].length, label = '';
+      const rest = str.slice(j).replace(/^\s+/, '');
+      if (rest.startsWith('|')) {
+        const consumedWs = str.slice(j).length - rest.length;
+        const end = rest.indexOf('|', 1);
+        if (end !== -1) { label = stripQuotes(rest.slice(1, end)); j = j + consumedWs + end + 1; }
+      }
+      return { label, next: j };
+    }
+    function parseMermaid(code) {
+      const nodes = new Map(), edges = [];
+      let direction = 'TD', started = false;
+      const subgraphStack = [];
+      const addNode = (n) => {
+        if (!nodes.has(n.id)) nodes.set(n.id, { id: n.id, label: n.label, shape: n.shape });
+        else { const ex = nodes.get(n.id); if (n.label && n.label !== n.id && ex.label === ex.id) { ex.label = n.label; ex.shape = n.shape; } }
+      };
+      for (let raw of code.split('\n')) {
+        let line = raw.replace(/%%.*$/, '').trim();
+        if (!line) continue;
+        const head = /^(?:flowchart|graph)\s+(TB|TD|BT|RL|LR)?/i.exec(line);
+        if (head && !started) {
+          started = true;
+          if (head[1]) direction = head[1].toUpperCase() === 'TB' ? 'TD' : head[1].toUpperCase();
+          line = line.slice(head[0].length).trim();
+          if (!line) continue;
+        }
+        const sg = /^subgraph\s+(.*)$/i.exec(line);
+        if (sg) { subgraphStack.push(1); continue; }
+        if (/^end$/i.test(line)) { subgraphStack.pop(); continue; }
+        if (/^(style|classDef|class|click|linkStyle|direction)\b/i.test(line)) continue;
+        line = normaliseInlineLabels(line);
+        let i = 0, prev = readNode(line, i);
+        if (!prev) continue;
+        addNode(prev); i = prev.next;
+        let guard = 0;
+        while (i < line.length && guard++ < 200) {
+          const link = readLink(line, i);
+          if (!link) break;
+          const node = readNode(line, link.next);
+          if (!node) break;
+          addNode(node);
+          edges.push({ from: prev.id, to: node.id, label: link.label });
+          prev = node; i = node.next;
+        }
+      }
+      return { direction, nodes, edges };
+    }
+
+    // ---------- Layered layout (cycle-safe) ----------
+    function layout(graph) {
+      const { nodes, edges, direction } = graph;
+      const ids = [...nodes.keys()];
+      const preds = new Map(ids.map((id) => [id, []]));
+      for (const e of edges) { if (nodes.has(e.from) && nodes.has(e.to)) preds.get(e.to).push(e.from); }
+      const rank = new Map(), onStack = new Set();
+      const rankOf = (id) => {
+        if (rank.has(id)) return rank.get(id);
+        if (onStack.has(id)) return 0;
+        onStack.add(id);
+        let r = 0;
+        for (const p of preds.get(id) || []) r = Math.max(r, rankOf(p) + 1);
+        onStack.delete(id); rank.set(id, r); return r;
+      };
+      for (const id of ids) rankOf(id);
+      const byRank = new Map();
+      for (const id of ids) { const r = rank.get(id); if (!byRank.has(r)) byRank.set(r, []); byRank.get(r).push(id); }
+      const NW = 170, NH = 60, GX = 80, GY = 60;
+      const horizontal = direction === 'LR' || direction === 'RL';
+      const pos = new Map();
+      for (const [r, list] of byRank) {
+        list.forEach((id, idx) => {
+          const along = idx * (horizontal ? (NH + GY) : (NW + GX));
+          const across = r * (horizontal ? (NW + GX) : (NH + GY));
+          pos.set(id, { x: (horizontal ? across : along) + 40, y: (horizontal ? along : across) + 40, w: NW, h: NH });
+        });
+      }
+      return pos;
+    }
+
+    // ---------- draw.io XML ----------
+    const SHAPE_STYLE = {
+      rect: 'rounded=0;whiteSpace=wrap;html=1;',
+      round: 'rounded=1;whiteSpace=wrap;html=1;',
+      stadium: 'rounded=1;arcSize=40;whiteSpace=wrap;html=1;',
+      subroutine: 'shape=process;whiteSpace=wrap;html=1;',
+      cylinder: 'shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;',
+      circle: 'ellipse;whiteSpace=wrap;html=1;',
+      hexagon: 'shape=hexagon;whiteSpace=wrap;html=1;',
+      diamond: 'rhombus;whiteSpace=wrap;html=1;',
+      flag: 'shape=card;whiteSpace=wrap;html=1;',
+    };
+    function xmlEscape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function toDrawio(graph, pos) {
+      const { nodes, edges } = graph;
+      const cells = [];
+      for (const [id, n] of nodes) {
+        const p = pos.get(id) || { x: 40, y: 40, w: 170, h: 60 };
+        const style = SHAPE_STYLE[n.shape] || SHAPE_STYLE.rect;
+        cells.push(
+          `        <mxCell id="n_${xmlEscape(id)}" value="${xmlEscape(n.label)}" style="${style}" vertex="1" parent="1">\n` +
+          `          <mxGeometry x="${Math.round(p.x)}" y="${Math.round(p.y)}" width="${p.w}" height="${p.h}" as="geometry" />\n` +
+          `        </mxCell>`);
+      }
+      edges.forEach((e, idx) => {
+        if (!nodes.has(e.from) || !nodes.has(e.to)) return;
+        const style = 'edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;';
+        cells.push(
+          `        <mxCell id="e_${idx}" value="${xmlEscape(e.label || '')}" style="${style}" edge="1" parent="1" source="n_${xmlEscape(e.from)}" target="n_${xmlEscape(e.to)}">\n` +
+          `          <mxGeometry relative="1" as="geometry" />\n` +
+          `        </mxCell>`);
+      });
+      return `<mxfile host="app.diagrams.net" agent="diagram-pipeline" version="24.0.0">\n` +
+        `  <diagram id="diagram-pipeline" name="Page-1">\n` +
+        `    <mxGraphModel dx="900" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">\n` +
+        `      <root>\n        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n` +
+        cells.join('\n') + '\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n';
+    }
+
+    // ---------- Flow register ----------
+    function flowChains(graph, cap = 500) {
+      const { nodes, edges } = graph;
+      const adj = new Map([...nodes.keys()].map((id) => [id, []]));
+      const indeg = new Map([...nodes.keys()].map((id) => [id, 0]));
+      const outdeg = new Map([...nodes.keys()].map((id) => [id, 0]));
+      edges.forEach((e) => {
+        if (!nodes.has(e.from) || !nodes.has(e.to)) return;
+        adj.get(e.from).push({ to: e.to, label: e.label });
+        outdeg.set(e.from, outdeg.get(e.from) + 1);
+        indeg.set(e.to, indeg.get(e.to) + 1);
+      });
+      const sources = [...nodes.keys()].filter((id) => indeg.get(id) === 0 && outdeg.get(id) > 0);
+      const chains = []; let truncated = false;
+      const walk = (id, pathNodes, pathEdges) => {
+        if (chains.length >= cap) { truncated = true; return; }
+        const outs = adj.get(id) || [];
+        if (outs.length === 0) { if (pathEdges.length) chains.push([...pathEdges]); return; }
+        for (const o of outs) {
+          if (pathNodes.has(o.to)) { chains.push([...pathEdges, { from: id, to: o.to, label: o.label }]); continue; }
+          pathNodes.add(o.to);
+          walk(o.to, pathNodes, [...pathEdges, { from: id, to: o.to, label: o.label }]);
+          pathNodes.delete(o.to);
+        }
+      };
+      for (const s of sources) { if (chains.length >= cap) { truncated = true; break; } walk(s, new Set([s]), []); }
+      if (chains.length === 0) edges.forEach((e) => { if (nodes.has(e.from) && nodes.has(e.to)) chains.push([{ from: e.from, to: e.to, label: e.label }]); });
+      return { chains, truncated };
+    }
+    function buildRegister(graph, refMap) {
+      const { nodes } = graph;
+      const labelOf = (id) => (nodes.get(id)?.label || id);
+      const ref = (label) => refMap[label.toLowerCase().trim()] || { database: '', platform: '' };
+      const { chains, truncated } = flowChains(graph);
+      const flowRows = [];
+      chains.forEach((hops, ci) => hops.forEach((h, hi) => {
+        const fromL = labelOf(h.from), toL = labelOf(h.to), fr = ref(fromL), tr = ref(toL);
+        flowRows.push([`F${ci + 1}`, hi + 1, fromL, h.label || '', toL, fr.database, fr.platform, tr.database, tr.platform]);
+      }));
+      const hopRows = graph.edges.filter((e) => nodes.has(e.from) && nodes.has(e.to)).map((e) => {
+        const fromL = labelOf(e.from), toL = labelOf(e.to), fr = ref(fromL), tr = ref(toL);
+        return [fromL, e.label || '', toL, fr.database, fr.platform, tr.database, tr.platform];
+      });
+      return { flowRows, hopRows, truncated, chainCount: chains.length };
+    }
+
+    function currentGraph() { return parseMermaid($('code').value); }
+
+    // ---------- STEP 1: image upload ----------
+    function selFile(f) {
+      if (f.size > 6 * 1024 * 1024) { $('status').textContent = 'Image too large (max 6 MB).'; return; }
+      file = f; $('thumb').src = URL.createObjectURL(f); $('previmg').hidden = false; $('go').disabled = false; $('status').textContent = 'Ready: ' + f.name;
+    }
+    $('file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) selFile(f); });
+    const dz = $('drop');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) selFile(f); });
+    $('go').addEventListener('click', async () => {
+      if (!file) return; $('go').disabled = true; $('status').textContent = 'Reading the diagram with vision AI…';
+      try {
+        const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+        const b64 = String(dataUrl).split(',')[1];
+        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: b64, mediaType: file.type || 'image/png' }) });
+        const j = await resp.json();
+        if (!resp.ok) throw new Error(j.error || ('HTTP ' + resp.status));
+        $('code').value = (j.mermaid || '').trim();
+        await render();
+        $('status').textContent = 'Done — review the Mermaid in step 2.';
+      } catch (e) { $('status').textContent = 'Error: ' + (e.message || e); } finally { $('go').disabled = false; }
+    });
+
+    // ---------- STEP 2: mermaid preview ----------
+    async function render() {
+      const code = $('code').value.trim(); if (!code) { $('preview').innerHTML = ''; return; }
+      try { const mer = await mermaidLib(); const { svg } = await mer.render('m' + Math.random().toString(36).slice(2), code); $('preview').innerHTML = svg; }
+      catch (e) { $('preview').innerHTML = `<div class="err">Diagram didn't parse — edit the code and re-render.<br><small>${(e.message || e).toString().replace(/</g, '&lt;').slice(0, 200)}</small></div>`; }
+    }
+    $('render').addEventListener('click', render);
+    $('copyM').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('code').value); $('status').textContent = 'Mermaid copied.'; } catch { $('status').textContent = 'Copy failed.'; } });
+    $('dlM').addEventListener('click', () => download($('code').value, 'diagram.mmd', 'text/plain'));
+    $('sample').addEventListener('click', () => {
+      $('code').value = `flowchart LR\n  CRM[Salesforce CRM] -->|API/REST| ESB[MuleSoft ESB]\n  ESB -->|OData| ERP[SAP S/4HANA]\n  ERP -->|ETL/ELT| DW[(Snowflake)]\n  DW -->|SQL| BI[Power BI]\n  CRM -->|Kafka stream| DW`;
+      render(); $('status').textContent = 'Sample loaded.';
+    });
+
+    // ---------- STEP 3: draw.io ----------
+    $('genDrawio').addEventListener('click', () => {
+      const g = currentGraph();
+      if (g.nodes.size === 0) { $('statusD').textContent = 'No nodes found — add a flowchart in step 2.'; return; }
+      lastXml = toDrawio(g, layout(g));
+      const ta = $('drawioXml'); ta.hidden = false; ta.value = lastXml;
+      $('dlDrawio').disabled = false; $('openDrawio').disabled = false; $('copyDrawio').disabled = false;
+      $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections.`;
+    });
+    $('dlDrawio').addEventListener('click', () => download(lastXml, 'diagram.drawio', 'application/xml'));
+    $('copyDrawio').addEventListener('click', async () => { try { await navigator.clipboard.writeText(lastXml); $('statusD').textContent = 'XML copied.'; } catch { $('statusD').textContent = 'Copy failed.'; } });
+    $('openDrawio').addEventListener('click', () => {
+      if (!lastXml) return;
+      window.open('https://app.diagrams.net/?title=diagram.drawio#R' + encodeURIComponent(lastXml), '_blank', 'noopener,noreferrer');
+    });
+
+    // ---------- STEP 4: reference grid + xlsx ----------
+    function loadRef() { try { return JSON.parse(localStorage.getItem(REF_KEY) || '[]'); } catch { return []; } }
+    function saveRef(rows) { try { localStorage.setItem(REF_KEY, JSON.stringify(rows)); } catch (_) {} }
+    function readGrid() {
+      return [...$('refBody').querySelectorAll('tr')].map((tr) => {
+        const c = tr.querySelectorAll('input');
+        return { application: c[0].value.trim(), database: c[1].value.trim(), platform: c[2].value.trim() };
+      }).filter((r) => r.application || r.database || r.platform);
+    }
+    function refMapFromGrid() {
+      const map = {};
+      for (const r of readGrid()) if (r.application) map[r.application.toLowerCase().trim()] = { database: r.database, platform: r.platform };
+      return map;
+    }
+    function rowEl(r = { application: '', database: '', platform: '' }) {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        `<td><input value="${escAttr(r.application)}" placeholder="Application" /></td>` +
+        `<td><input value="${escAttr(r.database)}" placeholder="Database" /></td>` +
+        `<td><input value="${escAttr(r.platform)}" placeholder="Platform" /></td>` +
+        `<td><button class="btn sm danger rm" title="Remove">✕</button></td>`;
+      tr.querySelector('.rm').addEventListener('click', () => { tr.remove(); persistGrid(); });
+      tr.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', persistGrid));
+      return tr;
+    }
+    function persistGrid() { saveRef(readGrid()); updateRefCount(); }
+    function updateRefCount() { const n = readGrid().length; $('refCount').textContent = n ? `(${n})` : ''; }
+    function renderGrid(rows) { const b = $('refBody'); b.innerHTML = ''; rows.forEach((r) => b.appendChild(rowEl(r))); if (!rows.length) b.appendChild(rowEl()); updateRefCount(); }
+
+    function seedFromDiagram() {
+      const g = currentGraph();
+      const labels = [...new Set([...g.nodes.values()].map((n) => n.label))];
+      if (!labels.length) { $('statusX').textContent = 'No applications found in the diagram yet.'; return; }
+      const existing = readGrid();
+      const have = new Set(existing.map((r) => r.application.toLowerCase().trim()));
+      let added = 0;
+      for (const l of labels) if (!have.has(l.toLowerCase().trim())) { existing.push({ application: l, database: '', platform: '' }); added++; }
+      renderGrid(existing); persistGrid();
+      $('statusX').textContent = added ? `Added ${added} application${added === 1 ? '' : 's'} from the diagram.` : 'All diagram applications already listed.';
+    }
+    $('seedRef').addEventListener('click', seedFromDiagram);
+    $('addRow').addEventListener('click', () => { $('refBody').appendChild(rowEl()); });
+    $('clearRef').addEventListener('click', () => { if (confirm('Clear the application reference table?')) { renderGrid([]); persistGrid(); } });
+
+    $('exportRefCsv').addEventListener('click', () => {
+      const rows = [['Application', 'Database', 'Technology Platform'], ...readGrid().map((r) => [r.application, r.database, r.platform])];
+      download(rows.map(csvLine).join('\r\n'), 'application-reference.csv', 'text/csv');
+    });
+    $('refCsv').addEventListener('change', async (e) => {
+      const f = e.target.files?.[0]; if (!f) return;
+      const text = await f.text();
+      const rows = parseCsv(text);
+      const start = rows.length && /application/i.test(rows[0][0] || '') ? 1 : 0;
+      const parsed = rows.slice(start).filter((r) => r.some((c) => c && c.trim())).map((r) => ({ application: (r[0] || '').trim(), database: (r[1] || '').trim(), platform: (r[2] || '').trim() }));
+      renderGrid(parsed); persistGrid();
+      $('statusX').textContent = `Imported ${parsed.length} row${parsed.length === 1 ? '' : 's'} from CSV.`;
+      e.target.value = '';
+    });
+
+    $('exportXlsx').addEventListener('click', async () => {
+      const g = currentGraph();
+      if (g.edges.length === 0) { $('statusX').textContent = 'No connections to export — add a flowchart in step 2.'; return; }
+      $('statusX').textContent = 'Building workbook…';
+      try {
+        const XLSX = await loadXlsx();
+        const reg = buildRegister(g, refMapFromGrid());
+        const wb = XLSX.utils.book_new();
+
+        if ($('optChains').checked) {
+          const flowHead = ['Flow ID', 'Hop #', 'From Application', 'Interface Mechanism', 'To Application', 'From Database', 'From Platform', 'To Database', 'To Platform'];
+          const ws = XLSX.utils.aoa_to_sheet([flowHead, ...reg.flowRows]);
+          ws['!cols'] = [{ wch: 8 }, { wch: 6 }, { wch: 24 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+          XLSX.utils.book_append_sheet(wb, ws, 'Flow Register');
+        }
+
+        const hopHead = ['From Application', 'Interface Mechanism', 'To Application', 'From Database', 'From Platform', 'To Database', 'To Platform'];
+        const wsH = XLSX.utils.aoa_to_sheet([hopHead, ...reg.hopRows]);
+        wsH['!cols'] = [{ wch: 24 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, wsH, 'Hops');
+
+        const apps = [...g.nodes.values()].map((n) => n.label);
+        const rmap = refMapFromGrid();
+        const appHead = ['Application', 'Database', 'Technology Platform'];
+        const appRows = [...new Set(apps)].map((a) => { const r = rmap[a.toLowerCase().trim()] || {}; return [a, r.database || '', r.platform || '']; });
+        const wsA = XLSX.utils.aoa_to_sheet([appHead, ...appRows]);
+        wsA['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 22 }];
+        XLSX.utils.book_append_sheet(wb, wsA, 'Applications');
+
+        XLSX.writeFile(wb, 'flow-register.xlsx');
+        $('statusX').textContent = `Exported ${reg.hopRows.length} hop${reg.hopRows.length === 1 ? '' : 's'}` +
+          ($('optChains').checked ? ` · ${reg.chainCount} chain${reg.chainCount === 1 ? '' : 's'}${reg.truncated ? ' (capped)' : ''}` : '') + '.';
+      } catch (e) { $('statusX').textContent = 'Export failed: ' + (e.message || e); }
+    });
+
+    // ---------- helpers ----------
+    function escAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+    function csvLine(arr) { return arr.map((v) => { v = String(v ?? ''); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }
+    function parseCsv(text) {
+      const rows = []; let row = [], cur = '', q = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+        else if (ch === '"') q = true;
+        else if (ch === ',') { row.push(cur); cur = ''; }
+        else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+        else if (ch === '\r') { /* skip */ }
+        else cur += ch;
+      }
+      if (cur.length || row.length) { row.push(cur); rows.push(row); }
+      return rows;
+    }
+    function download(content, name, type) {
+      const blob = new Blob([content], { type }); const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000);
+    }
+    function loadXlsx() {
+      return new Promise((res, rej) => {
+        if (window.XLSX) return res(window.XLSX);
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = () => res(window.XLSX); s.onerror = () => rej(new Error('Could not load the spreadsheet library.'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // init
+    renderGrid(loadRef());
+  </script>
+</BaseLayout>
+
+<style>
+  .tool { max-width: 1000px; margin: 0 auto; }
+  .thead { margin-bottom: 18px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+  .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
+  .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); max-width: 70ch; }
+  .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+  .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+
+  .step { border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-elevated); padding: 16px; margin-bottom: 16px; }
+  .step-h { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .step-h .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--color-accent); color: var(--color-accent-fg); font-size: 12px; font-weight: 700; }
+  .muted2 { color: var(--color-fg-muted); font-weight: 400; font-size: 13px; }
+  .sub-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 8px; }
+  .hint { font-size: 12.5px; color: var(--color-fg-muted); margin: 6px 0 12px; line-height: 1.5; }
+  .hint code { font-family: var(--font-mono); font-size: 11px; background: var(--color-bg); padding: 1px 4px; border-radius: 4px; border: 1px solid var(--color-border); }
+
+  .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 20px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg); }
+  .drop.drag { border-color: var(--color-accent); }
+  .drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+  .preview-img { text-align: center; margin-bottom: 10px; } .preview-img img { max-height: 180px; max-width: 100%; border: 1px solid var(--color-border); border-radius: 8px; }
+
+  .status { font-size: 12px; color: var(--color-fg-muted); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .col { min-width: 0; }
+  .code { width: 100%; min-height: 300px; resize: vertical; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); color: var(--color-fg); padding: 12px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; }
+  .mono-sm { min-height: 200px; font-size: 11.5px; margin-top: 10px; }
+  .preview { min-height: 300px; border: 1px solid var(--color-border); border-radius: 10px; background: #fff; padding: 12px; overflow: auto; display: grid; place-items: center; }
+  .preview :global(svg) { max-width: 100%; height: auto; }
+  .err { color: #b94a48; font-size: 13px; text-align: center; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+  .row.tight { margin-bottom: 8px; }
+  .export-row { margin-top: 14px; }
+  .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .btn.sm { padding: 4px 9px; font-size: 11.5px; }
+  .btn:hover { border-color: var(--color-accent); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+  .btn.danger:hover { border-color: #b94a48; color: #b94a48; }
+  .filelbl { display: inline-flex; align-items: center; }
+
+  .ref-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; margin-bottom: 8px; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: 10px; }
+  table.ref { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.ref th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-fg-muted); padding: 8px 10px; border-bottom: 1px solid var(--color-border); background: var(--color-bg); position: sticky; top: 0; }
+  table.ref td { padding: 4px 6px; border-bottom: 1px solid var(--color-border); }
+  table.ref td:last-child { width: 36px; text-align: center; }
+  table.ref input { width: 100%; border: 1px solid transparent; background: transparent; color: var(--color-fg); border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: var(--font-sans); }
+  table.ref input:focus { outline: none; border-color: var(--color-accent); background: var(--color-bg); }
+  .chk { font-size: 12.5px; color: var(--color-fg-muted); display: inline-flex; align-items: center; gap: 6px; }
+
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
