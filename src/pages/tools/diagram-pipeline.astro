@@ -80,16 +80,18 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     <section class="step">
       <h2 class="step-h"><span class="n">4</span> Flow register → Excel</h2>
       <p class="hint">
-        Each <strong>hop</strong> (one connection) becomes a row: from application, interface
-        mechanism (the edge label), to application. Fill the reference table below to attach a
-        <strong>database</strong> and <strong>technology platform</strong> to each application —
-        it's saved in your browser and joined into the export.
+        Each <strong>hop</strong> (one connection) becomes a row: from node, interface mechanism
+        (the edge label), to node. Not every box is an application — diagrams often include
+        strategies, objectives, people, or projects. Set each node's <strong>type</strong> below
+        (auto-classified from its swimlane) so the export tags <code>From Type</code> /
+        <code>To Type</code>, and add a <strong>database</strong> / <strong>technology platform</strong>
+        where it applies. Saved in your browser and joined into the export.
       </p>
 
       <div class="ref-head">
-        <h3 class="sub-h">Application reference <span class="muted2" id="refCount"></span></h3>
+        <h3 class="sub-h">Node reference <span class="muted2" id="refCount"></span></h3>
         <div class="row tight">
-          <button class="btn sm" id="seedRef">Sync apps from diagram</button>
+          <button class="btn sm" id="seedRef">Sync nodes from diagram</button>
           <button class="btn sm" id="addRow">+ Row</button>
           <label class="btn sm filelbl">Import CSV<input type="file" id="refCsv" accept=".csv,text/csv" hidden /></label>
           <button class="btn sm" id="exportRefCsv">Export CSV</button>
@@ -100,7 +102,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <div class="table-wrap">
         <table class="ref" id="refTable">
           <thead>
-            <tr><th>Application</th><th>Database</th><th>Technology platform</th><th aria-label="remove"></th></tr>
+            <tr><th>Node</th><th>Type</th><th>Database</th><th>Technology platform</th><th aria-label="remove"></th></tr>
           </thead>
           <tbody id="refBody"></tbody>
         </table>
@@ -189,8 +191,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       let direction = 'TD', started = false;
       const subgraphStack = [];
       const addNode = (n) => {
-        if (!nodes.has(n.id)) nodes.set(n.id, { id: n.id, label: n.label, shape: n.shape });
+        if (!nodes.has(n.id)) nodes.set(n.id, { id: n.id, label: n.label, shape: n.shape, group: '' });
         else { const ex = nodes.get(n.id); if (n.label && n.label !== n.id && ex.label === ex.id) { ex.label = n.label; ex.shape = n.shape; } }
+        if (subgraphStack.length) { const stored = nodes.get(n.id); if (!stored.group) stored.group = subgraphStack[subgraphStack.length - 1]; }
       };
       for (let raw of code.split('\n')) {
         let line = raw.replace(/%%.*$/, '').trim();
@@ -203,7 +206,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
           if (!line) continue;
         }
         const sg = /^subgraph\s+(.*)$/i.exec(line);
-        if (sg) { subgraphStack.push(1); continue; }
+        if (sg) {
+          let title = sg[1].trim();
+          const tm = /\[(.*?)\]/.exec(title);
+          title = tm ? stripQuotes(tm[1]) : stripQuotes(title.replace(/^["']|["']$/g, ''));
+          subgraphStack.push(title || 'Group');
+          continue;
+        }
         if (/^end$/i.test(line)) { subgraphStack.pop(); continue; }
         if (/^(style|classDef|class|click|linkStyle|direction)\b/i.test(line)) continue;
         line = normaliseInlineLabels(line);
@@ -222,6 +231,28 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         }
       }
       return { direction, nodes, edges };
+    }
+
+    // ---------- Node type inference ----------
+    // Swimlane (subgraph) membership is the strongest signal; then shape; then
+    // label keywords. Lets the register tag what's an application vs a strategy,
+    // objective, person, etc. — without narrowing the faithful AI extraction.
+    const NODE_TYPES = ['Application', 'Database', 'Platform', 'Strategy/Objective', 'Actor/External', 'Process/Other'];
+    function inferType(node) {
+      const g = (node.group || '').toLowerCase();
+      if (g) {
+        if (/strateg|objective|goal|outcome|driver|vision|mission|kpi|capabilit|principle|value/.test(g)) return 'Strategy/Objective';
+        if (/data|database|datastore|data ?store/.test(g)) return 'Database';
+        if (/tech|platform|infrastructure|hosting|node/.test(g)) return 'Platform';
+        if (/person|people|actor|role|stakeholder|team|user|organi[sz]ation|business unit/.test(g)) return 'Actor/External';
+        if (/project|initiative|programme|program|work ?package|process|business|function/.test(g)) return 'Process/Other';
+        if (/applicat|system|software|service|app\b/.test(g)) return 'Application';
+      }
+      if (node.shape === 'cylinder') return 'Database';
+      const l = (node.label || '').toLowerCase();
+      if (/^(increase|reduce|improve|grow|diversif|enhance|succeed|expand|maximi[sz]e|minimi[sz]e)\b/.test(l)
+          || /strateg|objective|\bgoal\b|\bvision\b|\bmission\b|\bkpi\b/.test(l)) return 'Strategy/Objective';
+      return 'Application';
     }
 
     // ---------- Layered layout (cycle-safe) ----------
@@ -323,21 +354,28 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       if (chains.length === 0) edges.forEach((e) => { if (nodes.has(e.from) && nodes.has(e.to)) chains.push([{ from: e.from, to: e.to, label: e.label }]); });
       return { chains, truncated };
     }
-    function buildRegister(graph, refMap) {
+    function buildRegister(graph, refMap, typeMap) {
       const { nodes } = graph;
       const labelOf = (id) => (nodes.get(id)?.label || id);
       const ref = (label) => refMap[label.toLowerCase().trim()] || { database: '', platform: '' };
+      const typ = (label) => (typeMap && typeMap[label.toLowerCase().trim()]) || '';
       const { chains, truncated } = flowChains(graph);
       const flowRows = [];
       chains.forEach((hops, ci) => hops.forEach((h, hi) => {
         const fromL = labelOf(h.from), toL = labelOf(h.to), fr = ref(fromL), tr = ref(toL);
-        flowRows.push([`F${ci + 1}`, hi + 1, fromL, h.label || '', toL, fr.database, fr.platform, tr.database, tr.platform]);
+        flowRows.push([`F${ci + 1}`, hi + 1, fromL, typ(fromL), h.label || '', toL, typ(toL), fr.database, fr.platform, tr.database, tr.platform]);
       }));
       const hopRows = graph.edges.filter((e) => nodes.has(e.from) && nodes.has(e.to)).map((e) => {
         const fromL = labelOf(e.from), toL = labelOf(e.to), fr = ref(fromL), tr = ref(toL);
-        return [fromL, e.label || '', toL, fr.database, fr.platform, tr.database, tr.platform];
+        return [fromL, typ(fromL), e.label || '', toL, typ(toL), fr.database, fr.platform, tr.database, tr.platform];
       });
       return { flowRows, hopRows, truncated, chainCount: chains.length };
+    }
+    // Complete label→type map: the grid's explicit choice wins, else inferred.
+    function fullTypeMap(graph, gridTypes) {
+      const map = {};
+      for (const n of graph.nodes.values()) { const k = n.label.toLowerCase().trim(); map[k] = gridTypes[k] || inferType(n); }
+      return map;
     }
 
     function currentGraph() { return parseMermaid($('code').value); }
@@ -400,25 +438,34 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     function loadRef() { try { return JSON.parse(localStorage.getItem(REF_KEY) || '[]'); } catch { return []; } }
     function saveRef(rows) { try { localStorage.setItem(REF_KEY, JSON.stringify(rows)); } catch (_) {} }
     function readGrid() {
-      return [...$('refBody').querySelectorAll('tr')].map((tr) => {
-        const c = tr.querySelectorAll('input');
-        return { application: c[0].value.trim(), database: c[1].value.trim(), platform: c[2].value.trim() };
-      }).filter((r) => r.application || r.database || r.platform);
+      return [...$('refBody').querySelectorAll('tr')].map((tr) => ({
+        application: tr.querySelector('.c-app').value.trim(),
+        type: tr.querySelector('.c-type').value,
+        database: tr.querySelector('.c-db').value.trim(),
+        platform: tr.querySelector('.c-plat').value.trim(),
+      })).filter((r) => r.application || r.database || r.platform);
     }
     function refMapFromGrid() {
       const map = {};
       for (const r of readGrid()) if (r.application) map[r.application.toLowerCase().trim()] = { database: r.database, platform: r.platform };
       return map;
     }
-    function rowEl(r = { application: '', database: '', platform: '' }) {
+    function typeMapFromGrid() {
+      const map = {};
+      for (const r of readGrid()) if (r.application && r.type) map[r.application.toLowerCase().trim()] = r.type;
+      return map;
+    }
+    function rowEl(r = { application: '', type: '', database: '', platform: '' }) {
       const tr = document.createElement('tr');
+      const opts = ['<option value="">(auto)</option>'].concat(NODE_TYPES.map((t) => `<option value="${t}"${r.type === t ? ' selected' : ''}>${t}</option>`)).join('');
       tr.innerHTML =
-        `<td><input value="${escAttr(r.application)}" placeholder="Application" /></td>` +
-        `<td><input value="${escAttr(r.database)}" placeholder="Database" /></td>` +
-        `<td><input value="${escAttr(r.platform)}" placeholder="Platform" /></td>` +
+        `<td><input class="c-app" value="${escAttr(r.application)}" placeholder="Node" /></td>` +
+        `<td><select class="c-type">${opts}</select></td>` +
+        `<td><input class="c-db" value="${escAttr(r.database)}" placeholder="Database" /></td>` +
+        `<td><input class="c-plat" value="${escAttr(r.platform)}" placeholder="Platform" /></td>` +
         `<td><button class="btn sm danger rm" title="Remove">✕</button></td>`;
       tr.querySelector('.rm').addEventListener('click', () => { tr.remove(); persistGrid(); });
-      tr.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', persistGrid));
+      tr.querySelectorAll('input, select').forEach((el) => el.addEventListener('input', persistGrid));
       return tr;
     }
     function persistGrid() { saveRef(readGrid()); updateRefCount(); }
@@ -427,29 +474,35 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
     function seedFromDiagram() {
       const g = currentGraph();
-      const labels = [...new Set([...g.nodes.values()].map((n) => n.label))];
-      if (!labels.length) { $('statusX').textContent = 'No applications found in the diagram yet.'; return; }
+      const byLabel = new Map();
+      for (const n of g.nodes.values()) if (!byLabel.has(n.label)) byLabel.set(n.label, n);
+      if (!byLabel.size) { $('statusX').textContent = 'No nodes found in the diagram yet.'; return; }
       const existing = readGrid();
       const have = new Set(existing.map((r) => r.application.toLowerCase().trim()));
       let added = 0;
-      for (const l of labels) if (!have.has(l.toLowerCase().trim())) { existing.push({ application: l, database: '', platform: '' }); added++; }
+      for (const [label, node] of byLabel) if (!have.has(label.toLowerCase().trim())) { existing.push({ application: label, type: inferType(node), database: '', platform: '' }); added++; }
       renderGrid(existing); persistGrid();
-      $('statusX').textContent = added ? `Added ${added} application${added === 1 ? '' : 's'} from the diagram.` : 'All diagram applications already listed.';
+      $('statusX').textContent = added ? `Added ${added} node${added === 1 ? '' : 's'} (types auto-classified — adjust any below).` : 'All diagram nodes already listed.';
     }
     $('seedRef').addEventListener('click', seedFromDiagram);
     $('addRow').addEventListener('click', () => { $('refBody').appendChild(rowEl()); });
-    $('clearRef').addEventListener('click', () => { if (confirm('Clear the application reference table?')) { renderGrid([]); persistGrid(); } });
+    $('clearRef').addEventListener('click', () => { if (confirm('Clear the node reference table?')) { renderGrid([]); persistGrid(); } });
 
     $('exportRefCsv').addEventListener('click', () => {
-      const rows = [['Application', 'Database', 'Technology Platform'], ...readGrid().map((r) => [r.application, r.database, r.platform])];
-      download(rows.map(csvLine).join('\r\n'), 'application-reference.csv', 'text/csv');
+      const rows = [['Node', 'Type', 'Database', 'Technology Platform'], ...readGrid().map((r) => [r.application, r.type, r.database, r.platform])];
+      download(rows.map(csvLine).join('\r\n'), 'node-reference.csv', 'text/csv');
     });
     $('refCsv').addEventListener('change', async (e) => {
       const f = e.target.files?.[0]; if (!f) return;
       const text = await f.text();
       const rows = parseCsv(text);
-      const start = rows.length && /application/i.test(rows[0][0] || '') ? 1 : 0;
-      const parsed = rows.slice(start).filter((r) => r.some((c) => c && c.trim())).map((r) => ({ application: (r[0] || '').trim(), database: (r[1] || '').trim(), platform: (r[2] || '').trim() }));
+      const hasHeader = rows.length && /node|application/i.test(rows[0][0] || '');
+      // 4-col (Node,Type,Database,Platform) vs legacy 3-col (App,Database,Platform)
+      const typed = hasHeader ? /type/i.test(rows[0][1] || '') : true;
+      const start = hasHeader ? 1 : 0;
+      const parsed = rows.slice(start).filter((r) => r.some((c) => c && c.trim())).map((r) => typed
+        ? { application: (r[0] || '').trim(), type: (r[1] || '').trim(), database: (r[2] || '').trim(), platform: (r[3] || '').trim() }
+        : { application: (r[0] || '').trim(), type: '', database: (r[1] || '').trim(), platform: (r[2] || '').trim() });
       renderGrid(parsed); persistGrid();
       $('statusX').textContent = `Imported ${parsed.length} row${parsed.length === 1 ? '' : 's'} from CSV.`;
       e.target.value = '';
@@ -461,28 +514,29 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       $('statusX').textContent = 'Building workbook…';
       try {
         const XLSX = await loadXlsx();
-        const reg = buildRegister(g, refMapFromGrid());
+        const rmap = refMapFromGrid();
+        const tmap = fullTypeMap(g, typeMapFromGrid());
+        const reg = buildRegister(g, rmap, tmap);
         const wb = XLSX.utils.book_new();
 
         if ($('optChains').checked) {
-          const flowHead = ['Flow ID', 'Hop #', 'From Application', 'Interface Mechanism', 'To Application', 'From Database', 'From Platform', 'To Database', 'To Platform'];
+          const flowHead = ['Flow ID', 'Hop #', 'From Application', 'From Type', 'Interface Mechanism', 'To Application', 'To Type', 'From Database', 'From Platform', 'To Database', 'To Platform'];
           const ws = XLSX.utils.aoa_to_sheet([flowHead, ...reg.flowRows]);
-          ws['!cols'] = [{ wch: 8 }, { wch: 6 }, { wch: 24 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+          ws['!cols'] = [{ wch: 8 }, { wch: 6 }, { wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
           XLSX.utils.book_append_sheet(wb, ws, 'Flow Register');
         }
 
-        const hopHead = ['From Application', 'Interface Mechanism', 'To Application', 'From Database', 'From Platform', 'To Database', 'To Platform'];
+        const hopHead = ['From Application', 'From Type', 'Interface Mechanism', 'To Application', 'To Type', 'From Database', 'From Platform', 'To Database', 'To Platform'];
         const wsH = XLSX.utils.aoa_to_sheet([hopHead, ...reg.hopRows]);
-        wsH['!cols'] = [{ wch: 24 }, { wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+        wsH['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
         XLSX.utils.book_append_sheet(wb, wsH, 'Hops');
 
-        const apps = [...g.nodes.values()].map((n) => n.label);
-        const rmap = refMapFromGrid();
-        const appHead = ['Application', 'Database', 'Technology Platform'];
-        const appRows = [...new Set(apps)].map((a) => { const r = rmap[a.toLowerCase().trim()] || {}; return [a, r.database || '', r.platform || '']; });
-        const wsA = XLSX.utils.aoa_to_sheet([appHead, ...appRows]);
-        wsA['!cols'] = [{ wch: 28 }, { wch: 20 }, { wch: 22 }];
-        XLSX.utils.book_append_sheet(wb, wsA, 'Applications');
+        const nodeHead = ['Node', 'Type', 'Database', 'Technology Platform'];
+        const seen = new Set(), nodeRows = [];
+        for (const n of g.nodes.values()) { const k = n.label.toLowerCase().trim(); if (seen.has(k)) continue; seen.add(k); const r = rmap[k] || {}; nodeRows.push([n.label, tmap[k] || '', r.database || '', r.platform || '']); }
+        const wsA = XLSX.utils.aoa_to_sheet([nodeHead, ...nodeRows]);
+        wsA['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 20 }, { wch: 22 }];
+        XLSX.utils.book_append_sheet(wb, wsA, 'Nodes');
 
         XLSX.writeFile(wb, 'flow-register.xlsx');
         $('statusX').textContent = `Exported ${reg.hopRows.length} hop${reg.hopRows.length === 1 ? '' : 's'}` +
@@ -577,6 +631,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   table.ref td:last-child { width: 36px; text-align: center; }
   table.ref input { width: 100%; border: 1px solid transparent; background: transparent; color: var(--color-fg); border-radius: 6px; padding: 6px 8px; font-size: 13px; font-family: var(--font-sans); }
   table.ref input:focus { outline: none; border-color: var(--color-accent); background: var(--color-bg); }
+  table.ref select { width: 100%; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; font-family: var(--font-sans); }
+  table.ref select:focus { outline: none; border-color: var(--color-accent); }
   .chk { font-size: 12.5px; color: var(--color-fg-muted); display: inline-flex; align-items: center; gap: 6px; }
 
   @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
