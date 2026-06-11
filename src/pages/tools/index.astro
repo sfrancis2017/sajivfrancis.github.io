@@ -30,8 +30,6 @@ const tools = [
     desc: 'Pull editable text out of images or scanned PDFs (Tesseract). Copy, edit, or download as .txt/.md.' },
   { title: 'Image → Mermaid', href: '/tools/image-to-mermaid/', category: 'Extract & Analyze', where: 'server',
     desc: 'Turn a picture of a diagram into editable Mermaid code with vision AI — rendered live.' },
-  { title: 'Diagram Pipeline', href: '/tools/diagram-pipeline/', category: 'Extract & Analyze', where: 'server',
-    desc: 'Chain a diagram from image → Mermaid → draw.io → an Excel flow register of every hop, app, and interface.' },
   { title: 'PowerPoint → Markdown', href: '/tools/pptx-to-markdown/', category: 'Convert', where: 'browser',
     desc: 'Extract slide titles, bullets, and notes from a .pptx into reusable Markdown.' },
 
@@ -40,6 +38,10 @@ const tools = [
 
   { title: 'Architecture Writer', href: '/tools/architecture-writer/', category: 'Architecture', where: 'browser',
     desc: 'Generate and score architecture writeups with a rubric-based draft workflow.' },
+  { title: 'Diagram Pipeline', href: '/tools/diagram-pipeline/', category: 'Architecture', where: 'server',
+    desc: 'Chain a diagram from image → Mermaid → draw.io → an Excel flow register of every hop, app, and interface.' },
+  { title: 'Flow Register → Diagrams', href: '/tools/flow-to-diagram/', category: 'Architecture', where: 'browser',
+    desc: 'Reverse pipeline: upload an Excel/CSV flow register and rebuild Mermaid + draw.io, split into application, database, and technology layers.' },
 ];
 
 const CATEGORY_ORDER = ['Organize', 'Convert', 'Edit & Annotate', 'Sign & Secure', 'Extract & Analyze', 'Architecture'];
