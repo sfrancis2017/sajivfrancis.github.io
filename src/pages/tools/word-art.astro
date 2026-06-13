@@ -4,7 +4,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 // Backend (FastAPI on the droplet, reached via the tools tunnel). Override at
 // build with PUBLIC_TOOLS_API. The backend's ALLOWED_ORIGINS must include this
 // site's origin (https://sajivfrancis.com) for the cross-origin fetch to work.
-const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools.sajivfrancis.com/api';
+const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfrancis.com/api';
 ---
 
 <BaseLayout
