@@ -1,9 +1,9 @@
 ---
 title: "AI Driven Leadership"
-subtitle: "An Executive Brief on Leading Enterprise AI Transformation"
-description: "A practitioner's brief on leading enterprise AI — architecture, model evaluation, and the organizational design that makes adoption stick."
+subtitle: "Stanford AI-Driven Leadership Program — Executive Brief"
+description: "Stanford's comprehensive curriculum focused on the intersection of leadership and AI."
 pubDate: 2026-06-07
-coverImage: "/img/og-default.png"
+coverImage: "/img/banners/ai-driven-leadership.png"
 coverAlt: "Sajiv Francis editorial card"
 tags:
   - "AI"
@@ -32,13 +32,13 @@ flowchart LR
 
 # Executive Brief: Driving AI Transformation Through Strategic Leadership
 
-> *A practitioner's synthesis on leading AI transformation — enterprise architecture, model evaluation from my own benchmarking work, and lessons from publicly documented industry cases. Informed by recent executive study at Stanford.*
+> *Drawn from the Stanford AI-Driven Leadership Program — covering Stitch Fix, clinical AI failure patterns, enterprise data architecture, and LLM evaluation at scale.*
 
 ---
 
 ## 1. Navigating the AI Landscape: The Agentic Shift
 
-One pattern holds across the enterprises I've worked with: organizations that get this right are not treating AI as a static implementation — they are building for continuous adaptation.
+The Stanford AI-Driven Leadership Program reinforced something I already suspected: organisations that get this right are not treating AI as a static implementation — they are building for continuous adaptation.
 
 This requires understanding the evolving AI continuum:
 
@@ -48,15 +48,15 @@ This requires understanding the evolving AI continuum:
 | **Analytical AI** | Extracts predictive signals | Historical structured data | Forecasts, classifications |
 | **Agentic AI** | Executes continuous decision loops | Live cross-system signals | Autonomous actions |
 
-Scaling these technologies, I work through a three-part leadership lens:
+Scaling these technologies requires a three-part leadership framework:
 
 - **Framing** — aligning initiatives with corporate identity and human empowerment
-- **Structuring** — designing workflows, centralizing data units, assigning accountability
+- **Structuring** — designing workflows, centralising data units, assigning accountability
 - **Evaluating** — establishing continuous feedback loops, strict data governance, and clear ROI metrics
 
 ---
 
-## 2. Structural Agility: Flash Teams & Organizational Restructuring Adjustments
+## 2. Structural Agility: Flash Teams & Organisational Restructuring Adjustments
 
 Real AI capability requires structural transformation — moving away from traditional, siloed hierarchies.
 
@@ -71,7 +71,7 @@ flowchart TD
   DS["Data Science Unit<br/>(Reports directly to CEO)"]
   FB["Fashion Buyers<br/>/ Domain Experts"]
   FT["Flash Team<br/>(Temporary · Agile · Cross-functional)"]
-  OUT["Enterprise-wide Innovation<br/>Personalization · Inventory · Style"]
+  OUT["Enterprise-wide Innovation<br/>Personalisation · Inventory · Style"]
 
   CEO --> DS
   CEO --> FB
@@ -87,11 +87,11 @@ flowchart TD
   class OUT ds
 ```
 
-**The Blueprint — Stitch Fix (a widely documented example):** Stitch Fix's publicly described org design — elevating data science to report directly to executive leadership — grants teams the autonomy to drive enterprise-wide innovation rather than narrow functional goals. This reshapes three dimensions simultaneously:
+**The Blueprint — Stitch Fix Case Study:** Elevating data science teams to report directly to executive leadership grants them the autonomy to drive enterprise-wide innovation rather than narrow functional goals. This reshapes three dimensions simultaneously:
 
 - **Work practices** — human-machine collaboration and agile experimentation
 - **Role relationships** — data scientists and domain experts with real decision authority, working in direct collaboration
-- **Organizational networks** — strong cross-functional integration and adaptive decision-making
+- **Organisational networks** — strong cross-functional integration and adaptive decision-making
 
 **The Application — SAP Joule Copilot:** Implementing conversational and transactional tools like SAP Joule is a leadership problem, not a technical deployment. It succeeds by:
 
@@ -107,7 +107,7 @@ Technical excellence alone does not guarantee business adoption. MIT Technology 
 
 > **The core lesson: Treat operational translation as a core design requirement, not an afterthought.**
 
-Leadership must prioritize **process over speed** across two core enterprise data streams:
+Leadership must prioritise **process over speed** across two core enterprise data streams:
 
 ---
 
@@ -164,7 +164,7 @@ flowchart LR
   PUR["Microsoft Purview<br/>Metadata & Lineage"]
   OAI["Azure OpenAI<br/>GenAI Applications"]
   LF["Langfuse<br/>Observability Platform"]
-  OUT2["Outputs<br/>Summarization · Q&A · Search"]
+  OUT2["Outputs<br/>Summarisation · Q&A · Search"]
 
   BLOB --> COG --> OAI
   BLOB --> PUR
@@ -288,25 +288,26 @@ flowchart LR
 | Data access compliance | Unity Catalog + Snowflake RBAC | Days 1–30 |
 
 ```mermaid
-flowchart TB
-  P1["📋 Days 1–30 · Foundation"]
-  P2["⚙️ Days 31–60 · Implementation"]
-  P3["🚀 Days 61–90 · Optimization"]
+flowchart TD
+  classDef foundation fill:#fff3b0,stroke:#cc9a06,color:#000
+  classDef implement fill:#e8f5e9,stroke:#2e7d32,color:#000
+  classDef optimise fill:#e3f2fd,stroke:#1565c0,color:#000
 
-  P1 --> a1(["PMO framework"]) --> a2(["Baseline workflows"]) --> a3(["RBAC + Purview metadata mapping"]) --> a4(["Langfuse tracing setup"]) --> P2
-  P2 --> b1(["Preprocessing pipelines"]) --> b2(["Pilot dashboards"]) --> b3(["PRISM prompt templates"]) --> b4(["Pilot champions + change-resistance mgmt"]) --> P3
-  P3 --> c1(["Scale across teams"]) --> c2(["100–200 annotated golden dataset"]) --> c3(["AI metrics in perf reviews"]) --> c4(["12-month roadmap finalized"])
+  F["📋 Days 1–30: Foundation<br/>PMO framework · Baseline workflows<br/>RBAC · Purview metadata mapping<br/>Langfuse tracing setup"]
+  I["⚙️ Days 31–60: Implementation<br/>Preprocessing pipelines · Pilot dashboards<br/>PRISM prompt templates<br/>Pilot champions · Change resistance mgmt"]
+  O["🚀 Days 61–90: Optimisation<br/>Scale across teams<br/>100–200 annotated golden dataset<br/>AI metrics embedded in perf reviews<br/>12-month roadmap finalised"]
 
-  classDef phase fill:#fff3b0,stroke:#cc9a06,color:#000
-  classDef chip fill:#f7f7f7,stroke:#bbbbbb,color:#000
-  class P1,P2,P3 phase
-  class a1,a2,a3,a4,b1,b2,b3,b4,c1,c2,c3,c4 chip
+  F --> I --> O
+
+  class F foundation
+  class I implement
+  class O optimise
 ```
 
 **Key risk mitigations baked into each phase:**
 
 - **RAG** as the primary hallucination guardrail for text-based GenAI
-- **Prompt injection defenses** — query classifiers, output guardrails, adversarial testing
+- **Prompt injection defences** — query classifiers, output guardrails, adversarial testing
 - **Human-in-the-loop** review gates before any model is promoted to production
 - **Schema enforcement** in the Databricks Silver layer for quantitative flows
 - **Unity Catalog + Snowflake RBAC** for SOX/GDPR-sensitive financial data
@@ -315,6 +316,8 @@ flowchart TB
 
 ## Reflection: What I Got Right — and What I Missed
 
-What I got right early was recognizing the shift toward agentic and analytical workflows before it was obvious. What I missed completely was how much implementation depends on **structural orchestration** — an elite tool deployed into an unreformed org chart delivers almost nothing.
+What I got right early was recognising the shift toward agentic and analytical workflows before it was obvious. What I missed completely was how much implementation depends on **structural orchestration** — an elite tool deployed into an unreformed org chart delivers almost nothing.
 
 > **The algorithms are the easy part. Data culture, governance, and human-in-the-loop process design are where implementations actually succeed or fail.**
+
+---
