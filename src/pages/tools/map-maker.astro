@@ -66,6 +66,7 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
           <button class="btn primary" id="goBtn">Render</button>
           <button class="btn" id="copyBtn">Copy Mermaid</button>
           <button class="btn" id="svgBtn">Download SVG</button>
+          <button class="btn" id="drawioBtn">Edit in draw.io</button>
         </div>
         <div class="status" id="status"></div>
       </section>
@@ -263,6 +264,28 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = `${model}-map.svg`; a.click();
       URL.revokeObjectURL(a.href);
+    });
+    byId('drawioBtn').addEventListener('click', async () => {
+      if (!lastCode) return setStatus('Render first.');
+      setStatus('Converting to draw.io…'); byId('drawioBtn').disabled = true;
+      try {
+        const r = await fetch(`${API_BASE}/convert/drawio`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mermaid: lastCode, filename: `${model}-map` }),
+        });
+        if (r.status === 422) throw new Error((await r.json()).detail || 'unsupported diagram type');
+        if (!r.ok) throw new Error(`${r.status} — ${(await r.text()).slice(0, 160)}`);
+        const { filename, drawio } = await r.json();
+        const blob = new Blob([drawio], { type: 'application/xml' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+        URL.revokeObjectURL(a.href);
+        setStatus('Downloaded — open in draw.io / diagrams.net to edit the shapes.');
+      } catch (e) {
+        setStatus(`draw.io export failed: ${e.message}`);
+      } finally {
+        byId('drawioBtn').disabled = false;
+      }
     });
 
     applyOutlineHint();
