@@ -27,60 +27,50 @@ flowchart TD
 ``` 
 
 ```mermaid
-
 mindmap
-  root((Writing Editor for Personal Site))
+  root((Personal Site Writing Editor))
     Draft Management
-      Browser Editor UI
-        /admin/write
+      Cloudflare KV Store
+        DRAFTS_KV binding
         Owner-only access
-      Cloudflare KV
-        DRAFTS_KV
-        Private binding
-        chat-worker read/write
-      CHAT_TOKEN Auth
-        Enforced on all routes
-    Publishing Pipeline
-      Publish to GitHub
-        src/content/blog/YYYY-MM-DD-slug.mdx
-        MDX and images public on push
-      GitHub Pages Rebuild
-        git push triggers build
-        sajivfrancis.com/blog/slug
-    AI Review Pass
-      Claude
-        Prose and technical review
-        Called by chat-worker
-      GitHub Source Grounding
-        Fetch actual repo source
-        Flag mismatches e.g. Python vs TypeScript
-      Corpus Grounding
-        pgvector store
-          topK 6 chunks
-          Owner-only access
-        docs.sajivfrancis.com
-        Retrieval query from title and first 800 chars
-        Topic filters docs writing meta
-    Key Components
-      chat-worker
-        Central Cloudflare Worker
-        All KV read/write
-        Orchestrates review and publish
+        CHAT_TOKEN enforcement
+      Browser Editor
+        /admin/write UI
+        Save draft
+        Review trigger
+        Publish action
+    chat-worker
+      Handles all KV read/write
+      Single Cloudflare Worker
+      Routes POST /draft
+      Routes POST /review
+      Routes POST /publish
+    Review Pass
+      Fetch GitHub repo source
+      Ground prose against code
+      Flag technical inaccuracies
+      Manual fix before publish
+    Corpus Grounding
       pgvector store
-        Corpus chunk retrieval
-        Cross-check new posts vs existing docs
-    Workflow Loop
-      Save Draft
-      Review with Claude
-        Fix flagged issues manually
-      Publish
-    Design Philosophy
-      Grounding makes AI useful
-        GitHub source
-        Personal docs
-        Vector store
-      Without grounding just a grammar checker
-      Review prose and technical claims in same pass
+        topK 6 chunks
+        Topic filters docs writing meta
+        Query from title plus first 800 chars
+      docs.sajivfrancis.com
+      Cross-check against prior writing
+    Claude AI Review
+      Prose quality suggestions
+      Technical claim validation
+      Called by chat-worker
+      Only as good as its grounding
+    Publish Pipeline
+      Push MDX to GitHub
+        src/content/blog/YYYY-MM-DD-slug.mdx
+      GitHub Pages rebuild
+      Live at sajivfrancis.com/blog/slug
+    Access Control
+      CHAT_TOKEN on all endpoints
+      Drafts stay private
+      Only final version goes to GitHub
 ``` 
 
 The review pass fetches the actual GitHub source for any repo I tag, then asks Claude to ground my prose against that code. If I write "I used Python" but 'wrangler.toml' says TypeScript, the suggestion flags it — I fix it manually before publishing.
