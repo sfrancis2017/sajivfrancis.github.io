@@ -1,20 +1,21 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
-// Fully client-side: outline → Mermaid → rendered preview. Nothing uploaded.
-// Mermaid is the shared output format (renders in chat, docs, and here), so the
-// generated code drops straight into a whitepaper or doc.
+// Outline mode is fully client-side (deterministic). URL/Document/Image modes
+// call the tools API (owner only) → Claude → Mermaid. Mermaid is the shared
+// output format — it renders here, in the docs site, and in the chat.
+const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfrancis.com/api';
 ---
 
 <BaseLayout
   title="Map Maker"
-  description="Turn an outline into a mind map, concept map, or system map — generates Mermaid you can drop into docs, whitepapers, or the chat."
+  description="Turn an outline, URL, document, or image into a mind map, concept map, or system map — generates Mermaid you can drop into docs, whitepapers, or the chat."
   mainClass="max-w-6xl"
 >
   <article class="container">
     <header class="tool-header">
       <div class="title">
         <h1>Map Maker</h1>
-        <div class="subtitle">Outline → mind map / concept map / system map. Outputs Mermaid — renders here, in docs, and in the chat.</div>
+        <div class="subtitle">Outline · URL · document · image → mind / concept / system map. Outputs Mermaid.</div>
       </div>
       <a class="back-link" href="/tools/">All tools</a>
     </header>
@@ -27,14 +28,42 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
     <div class="layout">
       <section class="panel">
-        <div class="phead">
-          <h2 id="inLabel">Outline</h2>
-          <button class="btn ghost" id="exampleBtn">Load example</button>
+        <div class="srcmodes" id="srcmodes">
+          <button class="chip active" data-src="outline">Outline</button>
+          <button class="chip" data-src="url">URL</button>
+          <button class="chip" data-src="document">Document</button>
+          <button class="chip" data-src="image">Image</button>
         </div>
-        <textarea id="input" spellcheck="false"></textarea>
-        <div class="hint" id="hint"></div>
+
+        <div data-pane="outline">
+          <div class="phead">
+            <h2>Outline</h2>
+            <button class="btn ghost" id="exampleBtn">Load example</button>
+          </div>
+          <textarea id="input" spellcheck="false"></textarea>
+          <div class="hint" id="hint"></div>
+        </div>
+
+        <div data-pane="url" hidden>
+          <h2>Page URL</h2>
+          <input type="url" id="url" class="ti" placeholder="https://…" />
+          <div class="hint">Claude reads the page and builds the map. Owner only.</div>
+        </div>
+
+        <div data-pane="document" hidden>
+          <h2>Document</h2>
+          <input type="file" id="docfile" class="ti" accept=".txt,.md,.docx,.pdf" />
+          <div class="hint">.txt / .md / .docx / .pdf → Claude builds the map. Owner only.</div>
+        </div>
+
+        <div data-pane="image" hidden>
+          <h2>Image</h2>
+          <input type="file" id="imgfile" class="ti" accept="image/*" />
+          <div class="hint">A diagram screenshot → Claude vision rebuilds it as Mermaid. Owner only.</div>
+        </div>
+
         <div class="actions">
-          <button class="btn primary" id="renderBtn">Render</button>
+          <button class="btn primary" id="goBtn">Render</button>
           <button class="btn" id="copyBtn">Copy Mermaid</button>
           <button class="btn" id="svgBtn">Download SVG</button>
         </div>
@@ -52,10 +81,12 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     </div>
   </article>
 
-  <script is:inline>
+  <script is:inline define:vars={{ API_BASE }}>
     const byId = (id) => document.getElementById(id);
-    let model = 'mind';
+    let model = 'mind';     // mind | concept | system
+    let source = 'outline'; // outline | url | document | image
     let lastCode = '';
+    let renderSeq = 0;
 
     const HINTS = {
       mind: 'Indented outline (2 spaces per level). First line = center.',
@@ -71,39 +102,31 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const clean = (s) => s.replace(/["[\]{}()|]/g, '').trim();
     const sanitizeLabel = (s) => s.replace(/"/g, "'").trim();
 
-    // ── Mind map ────────────────────────────────────────────────────────────
+    // ── Deterministic outline → Mermaid (client-side) ─────────────────────────
     function toMind(text) {
       const lines = text.replace(/\t/g, '  ').split('\n').filter((l) => l.trim());
       if (!lines.length) return 'mindmap\n  root((empty))';
       let out = 'mindmap\n';
       lines.forEach((l, i) => {
-        const indent = (l.match(/^ */) || [''])[0].length;
-        const depth = Math.floor(indent / 2);
-        const label = clean(l);
+        const depth = Math.floor(((l.match(/^ */) || [''])[0].length) / 2);
         const pad = '  '.repeat(depth + 1);
-        out += i === 0 ? `${pad}root((${label}))\n` : `${pad}${label}\n`;
+        out += i === 0 ? `${pad}root((${clean(l)}))\n` : `${pad}${clean(l)}\n`;
       });
       return out;
     }
-
-    // ── shared edge id map ────────────────────────────────────────────────────
     function idMaker(prefix) {
       const ids = new Map(); let n = 0;
       return (label) => { if (!ids.has(label)) ids.set(label, prefix + n++); return ids.get(label); };
     }
-
-    // ── Concept map (labeled edges) ──────────────────────────────────────────
     function toConcept(text) {
-      const id = idMaker('n');
-      const declared = new Set();
+      const id = idMaker('n'); const declared = new Set();
       let out = 'flowchart TD\n';
       text.split('\n').forEach((line) => {
         line = line.trim(); if (!line) return;
         let parts = line.split(/\s*->\s*/);
         if (parts.length < 2) parts = line.split(/\s*\|\s*/);
         if (parts.length < 2) return;
-        const a = sanitizeLabel(parts[0]);
-        const b = sanitizeLabel(parts[parts.length - 1]);
+        const a = sanitizeLabel(parts[0]), b = sanitizeLabel(parts[parts.length - 1]);
         const rel = parts.length >= 3 ? sanitizeLabel(parts[1]) : '';
         const ia = id(a), ib = id(b);
         if (!declared.has(ia)) { out += `  ${ia}["${a}"]\n`; declared.add(ia); }
@@ -112,11 +135,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       });
       return out;
     }
-
-    // ── System map (clusters → subgraphs) ────────────────────────────────────
     function toSystem(text) {
-      const id = idMaker('s');
-      const clusters = []; let cur = null;
+      const id = idMaker('s'); const clusters = []; let cur = null;
       const edges = []; const all = new Set();
       text.split('\n').forEach((line) => {
         line = line.trim(); if (!line) return;
@@ -124,13 +144,11 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         if (cm) { cur = { name: sanitizeLabel(cm[1]), nodes: new Set() }; clusters.push(cur); return; }
         const parts = line.split(/\s*->\s*/).map((p) => sanitizeLabel(p)).filter(Boolean);
         for (let i = 0; i < parts.length - 1; i++) {
-          edges.push([parts[i], parts[i + 1]]);
-          all.add(parts[i]); all.add(parts[i + 1]);
+          edges.push([parts[i], parts[i + 1]]); all.add(parts[i]); all.add(parts[i + 1]);
           if (cur) { cur.nodes.add(parts[i]); cur.nodes.add(parts[i + 1]); }
         }
       });
-      const clustered = new Set();
-      let out = 'flowchart TD\n';
+      const clustered = new Set(); let out = 'flowchart TD\n';
       clusters.forEach((c, ci) => {
         out += `  subgraph c${ci}["${c.name}"]\n`;
         c.nodes.forEach((node) => { out += `    ${id(node)}["${node}"]\n`; clustered.add(node); });
@@ -140,12 +158,11 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       edges.forEach(([a, b]) => { out += `  ${id(a)} --> ${id(b)}\n`; });
       return out;
     }
-
     function build(text) {
       return model === 'mind' ? toMind(text) : model === 'concept' ? toConcept(text) : toSystem(text);
     }
 
-    // ── Mermaid (dynamic import from CDN — same as docs/chat) ──────────────────
+    // ── Mermaid render (dynamic import — same as docs/chat) ────────────────────
     let _mm;
     async function mermaid() {
       if (!_mm) {
@@ -156,40 +173,85 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       }
       return _mm;
     }
-
-    let renderSeq = 0;
-    async function render() {
-      const code = build(byId('input').value);
+    async function renderCode(code) {
       lastCode = code;
       byId('src').textContent = code;
       const seq = ++renderSeq;
       try {
         const mm = await mermaid();
         const { svg } = await mm.render('map-' + seq, code);
-        if (seq !== renderSeq) return; // a newer render started
+        if (seq !== renderSeq) return;
         byId('preview').innerHTML = svg;
         setStatus('Rendered.');
       } catch (e) {
-        byId('preview').innerHTML = `<div class="err">Couldn't render — check the outline.\n${(e && e.message ? e.message : e)}</div>`;
+        byId('preview').innerHTML = `<div class="err">Couldn't render — check the input.\n${(e && e.message) ? e.message : e}</div>`;
         setStatus('Render error.');
+      }
+    }
+    const render = () => renderCode(build(byId('input').value));
+
+    // ── Backend auto-extract (owner only) ─────────────────────────────────────
+    async function generate() {
+      let token = localStorage.getItem('tools-access-token');
+      if (!token) {
+        token = (prompt('Enter your tools owner token (saved to this browser):') || '').trim();
+        if (!token) return;
+        localStorage.setItem('tools-access-token', token);
+      }
+      const fd = new FormData();
+      fd.set('model', model);
+      if (source === 'url') {
+        const u = byId('url').value.trim(); if (!u) return setStatus('Enter a URL.');
+        fd.set('source_type', 'url'); fd.set('url', u);
+      } else if (source === 'document') {
+        const f = byId('docfile').files[0]; if (!f) return setStatus('Choose a document.');
+        fd.set('source_type', 'file'); fd.set('file', f);
+      } else if (source === 'image') {
+        const f = byId('imgfile').files[0]; if (!f) return setStatus('Choose an image.');
+        fd.set('source_type', 'image'); fd.set('file', f);
+      }
+      setStatus('Asking Claude…'); byId('goBtn').disabled = true;
+      try {
+        const r = await fetch(`${API_BASE}/map/generate`, {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+        });
+        if (r.status === 401) {
+          localStorage.removeItem('tools-access-token');
+          throw new Error('Owner token rejected — click Generate again to re-enter.');
+        }
+        if (!r.ok) throw new Error(`${r.status} — ${(await r.text()).slice(0, 200)}`);
+        const { mermaid: code } = await r.json();
+        await renderCode(code);
+        setStatus('Generated. Copy the Mermaid or download the SVG.');
+      } catch (e) {
+        setStatus(`Failed: ${e.message}`);
+      } finally {
+        byId('goBtn').disabled = false;
       }
     }
 
     function setStatus(s) { byId('status').textContent = s; }
-    function applyModel() {
-      byId('hint').textContent = HINTS[model];
-      byId('inLabel').textContent = model === 'mind' ? 'Outline' : 'Edges';
-    }
+    function applyOutlineHint() { byId('hint').textContent = HINTS[model]; }
 
+    // model tabs
     byId('modes').addEventListener('click', (e) => {
       const btn = e.target.closest('.tab'); if (!btn) return;
       model = btn.dataset.model;
-      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === btn));
-      applyModel();
-      if (byId('input').value.trim()) render();
+      document.querySelectorAll('#modes .tab').forEach((t) => t.classList.toggle('active', t === btn));
+      applyOutlineHint();
+      if (source === 'outline' && byId('input').value.trim()) render();
     });
+    // source tabs
+    byId('srcmodes').addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip'); if (!btn) return;
+      source = btn.dataset.src;
+      document.querySelectorAll('#srcmodes .chip').forEach((c) => c.classList.toggle('active', c === btn));
+      document.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== source; });
+      byId('goBtn').textContent = source === 'outline' ? 'Render' : 'Generate';
+    });
+
     byId('exampleBtn').addEventListener('click', () => { byId('input').value = EXAMPLES[model]; render(); });
-    byId('renderBtn').addEventListener('click', render);
+    byId('goBtn').addEventListener('click', () => (source === 'outline' ? render() : generate()));
     byId('copyBtn').addEventListener('click', async () => {
       if (!lastCode) return;
       try { await navigator.clipboard.writeText(lastCode); setStatus('Mermaid copied — paste into a doc, whitepaper, or chat.'); }
@@ -203,7 +265,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       URL.revokeObjectURL(a.href);
     });
 
-    applyModel();
+    applyOutlineHint();
     byId('input').value = EXAMPLES.mind;
     render();
   </script>
@@ -236,20 +298,32 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .phead { display: flex; align-items: center; justify-content: space-between; }
   .phead h2 { margin-bottom: 0; }
 
+  .srcmodes { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 11px; border-radius: 999px; border: 1px solid var(--color-border);
+    background: var(--color-bg); color: var(--color-fg-muted); font-size: 12px; cursor: pointer;
+  }
+  .chip.active { border-color: var(--color-accent); color: var(--color-fg); }
+
   #input {
-    width: 100%; min-height: 280px; resize: vertical; margin-top: 10px;
+    width: 100%; min-height: 240px; resize: vertical; margin-top: 10px;
     background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg);
     border-radius: 8px; padding: 10px; font-size: 12.5px; line-height: 1.55; font-family: var(--font-mono);
   }
+  .ti {
+    width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg);
+    border-radius: 8px; padding: 9px 10px; font-size: 13px; font-family: var(--font-sans);
+  }
   .hint { font-size: 11px; color: var(--color-fg-subtle); margin-top: 6px; }
 
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
   .btn {
     border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg);
     border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: var(--font-sans); cursor: pointer;
   }
   .btn:hover { border-color: var(--color-accent); }
   .btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+  .btn.primary:disabled { opacity: 0.6; cursor: progress; }
   .btn.ghost { padding: 5px 9px; font-size: 12px; color: var(--color-fg-muted); }
   .status { margin-top: 8px; font-size: 12px; color: var(--color-fg-muted); min-height: 18px; }
 
