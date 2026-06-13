@@ -42,9 +42,14 @@ const tools = [
     desc: 'Chain a diagram from image → Mermaid → draw.io → an Excel flow register of every hop, app, and interface.' },
   { title: 'Flow Register → Diagrams', href: '/tools/flow-to-diagram/', category: 'Architecture', where: 'browser',
     desc: 'Reverse pipeline: upload an Excel/CSV flow register and rebuild Mermaid + draw.io, split into application, database, and technology layers.' },
+
+  { title: 'Word Art / Banner', href: '/tools/word-art/', category: 'Create', where: 'server',
+    desc: 'Turn text, a URL, or a document into a styled word-cloud banner for blog posts and whitepapers.' },
+  { title: 'Diff — Compare Text', href: '/tools/diff/', category: 'Extract & Analyze', where: 'browser',
+    desc: 'Side-by-side or unified diff for code, Markdown, prompts, or ADR revisions — entirely in your browser.' },
 ];
 
-const CATEGORY_ORDER = ['Organize', 'Convert', 'Edit & Annotate', 'Sign & Secure', 'Extract & Analyze', 'Architecture'];
+const CATEGORY_ORDER = ['Organize', 'Convert', 'Create', 'Edit & Annotate', 'Sign & Secure', 'Extract & Analyze', 'Architecture'];
 const grouped = CATEGORY_ORDER
   .map((category) => ({ category, items: tools.filter((t) => t.category === category) }))
   .filter((g) => g.items.length > 0);

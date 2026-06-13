@@ -1,0 +1,241 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+// Backend (FastAPI on the droplet, reached via the tools tunnel). Override at
+// build with PUBLIC_TOOLS_API. The backend's ALLOWED_ORIGINS must include this
+// site's origin (https://sajivfrancis.com) for the cross-origin fetch to work.
+const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools.sajivfrancis.com/api';
+---
+
+<BaseLayout
+  title="Word Art / Banner"
+  description="Turn text, a URL, or a document into a styled word-cloud banner for posts and whitepapers."
+  mainClass="max-w-6xl"
+>
+  <article class="container">
+    <header class="tool-header">
+      <div class="title">
+        <h1>Word Art / Banner</h1>
+        <div class="subtitle">Text, a URL, or a document → a styled word-cloud banner (PNG).</div>
+      </div>
+      <a class="back-link" href="/tools/">All tools</a>
+    </header>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Source</h2>
+
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-mode="text">Paste text</button>
+          <button class="tab" data-mode="url">URL</button>
+          <button class="tab" data-mode="file">File</button>
+        </div>
+
+        <label class="field full" data-pane="text">
+          <span>Text</span>
+          <textarea id="text" placeholder="Paste a blog post, whitepaper, or any text…"></textarea>
+        </label>
+        <label class="field full" data-pane="url" hidden>
+          <span>Page URL</span>
+          <input type="url" id="url" placeholder="https://sajivfrancis.com/blog/…" />
+          <small>The backend scrapes and extracts the page text.</small>
+        </label>
+        <label class="field full" data-pane="file" hidden>
+          <span>Document (.txt, .md, .docx, .pdf)</span>
+          <input type="file" id="file" accept=".txt,.md,.docx,.pdf" />
+        </label>
+
+        <div class="grid">
+          <label class="field">
+            <span>Shape</span>
+            <select id="shape">
+              <option value="rectangle" selected>Banner (wide)</option>
+              <option value="circle">Circle</option>
+              <option value="arch">Arch</option>
+              <option value="diamond">Diamond</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Layout</span>
+            <select id="style">
+              <option value="cloud" selected>Word Cloud</option>
+              <option value="banner">Horizontal Banner</option>
+              <option value="scatter">Scattered</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Palette</span>
+            <select id="palette">
+              <option value="midnight" selected>Midnight</option>
+              <option value="carbon">Carbon</option>
+              <option value="forest">Forest</option>
+              <option value="ember">Ember</option>
+              <option value="ocean">Ocean</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Width (px)</span>
+            <input type="number" id="width" min="640" max="2400" step="80" value="1600" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="generateBtn">Generate banner</button>
+        </div>
+        <div class="status" id="status">Ready.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Result</h2>
+        <div id="result" class="result">
+          <div class="placeholder">Generate to see your banner here.</div>
+        </div>
+        <div class="actions" id="resultActions" hidden>
+          <a class="btn" id="openBtn" target="_blank" rel="noopener">Open full size</a>
+          <button class="btn" id="copyBtn">Copy URL</button>
+        </div>
+        <div class="url" id="urlBox" hidden></div>
+      </section>
+    </div>
+  </article>
+
+  <script is:inline define:vars={{ API_BASE }}>
+    const byId = (id) => document.getElementById(id);
+    let mode = 'text';
+
+    // Input-mode tabs
+    byId('tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab');
+      if (!btn) return;
+      mode = btn.dataset.mode;
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === btn));
+      document.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== mode; });
+    });
+
+    async function generate() {
+      const fd = new FormData();
+      fd.set('source_type', mode);
+      fd.set('shape', byId('shape').value);
+      fd.set('style', byId('style').value);
+      fd.set('palette', byId('palette').value);
+      fd.set('width', byId('width').value || '1600');
+
+      if (mode === 'text') {
+        const t = byId('text').value.trim();
+        if (!t) return setStatus('Paste some text first.');
+        fd.set('content', t);
+      } else if (mode === 'url') {
+        const u = byId('url').value.trim();
+        if (!u) return setStatus('Enter a URL first.');
+        fd.set('url', u);
+      } else {
+        const f = byId('file').files[0];
+        if (!f) return setStatus('Choose a file first.');
+        fd.set('file', f);
+      }
+
+      setStatus('Rendering…');
+      byId('generateBtn').disabled = true;
+      try {
+        const r = await fetch(`${API_BASE}/word-art/generate`, { method: 'POST', body: fd });
+        if (!r.ok) {
+          const msg = await r.text();
+          throw new Error(`${r.status} — ${msg.slice(0, 200)}`);
+        }
+        const { url } = await r.json();
+        showResult(url);
+        setStatus('Done. Banner stored (7-day link) — copy the URL into your post frontmatter.');
+      } catch (err) {
+        setStatus(`Failed: ${err.message}`);
+      } finally {
+        byId('generateBtn').disabled = false;
+      }
+    }
+
+    function showResult(url) {
+      byId('result').innerHTML = `<img src="${url}" alt="Generated word art" />`;
+      byId('openBtn').href = url;
+      byId('urlBox').textContent = url;
+      byId('urlBox').hidden = false;
+      byId('resultActions').hidden = false;
+      byId('copyBtn').onclick = async () => {
+        try { await navigator.clipboard.writeText(url); setStatus('URL copied.'); }
+        catch { setStatus('Copy failed — select the URL manually.'); }
+      };
+    }
+
+    function setStatus(s) { byId('status').textContent = s; }
+    byId('generateBtn').addEventListener('click', generate);
+  </script>
+</BaseLayout>
+
+<style>
+  .container { max-width: 1040px; margin: 0 auto; }
+  .tool-header {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .title h1 { font-size: 28px; font-weight: 600; margin-bottom: 3px; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: var(--color-fg-muted); }
+  .back-link {
+    text-decoration: none; font-size: 12px; color: var(--color-fg-muted);
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+  }
+  .back-link:hover { color: var(--color-fg); border-color: var(--color-accent); }
+
+  .layout { display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 12px; align-items: start; }
+  .panel {
+    background: var(--color-bg-elevated); border: 1px solid var(--color-border);
+    border-radius: 12px; padding: 12px;
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--color-fg-muted); margin-bottom: 10px;
+  }
+
+  .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+  .tab {
+    flex: 1; padding: 7px 0; border-radius: 8px; border: 1px solid var(--color-border);
+    background: var(--color-bg); color: var(--color-fg-muted); font-size: 12px; cursor: pointer;
+  }
+  .tab.active { border-color: var(--color-accent); color: var(--color-fg); }
+
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field span { font-size: 12px; color: var(--color-fg-muted); }
+  .field small { font-size: 11px; color: var(--color-fg-subtle); }
+  .field.full { grid-column: 1 / -1; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--color-bg); border: 1px solid var(--color-border);
+    color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: var(--font-sans);
+  }
+  .field textarea { min-height: 150px; resize: vertical; line-height: 1.5; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg);
+    border-radius: 8px; padding: 9px 12px; font-size: 13px; font-family: var(--font-sans);
+    cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .btn:hover { border-color: var(--color-accent); }
+  .btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+  .btn:disabled { opacity: 0.6; cursor: progress; }
+
+  .status { margin-top: 8px; font-size: 12px; color: var(--color-fg-muted); min-height: 18px; }
+
+  .result {
+    min-height: 260px; display: grid; place-items: center; overflow: hidden;
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px;
+  }
+  .result img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
+  .placeholder { font-size: 13px; color: var(--color-fg-subtle); }
+  .url {
+    margin-top: 8px; font-size: 11px; font-family: var(--font-mono); color: var(--color-fg-muted);
+    word-break: break-all; background: var(--color-bg); border: 1px solid var(--color-border);
+    border-radius: 8px; padding: 8px;
+  }
+
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } .title h1 { font-size: 24px; } }
+</style>

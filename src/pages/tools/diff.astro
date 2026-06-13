@@ -1,0 +1,183 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+// Fully client-side (LCS line diff). Nothing is uploaded.
+---
+
+<BaseLayout
+  title="Diff — Compare Text"
+  description="Side-by-side or unified diff for code, Markdown, prompts, or ADR revisions — entirely in your browser."
+  mainClass="max-w-6xl"
+>
+  <article class="container">
+    <header class="tool-header">
+      <div class="title">
+        <h1>Diff — Compare Text</h1>
+        <div class="subtitle">Code, Markdown, prompts, ADR revisions. Computed locally — nothing uploaded.</div>
+      </div>
+      <a class="back-link" href="/tools/">All tools</a>
+    </header>
+
+    <div class="inputs">
+      <label class="field">
+        <span>Original</span>
+        <textarea id="original" placeholder="Paste the original…"></textarea>
+      </label>
+      <label class="field">
+        <span>Modified</span>
+        <textarea id="modified" placeholder="Paste the modified…"></textarea>
+      </label>
+    </div>
+
+    <div class="bar">
+      <div class="modes" id="modes">
+        <button class="tab active" data-mode="sidebyside">Side by side</button>
+        <button class="tab" data-mode="unified">Unified</button>
+      </div>
+      <div class="actions">
+        <span class="stats" id="stats"></span>
+        <button class="btn" id="copyBtn">Copy patch</button>
+        <button class="btn" id="dlBtn">Download .diff</button>
+        <button class="btn primary" id="compareBtn">Compare</button>
+      </div>
+    </div>
+
+    <div class="output" id="output"><div class="placeholder">Paste both sides and hit Compare.</div></div>
+  </article>
+
+  <script is:inline>
+    const byId = (id) => document.getElementById(id);
+    let mode = 'sidebyside';
+    let lastOps = null;
+
+    function lcsDiff(a, b) {
+      const n = a.length, m = b.length;
+      const dp = Array.from({ length: n + 1 }, () => new Int32Array(m + 1));
+      for (let i = n - 1; i >= 0; i--)
+        for (let j = m - 1; j >= 0; j--)
+          dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      const ops = []; let i = 0, j = 0;
+      while (i < n && j < m) {
+        if (a[i] === b[j]) { ops.push(['eq', a[i]]); i++; j++; }
+        else if (dp[i + 1][j] >= dp[i][j + 1]) { ops.push(['del', a[i++]]); }
+        else { ops.push(['add', b[j++]]); }
+      }
+      while (i < n) ops.push(['del', a[i++]]);
+      while (j < m) ops.push(['add', b[j++]]);
+      return ops;
+    }
+
+    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    function renderUnified(ops) {
+      return '<pre class="diff">' + ops.map(([t, line]) => {
+        const p = t === 'add' ? '+' : t === 'del' ? '-' : ' ';
+        return `<span class="ln ${t}">${p} ${esc(line)}</span>`;
+      }).join('\n') + '</pre>';
+    }
+
+    function renderSideBySide(ops) {
+      const rows = ops.map(([t, line]) => {
+        if (t === 'eq') return `<tr><td class="num"></td><td>${esc(line)}</td><td class="num"></td><td>${esc(line)}</td></tr>`;
+        if (t === 'del') return `<tr><td class="num">-</td><td class="del">${esc(line)}</td><td class="num"></td><td></td></tr>`;
+        return `<tr><td class="num"></td><td></td><td class="num">+</td><td class="add">${esc(line)}</td></tr>`;
+      }).join('');
+      return `<table class="sbs"><tbody>${rows}</tbody></table>`;
+    }
+
+    function unifiedPatch(ops) {
+      return ops.map(([t, line]) => (t === 'add' ? '+' : t === 'del' ? '-' : ' ') + line).join('\n');
+    }
+
+    function compare() {
+      const a = byId('original').value.replace(/\r\n/g, '\n').split('\n');
+      const b = byId('modified').value.replace(/\r\n/g, '\n').split('\n');
+      const ops = lcsDiff(a, b);
+      lastOps = ops;
+      const added = ops.filter((o) => o[0] === 'add').length;
+      const removed = ops.filter((o) => o[0] === 'del').length;
+      byId('stats').textContent = `+${added} −${removed}`;
+      byId('output').innerHTML = mode === 'unified' ? renderUnified(ops) : renderSideBySide(ops);
+    }
+
+    byId('modes').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab'); if (!btn) return;
+      mode = btn.dataset.mode;
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === btn));
+      if (lastOps) byId('output').innerHTML = mode === 'unified' ? renderUnified(lastOps) : renderSideBySide(lastOps);
+    });
+
+    byId('compareBtn').addEventListener('click', compare);
+    byId('copyBtn').addEventListener('click', async () => {
+      if (!lastOps) return;
+      try { await navigator.clipboard.writeText(unifiedPatch(lastOps)); byId('stats').textContent = 'patch copied'; }
+      catch { /* ignore */ }
+    });
+    byId('dlBtn').addEventListener('click', () => {
+      if (!lastOps) return;
+      const blob = new Blob([unifiedPatch(lastOps)], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'changes.diff'; a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .container { max-width: 1040px; margin: 0 auto; }
+  .tool-header {
+    border-bottom: 1px solid var(--color-border); padding-bottom: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .title h1 { font-size: 28px; font-weight: 600; margin-bottom: 3px; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: var(--color-fg-muted); }
+  .back-link {
+    text-decoration: none; font-size: 12px; color: var(--color-fg-muted);
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+  }
+  .back-link:hover { color: var(--color-fg); border-color: var(--color-accent); }
+
+  .inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field span { font-size: 12px; color: var(--color-fg-muted); }
+  .field textarea {
+    width: 100%; min-height: 200px; resize: vertical;
+    background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg);
+    border-radius: 8px; padding: 10px; font-size: 12.5px; line-height: 1.5; font-family: var(--font-mono);
+  }
+
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+  .modes { display: flex; gap: 5px; }
+  .tab {
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--color-border);
+    background: var(--color-bg); color: var(--color-fg-muted); font-size: 12px; cursor: pointer;
+  }
+  .tab.active { border-color: var(--color-accent); color: var(--color-fg); }
+  .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .stats { font-size: 12px; color: var(--color-fg-muted); font-family: var(--font-mono); }
+  .btn {
+    border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: var(--font-sans); cursor: pointer;
+  }
+  .btn:hover { border-color: var(--color-accent); }
+  .btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+
+  .output {
+    border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-bg);
+    overflow: auto; max-height: 70vh; min-height: 120px;
+  }
+  .placeholder { padding: 16px; font-size: 13px; color: var(--color-fg-subtle); }
+
+  .diff { margin: 0; padding: 10px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; }
+  .diff .ln { display: block; white-space: pre-wrap; }
+  .ln.add { color: #4ade80; background: rgba(74, 222, 128, 0.08); }
+  .ln.del { color: #f87171; background: rgba(248, 113, 113, 0.08); }
+
+  .sbs { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: 12.5px; }
+  .sbs td { padding: 1px 8px; vertical-align: top; white-space: pre-wrap; word-break: break-word; }
+  .sbs td.num { width: 1.4em; text-align: center; color: var(--color-fg-subtle); user-select: none; border-right: 1px solid var(--color-border); }
+  .sbs td:nth-child(2) { border-right: 1px solid var(--color-border); width: 50%; }
+  .sbs td.del { background: rgba(248, 113, 113, 0.10); color: #f87171; }
+  .sbs td.add { background: rgba(74, 222, 128, 0.10); color: #4ade80; }
+
+  @media (max-width: 760px) { .inputs { grid-template-columns: 1fr; } }
+</style>
