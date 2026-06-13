@@ -43,6 +43,66 @@ The fix wasn't to abandon retrieval. It was to rethink the chunking and retrieva
 
 ## The Core Insight: Two Separate Layers
 
+```mermaid
+mindmap
+  root((Two-Layer RAG Architecture))
+    The Problem
+      Large context windows tempting but unscalable
+      Wrong grounded answer worse than no answer
+      Need citable source and section level provenance
+      Domains: SAP, Finance, Software Architecture, Enterprise Integration
+    Why Standard Retrieval Failed
+      Top-K similarity search over pgvector
+      Overlapping terminology across categories
+      Right terms not same as right context
+      Solution: rethink chunking and retrieval together
+    Two-Layer Design
+      Library Layer
+        Index for humans
+        Navigable by domain category
+        User selects scope
+        Domains: SAP, Finance, Software Engineering, Architecture
+      Worker Layer
+        Index for the LLM
+        Fine-grained topic-scoped chunks
+        Rechunked at section boundaries
+        Hybrid search within scope
+        Returns only relevant slices
+    Two-Tier Knowledge Base
+      Tier 1 Reference Material
+        Published docs, standards, technical guides
+        Citable to section level
+        Example: SAP S4HANA integration specs
+      Tier 2 Synthesized Material
+        Architecture notes, integration summaries
+        Pre-integrated, author-framed
+        Accumulates over time improving retrieval
+      Both tiers share same embedding pipeline
+      Provenance tagged per source
+    Cross-Domain Flow Reasoning
+      Domains connect: Finance to Controlling to Reporting
+      Seams between domains most important
+      Dedicated integration index
+      Cross-domain chunks tagged with source and target domain
+      Seam annotations injected into assembled prompt
+    Tech Stack
+      pgvector on DigitalOcean
+      Cloudflare Workers as retrieval orchestrator
+      OpenAI text-embedding-3-small current, large target
+      BM25 keyword search with hybrid reranking
+      Claude as reasoning front-end
+    Architecture States
+      Current State
+        Single semantic search path
+        Category-scoped prompt assembly
+        Basic cosine similarity
+      Target State
+        Semantic plus BM25 hybrid reranking
+        Integration index for cross-domain seams
+        Provenance-tagged context in prompt
+        Citable responses to source and section
+```
+
 The library and the retrieval layer serve different masters.
 
 - **Library** → an index for humans. Navigable, categorized by domain — SAP,Finance, Software Engineering, Architecture, and others. You select scope at the category or document level.
