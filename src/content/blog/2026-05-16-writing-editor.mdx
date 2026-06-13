@@ -1,13 +1,15 @@
 ---
 title: "I built a writing editor for my personal site this weekend"
-subtitle: "Drafts in Cloudflare KV. Review against my actual GitHub source. Publish to GitHub Pages."
+subtitle: "Writing Editor"
 description: "Draft, review and publish your own personal writing with the help of AI reviews."
 pubDate: 2026-05-16
-coverImage: /img/og-default.png
-coverAlt: Sajiv Francis editorial card
+coverImage: "/img/banners/writing-editor.png"
+coverAlt: "Sajiv Francis editorial card"
 tags:
-  - Writing
-  - AI
+  - "Writing"
+  - "sfrancis2017/personal-chat"
+  - "sfrancis2017/sajivfrancis.github.io-master"
+  - "AI"
 draft: false
 publishMode: blog-first
 ---
@@ -18,10 +20,67 @@ Here's the loop. One Cloudflare Worker — the chat-worker — handles all read/
 
 ```mermaid
 flowchart TD
-    A["/admin/write"] -->|Save| B["DRAFTS_KV<br>owner-only via CHAT_TOKEN"]
-    B -->|Publish| C["GitHub: src/content/blog/<br>YYYY-MM-DD-slug.mdx"]
-    C -->|git push| D["GitHub Pages rebuild"]
-    D --> E["sajivfrancis.com/blog/slug"]
+    A[/admin/write] -->|Save| B[DRAFTS_KV<br>owner-only via CHAT_TOKEN]
+    B -->|Publish| C[GitHub: src/content/blog/<br>YYYY-MM-DD-slug.mdx]
+    C -->|git push| D[GitHub Pages rebuild]
+    D --> E[sajivfrancis.com/blog/slug]
+``` 
+
+```mermaid
+
+mindmap
+  root((Writing Editor for Personal Site))
+    Draft Management
+      Browser Editor UI
+        /admin/write
+        Owner-only access
+      Cloudflare KV
+        DRAFTS_KV
+        Private binding
+        chat-worker read/write
+      CHAT_TOKEN Auth
+        Enforced on all routes
+    Publishing Pipeline
+      Publish to GitHub
+        src/content/blog/YYYY-MM-DD-slug.mdx
+        MDX and images public on push
+      GitHub Pages Rebuild
+        git push triggers build
+        sajivfrancis.com/blog/slug
+    AI Review Pass
+      Claude
+        Prose and technical review
+        Called by chat-worker
+      GitHub Source Grounding
+        Fetch actual repo source
+        Flag mismatches e.g. Python vs TypeScript
+      Corpus Grounding
+        pgvector store
+          topK 6 chunks
+          Owner-only access
+        docs.sajivfrancis.com
+        Retrieval query from title and first 800 chars
+        Topic filters docs writing meta
+    Key Components
+      chat-worker
+        Central Cloudflare Worker
+        All KV read/write
+        Orchestrates review and publish
+      pgvector store
+        Corpus chunk retrieval
+        Cross-check new posts vs existing docs
+    Workflow Loop
+      Save Draft
+      Review with Claude
+        Fix flagged issues manually
+      Publish
+    Design Philosophy
+      Grounding makes AI useful
+        GitHub source
+        Personal docs
+        Vector store
+      Without grounding just a grammar checker
+      Review prose and technical claims in same pass
 ``` 
 
 The review pass fetches the actual GitHub source for any repo I tag, then asks Claude to ground my prose against that code. If I write "I used Python" but 'wrangler.toml' says TypeScript, the suggestion flags it — I fix it manually before publishing.
@@ -40,7 +99,7 @@ This is a different way of writing. Review prose and technical claims in the sam
 ```mermaid
 sequenceDiagram
     actor Owner
-    participant Editor as "/admin/write"
+    participant Editor as /admin/write
     participant Worker as chat-worker
     participant KV as DRAFTS_KV
     participant GH as GitHub
@@ -64,7 +123,6 @@ sequenceDiagram
 
 The retrieval query is constructed from the draft's title and the first 800 characters of the body — enough signal to surface relevant chunks without overfitting to the opening paragraph. The actual call looks like this:
 
-```ts
 // pgvector corpus grounding — use draft title + body lead as the
 // retrieval query. Owner mode so all visibility scopes are in play.
 let corpusChunks = [];
@@ -83,6 +141,5 @@ try {
 } catch (e) {
   // Non-fatal — continue with GitHub grounding only
 }
-```
 
 The AI layer is only as useful as its grounding — GitHub source, personal docs, the vector store. Strip that away and it is just a grammar checker.
