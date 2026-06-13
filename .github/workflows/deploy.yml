@@ -64,3 +64,31 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Ping IndexNow (Bing + Yandex + others) with the live URL list after each
+  # deploy, so new/updated pages get discovered near-instantly. Runs after the
+  # site is live so the URLs and the key file are reachable for verification.
+  indexnow:
+    name: Submit URLs to IndexNow
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit live sitemap URLs to IndexNow
+        run: |
+          set -euo pipefail
+          HOST="sajivfrancis.com"
+          KEY="6b00e8e659f4b5385a9fe8fc1d8907e3"
+          # sitemap index -> sub-sitemaps -> page URLs (both stages use <loc>)
+          maps=$(curl -fsS "https://$HOST/sitemap-index.xml" | grep -oE '<loc>[^<]+</loc>' | sed -E 's#</?loc>##g' || true)
+          [ -z "$maps" ] && maps="https://$HOST/sitemap-0.xml"
+          urls=$(for m in $maps; do curl -fsS "$m" | grep -oE '<loc>[^<]+</loc>' | sed -E 's#</?loc>##g'; done | sort -u)
+          count=$(printf '%s\n' "$urls" | grep -c . || true)
+          echo "Submitting $count URLs to IndexNow"
+          payload=$(printf '%s\n' "$urls" | jq -R . | jq -s \
+            --arg host "$HOST" --arg key "$KEY" --arg loc "https://$HOST/$KEY.txt" \
+            '{host:$host, key:$key, keyLocation:$loc, urlList: map(select(length>0))}')
+          code=$(curl -sS -o /tmp/resp -w '%{http_code}' -X POST "https://api.indexnow.org/IndexNow" \
+            -H 'Content-Type: application/json' --data "$payload")
+          echo "IndexNow HTTP $code"; cat /tmp/resp || true
+          # 200/202 = accepted. Never fail the deploy on an IndexNow hiccup.
+          case "$code" in 200|202) ;; *) echo "::warning::IndexNow returned $code (non-fatal)";; esac
