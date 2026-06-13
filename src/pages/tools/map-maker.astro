@@ -1,0 +1,272 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+// Fully client-side: outline → Mermaid → rendered preview. Nothing uploaded.
+// Mermaid is the shared output format (renders in chat, docs, and here), so the
+// generated code drops straight into a whitepaper or doc.
+---
+
+<BaseLayout
+  title="Map Maker"
+  description="Turn an outline into a mind map, concept map, or system map — generates Mermaid you can drop into docs, whitepapers, or the chat."
+  mainClass="max-w-6xl"
+>
+  <article class="container">
+    <header class="tool-header">
+      <div class="title">
+        <h1>Map Maker</h1>
+        <div class="subtitle">Outline → mind map / concept map / system map. Outputs Mermaid — renders here, in docs, and in the chat.</div>
+      </div>
+      <a class="back-link" href="/tools/">All tools</a>
+    </header>
+
+    <div class="modes" id="modes">
+      <button class="tab active" data-model="mind">Mind map</button>
+      <button class="tab" data-model="concept">Concept map</button>
+      <button class="tab" data-model="system">System map</button>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="phead">
+          <h2 id="inLabel">Outline</h2>
+          <button class="btn ghost" id="exampleBtn">Load example</button>
+        </div>
+        <textarea id="input" spellcheck="false"></textarea>
+        <div class="hint" id="hint"></div>
+        <div class="actions">
+          <button class="btn primary" id="renderBtn">Render</button>
+          <button class="btn" id="copyBtn">Copy Mermaid</button>
+          <button class="btn" id="svgBtn">Download SVG</button>
+        </div>
+        <div class="status" id="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Preview</h2>
+        <div id="preview" class="preview"><div class="placeholder">Render to see the map.</div></div>
+        <details class="src">
+          <summary>Mermaid source</summary>
+          <pre id="src"></pre>
+        </details>
+      </section>
+    </div>
+  </article>
+
+  <script is:inline>
+    const byId = (id) => document.getElementById(id);
+    let model = 'mind';
+    let lastCode = '';
+
+    const HINTS = {
+      mind: 'Indented outline (2 spaces per level). First line = center.',
+      concept: 'One relationship per line:  Term  ->  relationship  ->  Term   (relationship optional).',
+      system: 'Group with [cluster:Name] headers; then  A -> B  edges (chains allowed: A -> B -> C).',
+    };
+    const EXAMPLES = {
+      mind: `Sense-making\n  Exploratory\n    Mind map\n    Concept map\n  Explanatory\n    System map\n    Mental model\n    Concept model`,
+      concept: `Search -> requires -> Query\nQuery -> returns -> Results\nResults -> ranked by -> Relevance\nUser -> issues -> Query`,
+      system: `[cluster:Frontend]\nweb_app -> api_gateway\nmobile_app -> api_gateway\n[cluster:Backend]\napi_gateway -> auth_service\napi_gateway -> data_service\ndata_service -> postgres\n[cluster:Data]\npostgres -> pgvector`,
+    };
+
+    const clean = (s) => s.replace(/["[\]{}()|]/g, '').trim();
+    const sanitizeLabel = (s) => s.replace(/"/g, "'").trim();
+
+    // ── Mind map ────────────────────────────────────────────────────────────
+    function toMind(text) {
+      const lines = text.replace(/\t/g, '  ').split('\n').filter((l) => l.trim());
+      if (!lines.length) return 'mindmap\n  root((empty))';
+      let out = 'mindmap\n';
+      lines.forEach((l, i) => {
+        const indent = (l.match(/^ */) || [''])[0].length;
+        const depth = Math.floor(indent / 2);
+        const label = clean(l);
+        const pad = '  '.repeat(depth + 1);
+        out += i === 0 ? `${pad}root((${label}))\n` : `${pad}${label}\n`;
+      });
+      return out;
+    }
+
+    // ── shared edge id map ────────────────────────────────────────────────────
+    function idMaker(prefix) {
+      const ids = new Map(); let n = 0;
+      return (label) => { if (!ids.has(label)) ids.set(label, prefix + n++); return ids.get(label); };
+    }
+
+    // ── Concept map (labeled edges) ──────────────────────────────────────────
+    function toConcept(text) {
+      const id = idMaker('n');
+      const declared = new Set();
+      let out = 'flowchart TD\n';
+      text.split('\n').forEach((line) => {
+        line = line.trim(); if (!line) return;
+        let parts = line.split(/\s*->\s*/);
+        if (parts.length < 2) parts = line.split(/\s*\|\s*/);
+        if (parts.length < 2) return;
+        const a = sanitizeLabel(parts[0]);
+        const b = sanitizeLabel(parts[parts.length - 1]);
+        const rel = parts.length >= 3 ? sanitizeLabel(parts[1]) : '';
+        const ia = id(a), ib = id(b);
+        if (!declared.has(ia)) { out += `  ${ia}["${a}"]\n`; declared.add(ia); }
+        if (!declared.has(ib)) { out += `  ${ib}["${b}"]\n`; declared.add(ib); }
+        out += rel ? `  ${ia} -->|${rel}| ${ib}\n` : `  ${ia} --> ${ib}\n`;
+      });
+      return out;
+    }
+
+    // ── System map (clusters → subgraphs) ────────────────────────────────────
+    function toSystem(text) {
+      const id = idMaker('s');
+      const clusters = []; let cur = null;
+      const edges = []; const all = new Set();
+      text.split('\n').forEach((line) => {
+        line = line.trim(); if (!line) return;
+        const cm = line.match(/^\[cluster:(.+)\]$/i);
+        if (cm) { cur = { name: sanitizeLabel(cm[1]), nodes: new Set() }; clusters.push(cur); return; }
+        const parts = line.split(/\s*->\s*/).map((p) => sanitizeLabel(p)).filter(Boolean);
+        for (let i = 0; i < parts.length - 1; i++) {
+          edges.push([parts[i], parts[i + 1]]);
+          all.add(parts[i]); all.add(parts[i + 1]);
+          if (cur) { cur.nodes.add(parts[i]); cur.nodes.add(parts[i + 1]); }
+        }
+      });
+      const clustered = new Set();
+      let out = 'flowchart TD\n';
+      clusters.forEach((c, ci) => {
+        out += `  subgraph c${ci}["${c.name}"]\n`;
+        c.nodes.forEach((node) => { out += `    ${id(node)}["${node}"]\n`; clustered.add(node); });
+        out += '  end\n';
+      });
+      all.forEach((node) => { if (!clustered.has(node)) out += `  ${id(node)}["${node}"]\n`; });
+      edges.forEach(([a, b]) => { out += `  ${id(a)} --> ${id(b)}\n`; });
+      return out;
+    }
+
+    function build(text) {
+      return model === 'mind' ? toMind(text) : model === 'concept' ? toConcept(text) : toSystem(text);
+    }
+
+    // ── Mermaid (dynamic import from CDN — same as docs/chat) ──────────────────
+    let _mm;
+    async function mermaid() {
+      if (!_mm) {
+        const mod = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+        _mm = mod.default;
+        const dark = document.documentElement.dataset.theme === 'dark';
+        _mm.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'loose' });
+      }
+      return _mm;
+    }
+
+    let renderSeq = 0;
+    async function render() {
+      const code = build(byId('input').value);
+      lastCode = code;
+      byId('src').textContent = code;
+      const seq = ++renderSeq;
+      try {
+        const mm = await mermaid();
+        const { svg } = await mm.render('map-' + seq, code);
+        if (seq !== renderSeq) return; // a newer render started
+        byId('preview').innerHTML = svg;
+        setStatus('Rendered.');
+      } catch (e) {
+        byId('preview').innerHTML = `<div class="err">Couldn't render — check the outline.\n${(e && e.message ? e.message : e)}</div>`;
+        setStatus('Render error.');
+      }
+    }
+
+    function setStatus(s) { byId('status').textContent = s; }
+    function applyModel() {
+      byId('hint').textContent = HINTS[model];
+      byId('inLabel').textContent = model === 'mind' ? 'Outline' : 'Edges';
+    }
+
+    byId('modes').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab'); if (!btn) return;
+      model = btn.dataset.model;
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === btn));
+      applyModel();
+      if (byId('input').value.trim()) render();
+    });
+    byId('exampleBtn').addEventListener('click', () => { byId('input').value = EXAMPLES[model]; render(); });
+    byId('renderBtn').addEventListener('click', render);
+    byId('copyBtn').addEventListener('click', async () => {
+      if (!lastCode) return;
+      try { await navigator.clipboard.writeText(lastCode); setStatus('Mermaid copied — paste into a doc, whitepaper, or chat.'); }
+      catch { setStatus('Copy failed.'); }
+    });
+    byId('svgBtn').addEventListener('click', () => {
+      const svg = byId('preview').querySelector('svg'); if (!svg) return setStatus('Render first.');
+      const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `${model}-map.svg`; a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    applyModel();
+    byId('input').value = EXAMPLES.mind;
+    render();
+  </script>
+</BaseLayout>
+
+<style>
+  .container { max-width: 1040px; margin: 0 auto; }
+  .tool-header {
+    border-bottom: 1px solid var(--color-border); padding-bottom: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .title h1 { font-size: 28px; font-weight: 600; margin-bottom: 3px; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: var(--color-fg-muted); }
+  .back-link {
+    text-decoration: none; font-size: 12px; color: var(--color-fg-muted);
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+  }
+  .back-link:hover { color: var(--color-fg); border-color: var(--color-accent); }
+
+  .modes { display: flex; gap: 5px; margin-bottom: 12px; }
+  .tab {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--color-border);
+    background: var(--color-bg); color: var(--color-fg-muted); font-size: 13px; cursor: pointer;
+  }
+  .tab.active { border-color: var(--color-accent); color: var(--color-fg); }
+
+  .layout { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 12px; align-items: start; }
+  .panel { background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 12px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 10px; }
+  .phead { display: flex; align-items: center; justify-content: space-between; }
+  .phead h2 { margin-bottom: 0; }
+
+  #input {
+    width: 100%; min-height: 280px; resize: vertical; margin-top: 10px;
+    background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg);
+    border-radius: 8px; padding: 10px; font-size: 12.5px; line-height: 1.55; font-family: var(--font-mono);
+  }
+  .hint { font-size: 11px; color: var(--color-fg-subtle); margin-top: 6px; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: var(--font-sans); cursor: pointer;
+  }
+  .btn:hover { border-color: var(--color-accent); }
+  .btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+  .btn.ghost { padding: 5px 9px; font-size: 12px; color: var(--color-fg-muted); }
+  .status { margin-top: 8px; font-size: 12px; color: var(--color-fg-muted); min-height: 18px; }
+
+  .preview {
+    min-height: 320px; display: grid; place-items: center; overflow: auto;
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 12px;
+  }
+  .preview svg { max-width: 100%; height: auto; }
+  .placeholder { font-size: 13px; color: var(--color-fg-subtle); }
+  .err { color: #f87171; font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; }
+
+  .src { margin-top: 10px; }
+  .src summary { font-size: 12px; color: var(--color-fg-muted); cursor: pointer; }
+  .src pre {
+    margin-top: 8px; white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px;
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px; color: var(--color-fg);
+  }
+
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+</style>
