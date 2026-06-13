@@ -95,6 +95,17 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
           <button class="btn" id="copyBtn">Copy URL</button>
         </div>
         <div class="url" id="urlBox" hidden></div>
+
+        <div class="save" id="saveBox" hidden>
+          <h3>Save to site <span>— permanent banner (owner)</span></h3>
+          <div class="save-grid">
+            <label class="field"><span>Filename</span><input id="bannerName" placeholder="my-post-banner" /></label>
+            <label class="field"><span>Alt text</span><input id="bannerAlt" placeholder="Word cloud of key themes" /></label>
+          </div>
+          <div class="actions"><button class="btn primary" id="saveBtn">Save to site</button></div>
+          <div class="snippet" id="snippet" hidden></div>
+          <div class="status" id="saveStatus"></div>
+        </div>
       </section>
     </div>
   </article>
@@ -102,6 +113,7 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
   <script is:inline define:vars={{ API_BASE }}>
     const byId = (id) => document.getElementById(id);
     let mode = 'text';
+    let lastUrl = null;
 
     // Input-mode tabs
     byId('tabs').addEventListener('click', (e) => {
@@ -153,11 +165,13 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
     }
 
     function showResult(url) {
+      lastUrl = url;
       byId('result').innerHTML = `<img src="${url}" alt="Generated word art" />`;
       byId('openBtn').href = url;
       byId('urlBox').textContent = url;
       byId('urlBox').hidden = false;
       byId('resultActions').hidden = false;
+      byId('saveBox').hidden = false;
       byId('copyBtn').onclick = async () => {
         try { await navigator.clipboard.writeText(url); setStatus('URL copied.'); }
         catch { setStatus('Copy failed — select the URL manually.'); }
@@ -165,7 +179,45 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
     }
 
     function setStatus(s) { byId('status').textContent = s; }
+    function setSave(s) { byId('saveStatus').textContent = s; }
     byId('generateBtn').addEventListener('click', generate);
+
+    // Owner-only: commit the generated banner into the site repo (permanent).
+    byId('saveBtn').addEventListener('click', async () => {
+      if (!lastUrl) return;
+      const name = byId('bannerName').value.trim();
+      if (!name) return setSave('Enter a filename first.');
+      let token = localStorage.getItem('tools-access-token');
+      if (!token) {
+        token = (prompt('Enter your tools owner token (saved to this browser):') || '').trim();
+        if (!token) return;
+        localStorage.setItem('tools-access-token', token);
+      }
+      setSave('Saving to site…');
+      byId('saveBtn').disabled = true;
+      try {
+        const r = await fetch(`${API_BASE}/publish/banner`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ url: lastUrl, name, alt: byId('bannerAlt').value.trim() }),
+        });
+        if (r.status === 401) {
+          localStorage.removeItem('tools-access-token');
+          throw new Error('Owner token rejected — click Save again to re-enter it.');
+        }
+        if (!r.ok) throw new Error(`${r.status} — ${(await r.text()).slice(0, 200)}`);
+        const { snippet, path } = await r.json();
+        const box = byId('snippet');
+        box.hidden = false;
+        box.textContent = snippet;
+        try { await navigator.clipboard.writeText(snippet); } catch (_) {}
+        setSave(`Committed ${path} — snippet copied. Paste it into your post frontmatter.`);
+      } catch (e) {
+        setSave(`Failed: ${e.message}`);
+      } finally {
+        byId('saveBtn').disabled = false;
+      }
+    });
   </script>
 </BaseLayout>
 
@@ -234,6 +286,21 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
     margin-top: 8px; font-size: 11px; font-family: var(--font-mono); color: var(--color-fg-muted);
     word-break: break-all; background: var(--color-bg); border: 1px solid var(--color-border);
     border-radius: 8px; padding: 8px;
+  }
+
+  .save { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+  .save h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .save h3 span { font-size: 11px; color: var(--color-fg-subtle); font-weight: 400; }
+  .save-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .save-grid .field span { font-size: 12px; color: var(--color-fg-muted); }
+  .save-grid input {
+    width: 100%; background: var(--color-bg); border: 1px solid var(--color-border);
+    color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: var(--font-sans);
+  }
+  .snippet {
+    margin-top: 8px; white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px;
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px;
+    padding: 10px; color: var(--color-fg);
   }
 
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
