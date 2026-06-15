@@ -4,6 +4,10 @@ import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
 import { fetchFeeds, relativeTime } from '@/lib/news';
 import type { FeedItem } from '@/lib/news';
+import HeroVideo from '@/components/HeroVideo.astro';
+
+// Phase 0 landing teaser — paste the CDN URL from the video pipeline here.
+const heroVideo = '';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
@@ -29,6 +33,8 @@ try {
   title="Sajiv Francis"
   description="Enterprise Architect writing about the intersection of AI and architecture practice."
 >
+  <HeroVideo src={heroVideo} class="mb-8" />
+
   <section class="space-y-6">
     <h1 class="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
       Sajiv Francis

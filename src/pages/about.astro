@@ -1,5 +1,9 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import HeroVideo from '@/components/HeroVideo.astro';
+
+// Phase 0 about teaser — paste the CDN URL from the video pipeline here.
+const heroVideo = '';
 ---
 
 <BaseLayout
@@ -7,6 +11,8 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   description="About Sajiv Francis — Enterprise Architect leading AI programs at a Fortune 100 technology company. Indo-Canadian living in Arizona."
   mainClass="max-w-6xl"
 >
+  <HeroVideo src={heroVideo} class="mb-8" />
+
   <!-- Top section: image is a background on the wrapper, positioned
        top-right and bleeding to the viewport edge. The wrapper extends
        through Hero + Now + Background + Why so the image is visible

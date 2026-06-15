@@ -1,0 +1,35 @@
+---
+/**
+ * HeroVideo — silent, autoplaying, looping background/hero clip.
+ * Renders NOTHING when `src` is empty, so it's safe to leave as a placeholder
+ * until the video-pipeline produces a CDN URL. Phase 0: landing + about teasers.
+ */
+interface Props {
+  src?: string;
+  poster?: string;
+  class?: string;
+}
+const { src, poster, class: klass = '' } = Astro.props;
+---
+
+{src && (
+  <video
+    class:list={['hero-video w-full rounded-xl border border-[var(--color-border)] bg-black', klass]}
+    autoplay
+    muted
+    loop
+    playsinline
+    preload="metadata"
+    poster={poster}
+  >
+    <source src={src} type="video/mp4" />
+  </video>
+)}
+
+<style>
+  .hero-video {
+    display: block;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+</style>
