@@ -74,7 +74,7 @@ This is the part I find satisfying because most of the steps blink by in seconds
 
 ## How long each part actually takes
 
-I'm not hand-waving on that "filming is the slow part" claim. Here's a real run that was timed:
+Here's a real run that was timed:
 
 | Step | What happens | Time |
 |---|---|---|
@@ -84,7 +84,6 @@ I'm not hand-waving on that "filming is the slow part" claim. Here's a real run 
 | **Publishing** | save the clip, put it online | about a second |
 | **Start to finish** | request → video live on the site | **75 seconds** |
 
-Look at that gap. Filming takes ten-plus times longer than everything else combined. That's the entire reason the crew is shaped the way it is: the slow job gets the "leave it with me" treatment, the quick lookup gets an instant answer. The structure just follows the stopwatch.
 
 ## And then I lost a day to a dashboard
 
@@ -96,16 +95,7 @@ Here's the confession. The AI parts? Are they Smooth? Almost suspeciusly is the 
   caption="The dashboard once it finally behaved: the quick lookup on the left, then each helper handing off to the next, all green."
 />
 
-The cause was almost embarrassing. I was running a *newer* version of n8n than my setup was written for, this caused issues where I'd fix one mismatch and the next would pop up right behind it.
-
-What finally got me out wasn't grinding through the errors one at a time. It was stopping and asking a better question: not "how do I fix *this* one," but "what habit would've spared me *all* of them?" Here's what I'd tell past-me:
-
-| What tripped me up | What I'd do instead |
-|---|---|
-| I grabbed whatever the "latest" version was | Pin one exact version and stay there. Don't let the floor move under you. |
-| I edited the setup file by hand | Let the tool write its own setup, then save *that*. Don't reverse-engineer it. |
-| A "nice to have" held up a finished job | Keep "it works" separate from "I can watch it work." The crew worked the whole time as only the viewing screen was broken. |
-| I kept poking with no cutoff | Set a timer. "If the dashboard won't behave in an hour, get the proof some other way." |
+The issue was because I was running a *newer* version of n8n than my setup was written for, this caused issues where I'd fix one mismatch and the next would pop up right behind it.
 
 Once I pinned the dashboard to one version and adjusted the workflow json file, the n8n dashboard came up clean too.
 
