@@ -1,10 +1,10 @@
 ---
-title: "I Gave This Site a Team of AI Agents — and They Make the Videos"
-subtitle: What two emerging agent protocols (A2A and MCP) actually feel like when you wire them to do a real job
-description: A plain-language tour of the agentic pipeline that generates the short videos on this site — how the A2A and MCP protocols divide the work, why one is fast and one is slow, and the version-drift saga that nearly ate the project.
+title: "I Gave This Website a Little Crew of AI Helpers — and They Make the Videos"
+subtitle: A plain-English look at how a handful of AI "agents" team up to make the short clips on this site — and the very human mess I hit along the way
+description: No jargon required. How a small crew of AI agents fetches a page's words, writes a scene, films it, and publishes it — why one step is instant and one is slow, and the silly mistake that cost me a day.
 pubDate: 2026-06-15
 coverImage: /img/og-default.png
-coverAlt: A2A + MCP agentic video pipeline
+coverAlt: A small crew of AI agents making a video, step by step
 tags:
   - AI
   - Agents
@@ -13,27 +13,29 @@ tags:
   - Architecture
   - Veo
 publishMode: blog-first
-draft: true
+draft: false
 ---
 
-The short cinematic clips at the top of [the home page](/) and the [about page](/about/) weren't made in a video editor. They were made by a small team of AI *agents* that talk to each other — fetching the page's own words, writing a shot description, rendering it, and publishing it to a CDN — with no human in the loop after the first request.
+import Figure from '@/components/mdx/Figure.astro';
 
-I built it for two reasons. The honest one: I wanted a real, low-stakes job to test two protocols that everyone in the AI world is suddenly talking about — **A2A** and **MCP** — instead of reading about them. The useful one: the site needed videos, and this is the same machinery I'll later point at writing and docs to produce walkthrough videos.
+The short, looping videos at the top of [the home page](/) and the [about page](/about/) weren't made by me in a video app. They were made by a small crew of **AI helpers that pass work to each other** — one fetches the page's own words, one writes a scene, one films it, and one publishes it — with nobody touching it after the first "go."
 
-This is the story of how it works, in plain language, and what went wrong along the way.
+I built it for two reasons. The honest one: everyone in tech is suddenly talking about two new ways for AI tools to coordinate, and I wanted to *actually use* them on a real job instead of just reading about them. The practical one: the site needed videos, and this same little crew will later make short "watch instead of read" clips for my writing.
 
-## The two protocols, without the jargon
+Here's how it works — no technical background needed — and the very human snag I hit in the middle.
 
-Two acronyms do all the heavy lifting. Here's the whole idea in one sentence each:
+## The whole idea, in two sentences
 
-- **MCP (Model Context Protocol)** is a **librarian**. You ask it a question, it reaches into a knowledge store and hands back the relevant material — *right now*, in one quick round trip.
-- **A2A (Agent-to-Agent)** is a **team of specialists**. One agent hands a job to another, gets back a ticket, and checks on it until it's done. The specialists don't need to know how each other work — just how to hand off work and report status.
+Two buzzwords do all the work here. You can forget the names and just remember the pictures:
 
-The interesting part — which I'll come back to with real numbers — is that these two have completely different *rhythms*. MCP is a quick lookup. A2A is submit-a-job-and-wait. Seeing that difference in practice is most of what made the exercise worth doing.
+- **The Librarian.** You ask a question, and it instantly hands back the right material from a big shelf of notes. *(Techies call this "MCP." You can ignore that.)*
+- **The Relay Team.** A group of specialists who pass a job down the line — each does their one thing and tells the next person it's ready. *(Techies call this "A2A.")*
 
-## The team
+The fun part — and the reason this was worth doing — is that these two have very different *speeds*. The Librarian is instant. The Relay Team is "drop off the job and come back later." Watching that difference in real life is most of the lesson.
 
-Five agents, each with one job, plus a knowledge store and a CDN:
+## Meet the crew
+
+Five helpers, each with exactly one job:
 
 ```mermaid
 flowchart LR
@@ -41,96 +43,108 @@ flowchart LR
     classDef ext fill:#fff3e0,stroke:#e65100,color:#7a3b00
     classDef store fill:#f3e5f5,stroke:#6a1b9a,color:#42157a
 
-    U([Request: a page URL]):::ext --> O[Orchestrator]:::agent
-    O -. A2A .-> C[Content Agent]:::agent
-    C -- MCP --> M[(MCP Server)]:::store --> PG[(Site corpus<br/>pgvector)]:::store
-    O -. A2A .-> S[Script Agent]:::agent --> CL[Claude]:::ext
-    O -. A2A .-> V[Video Agent]:::agent --> VEO[Veo 3.1]:::ext
-    O -. A2A .-> ST[Storage Agent]:::agent --> CDN[(CDN)]:::store
-    CDN --> SITE([Hero video on the page]):::ext
+    U([You: 'make a clip for this page']):::ext --> O[The Manager]:::agent
+    O -. hands off .-> C[The Researcher]:::agent
+    C -- asks --> M[(The Librarian)]:::store --> PG[(The site's notes)]:::store
+    O -. hands off .-> S[The Writer]:::agent --> CL[AI writing model]:::ext
+    O -. hands off .-> V[The Filmmaker]:::agent --> VEO[AI video model]:::ext
+    O -. hands off .-> ST[The Publisher]:::agent --> CDN[(Fast web host)]:::store
+    CDN --> SITE([The clip, live on the page]):::ext
 ```
 
-The **Orchestrator** is the project manager. It doesn't do the work; it delegates, in order:
+<small>The Manager doesn't do the work — it just hands each job to the right helper, in order.</small>
 
-1. **Content Agent** — asks the *librarian* (MCP) for the page's own text from the site's knowledge store.
-2. **Script Agent** — hands that text to Claude and gets back an 8-second cinematic *shot description* (no narration, no people — a silent background loop).
-3. **Video Agent** — sends that description to Google's Veo model and waits for the render.
-4. **Storage Agent** — downloads the finished clip and uploads it to the CDN, returning the final URL.
+1. **The Researcher** asks the **Librarian** for the page's own words.
+2. **The Writer** turns those words into a short, 8-second *scene description* — a calm, cinematic background loop, no narration, no people.
+3. **The Filmmaker** sends that description to an AI video model and waits for it to render.
+4. **The Publisher** takes the finished clip and puts it on a fast public web host, then hands back the link.
 
-Each arrow marked **A2A** is one agent handing a job to another. The single arrow marked **MCP** is the quick librarian lookup.
+That's it. One request in, one video out.
 
-## How one video gets made
+## Watch one video get made
 
-Here's a single run, and this is where the two rhythms show up. Watch how the MCP call returns immediately, while the A2A video job is *submit-and-poll* — the Orchestrator keeps asking "done yet?" for a minute while Veo renders:
+This is where the two speeds show up. Notice how the Librarian answers *instantly*, but the Filmmaker is "drop it off and keep checking back" — the Manager literally asks "done yet?" over and over for a minute while the video renders:
 
 ```mermaid
 sequenceDiagram
-    participant O as Orchestrator
-    participant M as MCP Server
-    participant V as Video Agent
-    Note over O,M: MCP — synchronous (one quick round trip)
-    O->>M: fetch this page's content
-    M-->>O: text + matches
-    Note over O,V: A2A — asynchronous (submit, then poll)
-    O->>V: make a video (here's the description)
-    V-->>O: ticket #, "accepted"
-    loop until done (~1 minute)
+    participant O as Manager
+    participant M as Librarian
+    participant V as Filmmaker
+    Note over O,M: The Librarian — instant (one quick question)
+    O->>M: what does this page say?
+    M-->>O: here's the text
+    Note over O,V: The Filmmaker — slow (drop off, check back)
+    O->>V: please film this scene
+    V-->>O: got it, working on it
+    loop "done yet?" for ~1 minute
         O->>V: done yet?
-        V-->>O: still working…
+        V-->>O: not yet…
     end
-    V-->>O: done — here's the video
+    V-->>O: done — here's the clip
 ```
 
-<figure>
-  <video src="/video/n8n-live-run.mp4" controls muted playsinline preload="metadata" style="width:100%;border-radius:8px;border:1px solid var(--color-border)"></video>
-  <figcaption>The pipeline running live in n8n: the MCP lookup finishes in seconds, then the Video Agent's poll loop cycles for minutes while Veo renders — the two rhythms, on screen.</figcaption>
-</figure>
+<Figure
+  src="/video/n8n-live-run.mp4"
+  video
+  caption="The crew working, live. The quick steps fly by in seconds; then it sits on the Filmmaker step, politely asking 'done yet?' over and over while the video renders. That waiting is the whole point."
+/>
 
-That contrast *is* the lesson. A librarian lookup and a video render are fundamentally different shapes of work, and the two protocols are shaped to match: MCP for "give me context, now," A2A for "go do this longer job and I'll check back."
+That contrast *is* the lesson. Looking something up and filming something are completely different kinds of work — one is instant, one takes minutes — so the crew is built to match: ask-and-wait for the quick stuff, drop-off-and-check-back for the slow stuff.
 
-## The numbers from a real run
+## How long each part actually takes
 
-This isn't hand-wavy — here's an actual end-to-end run, measured step by step:
+This isn't hand-wavy — here's a real run, timed step by step:
 
-| Stage | What happens | Time |
+| Step | What happens | Time |
 |---|---|---|
-| **Content** (MCP) | librarian returns the page text (3 matches) | sub-second |
-| **Script** (A2A → Claude) | writes the 8-second shot description | **5.7 s** |
-| **Video** (A2A → Veo) | renders the clip *(the long pole)* | **61 s** |
-| **Storage** (A2A → CDN) | download + upload | 0.8 s + 0.15 s |
-| **End-to-end** | request → published video | **~75 s** |
+| **Research** | the Librarian hands back the page's words | under a second |
+| **Writing** | the AI writes the 8-second scene | ~6 seconds |
+| **Filming** | the AI renders the video *(the slow part)* | **~1 minute** |
+| **Publishing** | save the clip, put it online | about 1 second |
+| **Start to finish** | request → finished video on the site | **~75 seconds** |
 
-One picture's worth of insight: **the render dominates everything else by an order of magnitude.** That's exactly why the video step is built as an asynchronous A2A job you poll, not a call you wait on — and why the fast MCP lookup is a separate, synchronous shape. The architecture mirrors the physics of the work.
+The one thing to take away: **the filming step dwarfs everything else.** That's exactly why it's the "drop off and check back" kind of job, while the quick lookup is the "ask and get an instant answer" kind. The design simply matches reality.
 
-<figure>
-  ![n8n canvas showing the full A2A + MCP pipeline executed successfully, every node green](/img/n8n-pipeline-run.png)
-  <figcaption>A completed run in n8n: the MCP lane (left) returns the page's context, then the A2A agents — Script → Video → Storage — each hand off and report status until the clip is published.</figcaption>
-</figure>
+<Figure
+  src="/img/n8n-pipeline-run.png"
+  alt="A dashboard showing the whole crew's run completed, every step marked done in green"
+  caption="A finished run on the dashboard I used to watch the crew work: the quick lookup on the left, then each helper handing off to the next until the clip is published."
+/>
 
-## What went wrong (the honest part)
+## The part that actually went wrong
 
-The agents and the protocols were the *easy* part. The hard part was the visibility layer.
+The AI helpers were the *easy* part. The headache was the **dashboard** — the screen above, which lets me watch every hand-off as it happens. I wanted that view, so I plugged the crew into a popular visual dashboard tool. That's where I lost a day.
 
-I wanted a live dashboard of the whole flow — every hand-off, every status, the context being pulled — so I wired the pipeline into [n8n](https://n8n.io/), a visual workflow tool. That's where I lost a day.
+The cause was almost embarrassingly ordinary: **I was using a newer version of the dashboard tool than the setup was written for.** Imagine buying a piece of furniture and using last year's instruction booklet — the parts are *almost* the same, but every few steps a screw is named differently and a panel faces the other way. Fixing one mismatch just revealed the next.
 
-The root cause was a single, unglamorous mistake: I ran n8n as `:latest` and tried to import a workflow that was authored for an older version. Every layer had quietly changed between versions — how the tool *activates* a workflow, what each building block's settings are called, even the import format. Fixing one mismatch surfaced the next. It was death by a thousand small incompatibilities.
+<Figure
+  src="/img/n8n-pipeline-run-before.png"
+  alt="An early run on the dashboard that did not work — steps not completing properly"
+  caption="Before: an early attempt. It looked like it ran, but the steps weren't really connecting — the equivalent of the assembly line moving with nothing on the belt."
+/>
 
-What got me out of it was stepping back and asking the right question — not "how do I fix this error?" but "what's the discipline that prevents *all* of these?"
+<Figure
+  src="/img/n8n-pipeline-run-after.png"
+  alt="The same dashboard run working end to end, every step green"
+  caption="After: once I matched the versions and stopped hand-editing the setup, the same run completed cleanly — every helper doing its job, in order."
+/>
 
-| What bit me | The discipline that fixes it |
+What got me unstuck wasn't fixing errors one by one — it was stepping back and asking the better question: *what habit would have prevented all of these at once?* Here's what I landed on, in plain terms:
+
+| What tripped me up | The habit that fixes it |
 |---|---|
-| Ran the tool as "latest" | **Pin the exact version** (down to the digest). Stateful tools should never float. |
-| Hand-edited the workflow file | **Build it in the tool, then export.** Let the tool write its own config; never reverse-engineer it by hand. |
-| Let a *nice-to-have* block a *done* deliverable | **Separate "it works" from "I can watch it work."** The pipeline worked the whole time; only the dashboard was broken. |
-| No stopping rule | **Timebox integration spikes.** "If the visualization isn't cooperating in N tries, capture the same data another way." |
-| Leaned on a GUI for proof | **Prefer evidence you control.** A 120-line script that speaks the same protocols gives reproducible numbers — better proof than screenshots. |
+| I used whatever the "latest" version was | **Lock to one exact version** and stick with it — don't let the ground move under you. |
+| I edited the setup file by hand | **Let the tool build its own setup, then save it** — don't reverse-engineer it yourself. |
+| A "nice to have" blocked a finished job | **Keep "it works" separate from "I can watch it work."** The crew worked the whole time; only the viewing screen was broken. |
+| I kept poking at it with no stopping point | **Give yourself a time limit** — "if the dashboard won't behave in an hour, get the proof another way." |
+| I leaned on the dashboard for proof | **Keep a simple backup way to check your results** that doesn't depend on the fancy tool. |
 
-That last one is how I actually got the numbers in the table above: a small script that talks A2A and MCP directly and records the timings. It's version-proof and rerunnable — and it made the dashboard optional instead of critical. (Once I pinned the version and exported the workflow properly, the dashboard came up clean too. Both now work; only one is load-bearing.)
+That last habit is how I got the real timings above: a tiny script that talks to the crew directly and writes down how long each step took — boring, reliable, and version-proof. Once I also locked the dashboard to one version, *it* came up clean too. Now both work; only one is essential.
 
-If there's a single takeaway for anyone wiring up agent tooling: **the protocols are stable and pleasant; the tools around them drift. Pin your versions, and keep a way to get your evidence without the GUI.**
+If there's one line to take from all this: **the AI parts were stable and pleasant; the tools around them were the fussy bit. Pick one version, stick to it, and always keep a simple way to check your work.**
 
 ## What's next
 
-Phase 1 is the reason the plumbing is generic. The same five agents, with the Video Agent pointed at an avatar/talking-head model instead of Veo, will turn the *writing and docs* on this site into short walkthrough videos — a summary you can watch instead of read. The Script Agent already knows how to write the longer narration; nothing else has to change.
+The whole point of building it as a reusable crew is what comes next: point the **Filmmaker** at a different kind of AI model — a talking-host one — and the same five helpers will turn my *written posts* into short "watch instead of read" summaries. The Writer already knows how to write the longer narration; nothing else has to change.
 
-The protocols did their job. The videos are real, they're [on the site now](/), and the next batch will explain the writing itself.
+The experiment worked. The videos are real, they're [on the site now](/), and the next batch will explain the writing itself — hopefully in plain English, too. 😄
