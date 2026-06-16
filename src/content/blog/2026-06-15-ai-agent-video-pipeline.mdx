@@ -33,6 +33,8 @@ Two ideas do most of the work here, and each has a name the industry likes to th
 
 The interesting thing isn't the names, it's the *pace*. The Librarian is instant. The relay team is more "leave it with me, check back later." That gap turned out to be the whole point of the exercise.
 
+Quick aside, because I think it's a neat detail: these two ideas didn't come from the same place. **MCP** was introduced by **Anthropic** — the company behind Claude. **A2A** came from **Google** — the company behind Gemini and Veo. Which is a fun coincidence here, because my little crew ends up using one model from *each* of them: Claude does the writing, and Google's Veo does the filming. Two rival labs, quietly collaborating inside my website without being asked.
+
 ## Meet the crew
 
 Five helpers, one job each, passing the work down the line:
@@ -51,14 +53,14 @@ flowchart LR
     ST --> SITE([Clip, live on the page]):::ext
 
     C -.looks it up via.-> M[(The Librarian)]:::store
-    S -.writes with.-> CL[AI writing model]:::ext
-    V -.films with.-> VEO[AI video model]:::ext
+    S -.writes with.-> CL[Claude · Anthropic]:::ext
+    V -.films with.-> VEO[Veo 3.1 · Google]:::ext
     ST -.saves to.-> CDN[(Fast web host)]:::store
 ```
 
 <small>The Manager kicks things off, then the work travels down the line — each helper hands its result to the next. The dotted lines are the outside tools each one leans on.</small>
 
-The **Researcher** asks the Librarian what the page actually says. The **Writer** turns that into a short, 8-second scene — calm, cinematic, no narration, no people. The **Filmmaker** sends that scene to an AI video model and waits. The **Publisher** grabs the finished clip, drops it on a fast web host, and hands back the link. One request in, one video out.
+The **Researcher** asks the Librarian what the page actually says. The **Writer** turns that into a short, 8-second scene — calm, cinematic, no narration, no people — using **Anthropic's Claude**. The **Filmmaker** hands that scene to **Google's Veo 3.1** and waits. The **Publisher** grabs the finished clip, drops it on a fast web host, and hands back the link. One request in, one video out.
 
 ## Watch one get made
 
@@ -86,7 +88,7 @@ Look at that gap. Filming takes ten-plus times longer than everything else combi
 
 ## And then I lost a day to a dashboard
 
-Here's the confession. The AI parts? Smooth. Almost suspiciously smooth. The thing that ate a full day was the *dashboard* — the screen I used to watch the crew work, so I could see each hand-off happen live.
+Here's the confession. The AI parts? Smooth. Almost suspiciously smooth. The thing that ate a full day was the *dashboard* — a tool called **n8n** that I used to watch the crew work, so I could see each hand-off happen live.
 
 <Figure
   src="/img/n8n-pipeline-run.png"
@@ -94,7 +96,7 @@ Here's the confession. The AI parts? Smooth. Almost suspiciously smooth. The thi
   caption="The dashboard once it finally behaved: the quick lookup on the left, then each helper handing off to the next, all green."
 />
 
-The cause was almost embarrassing. I was running a *newer* version of the dashboard tool than my setup was written for. Picture assembling furniture with last year's instruction booklet — the parts are *nearly* the same, but every few steps a screw has a different name and a panel faces the wrong way. I'd fix one mismatch and the next would pop up right behind it. This went on for a while. I said some words.
+The cause was almost embarrassing. I was running a *newer* version of n8n than my setup was written for. Picture assembling furniture with last year's instruction booklet — the parts are *nearly* the same, but every few steps a screw has a different name and a panel faces the wrong way. I'd fix one mismatch and the next would pop up right behind it. This went on for a while. I said some words.
 
 What finally got me out wasn't grinding through the errors one at a time. It was stopping and asking a better question: not "how do I fix *this* one," but "what habit would've spared me *all* of them?" Here's what I'd tell past-me:
 
