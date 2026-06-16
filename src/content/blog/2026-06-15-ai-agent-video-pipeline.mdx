@@ -1,7 +1,7 @@
 ---
-title: "I Gave My Website a Little Crew of AI Helpers — and They Make the Videos"
-subtitle: How a handful of AI "agents" team up to make the clips on this site, and the very human mess I made in the middle
-description: A small crew of AI agents fetches a page's words, writes a scene, films it, and publishes it — here's how it works, why one step is slow, and the silly mistake that cost me a day.
+title: "I gave my website a little crew of AI helpers and they made the Videos"
+subtitle: How a handful of AI "agents" team up to make the video clips on my site and the human level learnings from the exercise.
+description: A small crew of AI agents fetches a page's words, writes a scene, films and publishes it. Here's how it works, why one step is slow and the mistakes that cost me a day.
 pubDate: 2026-06-15
 coverImage: /img/ai-agent-video-pipeline-wordart.png
 coverAlt: Word-cloud banner of the post's themes — video, crew, hand-off, Librarian, Filmmaker
@@ -18,22 +18,22 @@ draft: false
 
 import Figure from '@/components/mdx/Figure.astro';
 
-See the little videos quietly looping at the top of [the home page](/) and the [about page](/about/)? I didn't make those in a video editor. I'm not sure I made them at all, really — a handful of small AI programs did, passing the job down a line like a kitchen passing a plate. One grabs the page's own words, one writes a scene, one films it, one puts it online. I press go once and go get coffee.
+As part of this build, the little videos quietly looping at the top of [the home page](/) and the [about page](/about/)? were not made with a video editor. I did not make them at all, instead, a handful of small AI programs did by passing the tasks down a kitchen line. One grabs from a particular page's own words, one writes a scene, one films it, one puts it online.
 
-I had two reasons for building this, one more respectable than the other. The respectable one: everybody in tech is suddenly talking about how AI tools should *coordinate* with each other, and I'd rather build a thing than read another explainer about it. The other reason: the site needed videos and I really didn't feel like making them by hand.
+I had two reasons for building this, one more useful than the other. The useful one: everybody in tech is suddenly talking about how AI tools should *coordinate* with each other, hence, I wanted to build a prototype than read about it elsewhere. The other reason: the site needed videos and I really didn't feel like making them by spending time.
 
-So here's how the little crew works — you don't need any technical background — and the genuinely dumb snag I hit halfway through.
+So here's how the AI & Automation crew works in layman terms without any technical terms along with the roadblocks faced during the build.
 
 ## The whole idea, in two pictures
 
-Two ideas do most of the work here, and each has a name the industry likes to throw around. Here's each one in plain English — the name comes second:
+Two ideas do most of the work here and each has a name the industry likes to throw around, Here's a simpler way to understand:
 
-- **A Librarian.** You ask, and it instantly hands back the right page from a big shelf of notes. This is the piece we call **MCP** (short for Model Context Protocol).
-- **A relay team.** A few specialists passing a job down the line — each does their bit, then taps the next one on the shoulder. This is the **A2A** side of things (agent-to-agent).
+- **A Librarian.** You ask and it instantly hands back the right page from a big shelf of notes. This is the piece we call **MCP** (short for Model Context Protocol).
+- **A relay team.** A few specialists passing a job down the line where each one does their part, then taps the next one on the shoulder. This is the **A2A** side of things (agent-to-agent).
 
-The interesting thing isn't the names, it's the *pace*. The Librarian is instant. The relay team is more "leave it with me, check back later." That gap turned out to be the whole point of the exercise.
+The interesting thing isn't the names, it's the *pace*. The Librarian's response is instant while the relay team is more like "leave it with me, check back later." That gap turned out to be the whole point of the exercise.
 
-Quick aside, because I think it's a neat detail: these two ideas didn't come from the same place. **MCP** was introduced by **Anthropic** — the company behind Claude. **A2A** came from **Google** — the company behind Gemini and Veo. Which is a fun coincidence here, because my little crew ends up using one model from *each* of them: Claude does the writing, and Google's Veo does the filming. Two rival labs, quietly collaborating inside my website without being asked.
+Fun facts: these two ideas didn't come from the same place where **MCP** was introduced by **Anthropic** — the company behind Claude and **A2A** came from **Google** — the company behind Gemini and Veo. Which is a fun coincidence here, because my little crew ends up using one model from *each* of them: Claude does the writing, and Google's Veo does the filming. Two rival labs, quietly collaborating inside my website without being asked.
 
 ## Meet the crew
 
@@ -64,7 +64,7 @@ The **Researcher** asks the Librarian what the page actually says. The **Writer*
 
 ## Watch one get made
 
-This is the part I find weirdly satisfying. Most of the steps blink by in seconds — and then it just *sits there* on the filming step, politely checking "done yet? …done yet?" for a solid minute while the video renders. That waiting isn't a bug. Filming takes time, so the crew is built to drop the job off and check back, instead of standing around holding the phone.
+This is the part I find satisfying because most of the steps blink by in seconds and then it just *sits there* on the filming step, politely checking "done yet? …done yet?" for a solid minute while the video renders. That isn't a bug because filming takes time, so the crew is built to drop the job off and check back, instead of standing around holding the phone.
 
 <Figure
   src="/video/n8n-live-run.mp4"
@@ -74,21 +74,21 @@ This is the part I find weirdly satisfying. Most of the steps blink by in second
 
 ## How long each part actually takes
 
-I'm not hand-waving on that "filming is the slow part" claim — here's a real run, timed:
+I'm not hand-waving on that "filming is the slow part" claim. Here's a real run that was timed:
 
 | Step | What happens | Time |
 |---|---|---|
 | **Research** | the Librarian hands back the page's words | under a second |
-| **Writing** | the AI writes the 8-second scene | ~6 seconds |
-| **Filming** | the AI renders the video *(the slow one)* | **~1 minute** |
+| **Writing** | the AI writes the 8-second scene | 6 seconds |
+| **Filming** | the AI renders the video *(the slow one)* | **1 minute** |
 | **Publishing** | save the clip, put it online | about a second |
-| **Start to finish** | request → video live on the site | **~75 seconds** |
+| **Start to finish** | request → video live on the site | **75 seconds** |
 
 Look at that gap. Filming takes ten-plus times longer than everything else combined. That's the entire reason the crew is shaped the way it is: the slow job gets the "leave it with me" treatment, the quick lookup gets an instant answer. The structure just follows the stopwatch.
 
 ## And then I lost a day to a dashboard
 
-Here's the confession. The AI parts? Smooth. Almost suspiciously smooth. The thing that ate a full day was the *dashboard* — a tool called **n8n** that I used to watch the crew work, so I could see each hand-off happen live.
+Here's the confession. The AI parts? Are they Smooth? Almost suspeciusly is the thought, however, the thing that ate a full day was the *dashboard* with a tool called **n8n** that I used to watch the crew work, so I could see each hand-off happen live.
 
 <Figure
   src="/img/n8n-pipeline-run.png"
@@ -96,7 +96,7 @@ Here's the confession. The AI parts? Smooth. Almost suspiciously smooth. The thi
   caption="The dashboard once it finally behaved: the quick lookup on the left, then each helper handing off to the next, all green."
 />
 
-The cause was almost embarrassing. I was running a *newer* version of n8n than my setup was written for. Picture assembling furniture with last year's instruction booklet — the parts are *nearly* the same, but every few steps a screw has a different name and a panel faces the wrong way. I'd fix one mismatch and the next would pop up right behind it. This went on for a while. I said some words.
+The cause was almost embarrassing. I was running a *newer* version of n8n than my setup was written for, this caused issues where I'd fix one mismatch and the next would pop up right behind it.
 
 What finally got me out wasn't grinding through the errors one at a time. It was stopping and asking a better question: not "how do I fix *this* one," but "what habit would've spared me *all* of them?" Here's what I'd tell past-me:
 
@@ -104,16 +104,15 @@ What finally got me out wasn't grinding through the errors one at a time. It was
 |---|---|
 | I grabbed whatever the "latest" version was | Pin one exact version and stay there. Don't let the floor move under you. |
 | I edited the setup file by hand | Let the tool write its own setup, then save *that*. Don't reverse-engineer it. |
-| A "nice to have" held up a finished job | Keep "it works" separate from "I can watch it work." The crew worked the whole time — only the viewing screen was broken. |
+| A "nice to have" held up a finished job | Keep "it works" separate from "I can watch it work." The crew worked the whole time as only the viewing screen was broken. |
 | I kept poking with no cutoff | Set a timer. "If the dashboard won't behave in an hour, get the proof some other way." |
-| I leaned on the fancy tool for proof | Keep a dumb, reliable backup way to check your results. |
 
-That last one is, embarrassingly, how I got the timings above — a tiny throwaway script that just talks to the crew directly and writes down how long each step took. No dashboard required. Once I also pinned the dashboard to one version, it came up clean too. So now both work; only one of them actually matters.
+Once I pinned the dashboard to one version and adjusted the workflow json file, the n8n dashboard came up clean too.
 
-If you take one thing from all this: the AI was the easy part. The tools *around* the AI were the fussy, finicky, day-eating part. Pin your versions, and always keep a boring way to check your work.
+If you take one thing from all this: the AI was the easy part. The tools *around* the AI were the harder things to configure. Pin your versions and always check your work.
 
 ## What's next
 
-The reason I built it as a reusable crew instead of a one-off: I want to point the **Filmmaker** at a different kind of model — a talking-host one — and have the same five helpers turn my *written posts* into short "watch instead of read" summaries. The Writer already knows how to write the longer script. Nothing else has to change.
+The reason I built it as a reusable crew instead of a one-off: I want to point the **Filmmaker** at a different kind of model, a talking-avatar one where the same five helpers turn my *written posts* into short "watch video type" summaries because the Writer already knows how to write the longer script while nothing else needs to be changed in the piepline.
 
-The experiment worked. The videos are real, they're [on the site now](/), and the next batch should explain the writing itself. In plain English, ideally. 😄
+For now, the experiment worked while the auto-generated videos are [on the site now](/). The next batch should explain the writing itself, ideally. 😄
