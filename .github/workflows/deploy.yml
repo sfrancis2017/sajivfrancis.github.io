@@ -65,6 +65,28 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      # After the site is live (page now exists + is in the sitemap), refresh
+      # the chat RAG corpus so newly published pages (writings, news, lab,
+      # about) become available under personal -> site. Runs post-deploy on
+      # purpose: triggering before deploy would ingest a page that is not yet
+      # live. Non-fatal -- an ingest hiccup must never fail the deploy. Skips
+      # silently until the secret CHAT_INGEST_TOKEN is set (repo, environment,
+      # or org-level — all inherited since this step runs inside the deploy
+      # job, which targets the github-pages environment).
+      - name: Trigger chat re-ingest (site corpus)
+        env:
+          CHAT_INGEST_TOKEN: ${{ secrets.CHAT_INGEST_TOKEN }}
+        run: |
+          if [ -z "$CHAT_INGEST_TOKEN" ]; then
+            echo "CHAT_INGEST_TOKEN not set -- skipping chat re-ingest."; exit 0
+          fi
+          curl -fsS -X POST "https://chat-worker.sfrancis2017.workers.dev/ingest/trigger/web" \
+            -H "Authorization: Bearer $CHAT_INGEST_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"sitemap":"https://sajivfrancis.com/sitemap-0.xml","topic":"site","prune":true}' \
+            && echo "Chat re-ingest triggered (site corpus)." \
+            || echo "Chat re-ingest trigger failed (non-fatal)."
+
   # Ping IndexNow (Bing + Yandex + others) with the live URL list after each
   # deploy, so new/updated pages get discovered near-instantly. Runs after the
   # site is live so the URLs and the key file are reachable for verification.
