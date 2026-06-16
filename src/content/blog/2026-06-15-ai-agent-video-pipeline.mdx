@@ -81,6 +81,11 @@ sequenceDiagram
     V-->>O: done — here's the video
 ```
 
+<figure>
+  <video src="/video/n8n-live-run.mp4" controls muted playsinline preload="metadata" style="width:100%;border-radius:8px;border:1px solid var(--color-border)"></video>
+  <figcaption>The pipeline running live in n8n: the MCP lookup finishes in seconds, then the Video Agent's poll loop cycles for minutes while Veo renders — the two rhythms, on screen.</figcaption>
+</figure>
+
 That contrast *is* the lesson. A librarian lookup and a video render are fundamentally different shapes of work, and the two protocols are shaped to match: MCP for "give me context, now," A2A for "go do this longer job and I'll check back."
 
 ## The numbers from a real run
@@ -96,6 +101,11 @@ This isn't hand-wavy — here's an actual end-to-end run, measured step by step:
 | **End-to-end** | request → published video | **~75 s** |
 
 One picture's worth of insight: **the render dominates everything else by an order of magnitude.** That's exactly why the video step is built as an asynchronous A2A job you poll, not a call you wait on — and why the fast MCP lookup is a separate, synchronous shape. The architecture mirrors the physics of the work.
+
+<figure>
+  ![n8n canvas showing the full A2A + MCP pipeline executed successfully, every node green](/img/n8n-pipeline-run.png)
+  <figcaption>A completed run in n8n: the MCP lane (left) returns the page's context, then the A2A agents — Script → Video → Storage — each hand off and report status until the clip is published.</figcaption>
+</figure>
 
 ## What went wrong (the honest part)
 
