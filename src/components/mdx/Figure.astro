@@ -1,17 +1,27 @@
 ---
 interface Props {
   src: string;
-  alt: string;
+  alt?: string;
   caption?: string;
   link?: string;
+  video?: boolean;
 }
 
-const { src, alt, caption, link } = Astro.props;
+const { src, alt = '', caption, link, video = false } = Astro.props;
 ---
 
 <figure class="my-8">
   {
-    link ? (
+    video ? (
+      <video
+        src={src}
+        controls
+        muted
+        playsinline
+        preload="metadata"
+        class="w-full rounded-md border border-[var(--color-border)]"
+      />
+    ) : link ? (
       <a href={link} target="_blank" rel="noopener noreferrer">
         <img
           src={src}

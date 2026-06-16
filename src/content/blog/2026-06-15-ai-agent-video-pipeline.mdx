@@ -1,0 +1,118 @@
+---
+title: "I gave my website a little crew of AI helpers and they made the Videos"
+subtitle: How a handful of AI "agents" team up to make the video clips on my site and the human level learnings from the exercise.
+description: A small crew of AI agents fetches a page's words, writes a scene, films and publishes it. Here's how it works, why one step is slow and the mistakes that cost me a day.
+pubDate: 2026-06-15
+coverImage: /img/ai-agent-video-pipeline-wordart.png
+coverAlt: Word-cloud banner of the post's themes — video, crew, hand-off, Librarian, Filmmaker
+tags:
+  - AI
+  - Agents
+  - A2A
+  - MCP
+  - Architecture
+  - Veo
+publishMode: blog-first
+draft: false
+---
+
+import Figure from '@/components/mdx/Figure.astro';
+
+As part of this build, the little videos quietly looping at the top of [the home page](/) and the [about page](/about/)? were not made with a video editor. I did not make them at all, instead, a handful of small AI programs did by passing the tasks down a kitchen line. One grabs from a particular page's own words, one writes a scene, one films it, one puts it online.
+
+I had two reasons for building this, one more useful than the other. The useful one: everybody in tech is suddenly talking about how AI tools should *coordinate* with each other, hence, I wanted to build a prototype than read about it elsewhere. The other reason: the site needed videos and I really didn't feel like making them by spending time.
+
+So here's how the AI & Automation crew works in layman terms without any technical terms along with the roadblocks faced during the build.
+
+## The whole idea, in two pictures
+
+Two ideas do most of the work here and each has a name the industry likes to throw around, Here's a simpler way to understand:
+
+- **A Librarian.** You ask and it instantly hands back the right page from a big shelf of notes. This is the piece we call **MCP** (short for Model Context Protocol).
+- **A relay team.** A few specialists passing a job down the line where each one does their part, then taps the next one on the shoulder. This is the **A2A** side of things (agent-to-agent).
+
+The interesting thing isn't the names, it's the *pace*. The Librarian's response is instant while the relay team is more like "leave it with me, check back later." That gap turned out to be the whole point of the exercise.
+
+Fun facts: these two ideas didn't come from the same place where **MCP** was introduced by **Anthropic** — the company behind Claude and **A2A** came from **Google** — the company behind Gemini and Veo. Which is a fun coincidence here, because my little crew ends up using one model from *each* of them: Claude does the writing, and Google's Veo does the filming. Two rival labs, quietly collaborating inside my website without being asked.
+
+## Meet the crew
+
+Five helpers, one job each, passing the work down the line:
+
+```mermaid
+flowchart LR
+    classDef agent fill:#e3f2fd,stroke:#1565c0,color:#0b3a66
+    classDef ext fill:#fff3e0,stroke:#e65100,color:#7a3b00
+    classDef store fill:#f3e5f5,stroke:#6a1b9a,color:#42157a
+
+    U([You: 'make a clip for this page']):::ext --> O[The Manager]:::agent
+    O --> C[The Researcher]:::agent
+    C -->|passes the words to| S[The Writer]:::agent
+    S -->|passes the scene to| V[The Filmmaker]:::agent
+    V -->|passes the clip to| ST[The Publisher]:::agent
+    ST --> SITE([Clip, live on the page]):::ext
+
+    C -.looks it up via.-> M[(The Librarian)]:::store
+    S -.writes with.-> CL[Claude · Anthropic]:::ext
+    V -.films with.-> VEO[Veo 3.1 · Google]:::ext
+    ST -.saves to.-> CDN[(Fast web host)]:::store
+```
+
+<small>The Manager kicks things off, then the work travels down the line — each helper hands its result to the next. The dotted lines are the outside tools each one leans on.</small>
+
+The **Researcher** asks the Librarian what the page actually says. The **Writer** turns that into a short, 8-second scene — calm, cinematic, no narration, no people — using **Anthropic's Claude**. The **Filmmaker** hands that scene to **Google's Veo 3.1** and waits. The **Publisher** grabs the finished clip, drops it on a fast web host, and hands back the link. One request in, one video out.
+
+## Watch one get made
+
+This is the part I find satisfying because most of the steps blink by in seconds and then it just *sits there* on the filming step, politely checking "done yet? …done yet?" for a solid minute while the video renders. That isn't a bug because filming takes time, so the crew is built to drop the job off and check back, instead of standing around holding the phone.
+
+<Figure
+  src="/video/n8n-live-run.mp4"
+  video
+  caption="The crew running, start to finish. The quick steps fly past; then it parks on the Filmmaker, asking 'done yet?' over and over while the clip renders."
+/>
+
+## How long each part actually takes
+
+I'm not hand-waving on that "filming is the slow part" claim. Here's a real run that was timed:
+
+| Step | What happens | Time |
+|---|---|---|
+| **Research** | the Librarian hands back the page's words | under a second |
+| **Writing** | the AI writes the 8-second scene | 6 seconds |
+| **Filming** | the AI renders the video *(the slow one)* | **1 minute** |
+| **Publishing** | save the clip, put it online | about a second |
+| **Start to finish** | request → video live on the site | **75 seconds** |
+
+Look at that gap. Filming takes ten-plus times longer than everything else combined. That's the entire reason the crew is shaped the way it is: the slow job gets the "leave it with me" treatment, the quick lookup gets an instant answer. The structure just follows the stopwatch.
+
+## And then I lost a day to a dashboard
+
+Here's the confession. The AI parts? Are they Smooth? Almost suspeciusly is the thought, however, the thing that ate a full day was the *dashboard* with a tool called **n8n** that I used to watch the crew work, so I could see each hand-off happen live.
+
+<Figure
+  src="/img/n8n-pipeline-run.png"
+  alt="A dashboard showing the whole crew's run completed, every step marked done in green"
+  caption="The dashboard once it finally behaved: the quick lookup on the left, then each helper handing off to the next, all green."
+/>
+
+The cause was almost embarrassing. I was running a *newer* version of n8n than my setup was written for, this caused issues where I'd fix one mismatch and the next would pop up right behind it.
+
+What finally got me out wasn't grinding through the errors one at a time. It was stopping and asking a better question: not "how do I fix *this* one," but "what habit would've spared me *all* of them?" Here's what I'd tell past-me:
+
+| What tripped me up | What I'd do instead |
+|---|---|
+| I grabbed whatever the "latest" version was | Pin one exact version and stay there. Don't let the floor move under you. |
+| I edited the setup file by hand | Let the tool write its own setup, then save *that*. Don't reverse-engineer it. |
+| A "nice to have" held up a finished job | Keep "it works" separate from "I can watch it work." The crew worked the whole time as only the viewing screen was broken. |
+| I kept poking with no cutoff | Set a timer. "If the dashboard won't behave in an hour, get the proof some other way." |
+
+Once I pinned the dashboard to one version and adjusted the workflow json file, the n8n dashboard came up clean too.
+
+If you take one thing from all this: the AI was the easy part. The tools *around* the AI were the harder things to configure. Pin your versions and always check your work.
+
+## What's next
+
+The reason I built it as a reusable crew instead of a one-off: I want to point the **Filmmaker** at a different kind of model, a talking-avatar one where the same five helpers turn my *written posts* into short "watch video type" summaries because the Writer already knows how to write the longer script while nothing else needs to be changed in the piepline.
+
+For now, the experiment worked while the auto-generated videos are [on the site now](/). The next batch should explain the writing itself, ideally. 😄
