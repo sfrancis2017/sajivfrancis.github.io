@@ -1,7 +1,7 @@
 ---
 title: "I Gave This Website a Little Crew of AI Helpers — and They Make the Videos"
-subtitle: A plain-English look at how a handful of AI "agents" team up to make the short clips on this site — and the very human mess I hit along the way
-description: No jargon required. How a small crew of AI agents fetches a page's words, writes a scene, films it, and publishes it — why one step is instant and one is slow, and the silly mistake that cost me a day.
+subtitle: How a handful of AI "agents" team up to make the clips on this site, and the very human mess I made in the middle
+description: No jargon required. A small crew of AI agents fetches a page's words, writes a scene, films it, and publishes it — here's how it works, why one step is slow, and the silly mistake that cost me a day.
 pubDate: 2026-06-15
 coverImage: /img/og-default.png
 coverAlt: A small crew of AI agents making a video, step by step
@@ -18,24 +18,24 @@ draft: false
 
 import Figure from '@/components/mdx/Figure.astro';
 
-The short, looping videos at the top of [the home page](/) and the [about page](/about/) weren't made by me in a video app. They were made by a small crew of **AI helpers that pass work to each other** — one fetches the page's own words, one writes a scene, one films it, and one publishes it — with nobody touching it after the first "go."
+See the little videos quietly looping at the top of [the home page](/) and the [about page](/about/)? I didn't make those in a video editor. I'm not sure I made them at all, really — a handful of small AI programs did, passing the job down a line like a kitchen passing a plate. One grabs the page's own words, one writes a scene, one films it, one puts it online. I press go once and go get coffee.
 
-I built it for two reasons. The honest one: everyone in tech is suddenly talking about two new ways for AI tools to coordinate, and I wanted to *actually use* them on a real job instead of just reading about them. The practical one: the site needed videos, and this same little crew will later make short "watch instead of read" clips for my writing.
+I had two reasons for building this, one more respectable than the other. The respectable one: everybody in tech is suddenly talking about how AI tools should *coordinate* with each other, and I'd rather build a thing than read another explainer about it. The other reason: the site needed videos and I really didn't feel like making them by hand.
 
-Here's how it works — no technical background needed — and the very human snag I hit in the middle.
+So here's how the little crew works — you don't need any technical background — and the genuinely dumb snag I hit halfway through.
 
-## The whole idea, in two sentences
+## The whole idea, in two pictures
 
-Two buzzwords do all the work here. You can forget the names and just remember the pictures:
+There are two buzzwords floating around this, and you can cheerfully forget both of them. Just keep the pictures:
 
-- **The Librarian.** You ask a question, and it instantly hands back the right material from a big shelf of notes. *(Techies call this "MCP." You can ignore that.)*
-- **The Relay Team.** A group of specialists who pass a job down the line — each does their one thing and tells the next person it's ready. *(Techies call this "A2A.")*
+- **A Librarian.** You ask, it instantly hands back the right page from a big shelf of notes. (The acronym is "MCP." Ignore it.)
+- **A relay team.** A few specialists who pass a job down the line — each does their bit and taps the next one on the shoulder. (That one's "A2A." Also ignore it.)
 
-The fun part — and the reason this was worth doing — is that these two have very different *speeds*. The Librarian is instant. The Relay Team is "drop off the job and come back later." Watching that difference in real life is most of the lesson.
+The interesting thing isn't the names, it's the *pace*. The Librarian is instant. The relay team is more "leave it with me, check back later." That gap turned out to be the whole point of the exercise.
 
 ## Meet the crew
 
-Five helpers, each with exactly one job:
+Five helpers, one job each, passing the work down the line:
 
 ```mermaid
 flowchart LR
@@ -44,107 +44,74 @@ flowchart LR
     classDef store fill:#f3e5f5,stroke:#6a1b9a,color:#42157a
 
     U([You: 'make a clip for this page']):::ext --> O[The Manager]:::agent
-    O -. hands off .-> C[The Researcher]:::agent
-    C -- asks --> M[(The Librarian)]:::store --> PG[(The site's notes)]:::store
-    O -. hands off .-> S[The Writer]:::agent --> CL[AI writing model]:::ext
-    O -. hands off .-> V[The Filmmaker]:::agent --> VEO[AI video model]:::ext
-    O -. hands off .-> ST[The Publisher]:::agent --> CDN[(Fast web host)]:::store
-    CDN --> SITE([The clip, live on the page]):::ext
+    O --> C[The Researcher]:::agent
+    C -->|passes the words to| S[The Writer]:::agent
+    S -->|passes the scene to| V[The Filmmaker]:::agent
+    V -->|passes the clip to| ST[The Publisher]:::agent
+    ST --> SITE([Clip, live on the page]):::ext
+
+    C -.looks it up via.-> M[(The Librarian)]:::store
+    S -.writes with.-> CL[AI writing model]:::ext
+    V -.films with.-> VEO[AI video model]:::ext
+    ST -.saves to.-> CDN[(Fast web host)]:::store
 ```
 
-<small>The Manager doesn't do the work — it just hands each job to the right helper, in order.</small>
+<small>The Manager kicks things off, then the work travels down the line — each helper hands its result to the next. The dotted lines are the outside tools each one leans on.</small>
 
-1. **The Researcher** asks the **Librarian** for the page's own words.
-2. **The Writer** turns those words into a short, 8-second *scene description* — a calm, cinematic background loop, no narration, no people.
-3. **The Filmmaker** sends that description to an AI video model and waits for it to render.
-4. **The Publisher** takes the finished clip and puts it on a fast public web host, then hands back the link.
+The **Researcher** asks the Librarian what the page actually says. The **Writer** turns that into a short, 8-second scene — calm, cinematic, no narration, no people. The **Filmmaker** sends that scene to an AI video model and waits. The **Publisher** grabs the finished clip, drops it on a fast web host, and hands back the link. One request in, one video out.
 
-That's it. One request in, one video out.
+## Watch one get made
 
-## Watch one video get made
-
-This is where the two speeds show up. Notice how the Librarian answers *instantly*, but the Filmmaker is "drop it off and keep checking back" — the Manager literally asks "done yet?" over and over for a minute while the video renders:
-
-```mermaid
-sequenceDiagram
-    participant O as Manager
-    participant M as Librarian
-    participant V as Filmmaker
-    Note over O,M: The Librarian — instant (one quick question)
-    O->>M: what does this page say?
-    M-->>O: here's the text
-    Note over O,V: The Filmmaker — slow (drop off, check back)
-    O->>V: please film this scene
-    V-->>O: got it, working on it
-    loop "done yet?" for ~1 minute
-        O->>V: done yet?
-        V-->>O: not yet…
-    end
-    V-->>O: done — here's the clip
-```
+This is the part I find weirdly satisfying. Most of the steps blink by in seconds — and then it just *sits there* on the filming step, politely checking "done yet? …done yet?" for a solid minute while the video renders. That waiting isn't a bug. Filming takes time, so the crew is built to drop the job off and check back, instead of standing around holding the phone.
 
 <Figure
   src="/video/n8n-live-run.mp4"
   video
-  caption="The crew working, live. The quick steps fly by in seconds; then it sits on the Filmmaker step, politely asking 'done yet?' over and over while the video renders. That waiting is the whole point."
+  caption="The crew running, start to finish. The quick steps fly past; then it parks on the Filmmaker, asking 'done yet?' over and over while the clip renders."
 />
-
-That contrast *is* the lesson. Looking something up and filming something are completely different kinds of work — one is instant, one takes minutes — so the crew is built to match: ask-and-wait for the quick stuff, drop-off-and-check-back for the slow stuff.
 
 ## How long each part actually takes
 
-This isn't hand-wavy — here's a real run, timed step by step:
+I'm not hand-waving on that "filming is the slow part" claim — here's a real run, timed:
 
 | Step | What happens | Time |
 |---|---|---|
 | **Research** | the Librarian hands back the page's words | under a second |
 | **Writing** | the AI writes the 8-second scene | ~6 seconds |
-| **Filming** | the AI renders the video *(the slow part)* | **~1 minute** |
-| **Publishing** | save the clip, put it online | about 1 second |
-| **Start to finish** | request → finished video on the site | **~75 seconds** |
+| **Filming** | the AI renders the video *(the slow one)* | **~1 minute** |
+| **Publishing** | save the clip, put it online | about a second |
+| **Start to finish** | request → video live on the site | **~75 seconds** |
 
-The one thing to take away: **the filming step dwarfs everything else.** That's exactly why it's the "drop off and check back" kind of job, while the quick lookup is the "ask and get an instant answer" kind. The design simply matches reality.
+Look at that gap. Filming takes ten-plus times longer than everything else combined. That's the entire reason the crew is shaped the way it is: the slow job gets the "leave it with me" treatment, the quick lookup gets an instant answer. The structure just follows the stopwatch.
+
+## And then I lost a day to a dashboard
+
+Here's the confession. The AI parts? Smooth. Almost suspiciously smooth. The thing that ate a full day was the *dashboard* — the screen I used to watch the crew work, so I could see each hand-off happen live.
 
 <Figure
   src="/img/n8n-pipeline-run.png"
   alt="A dashboard showing the whole crew's run completed, every step marked done in green"
-  caption="A finished run on the dashboard I used to watch the crew work: the quick lookup on the left, then each helper handing off to the next until the clip is published."
+  caption="The dashboard once it finally behaved: the quick lookup on the left, then each helper handing off to the next, all green."
 />
 
-## The part that actually went wrong
+The cause was almost embarrassing. I was running a *newer* version of the dashboard tool than my setup was written for. Picture assembling furniture with last year's instruction booklet — the parts are *nearly* the same, but every few steps a screw has a different name and a panel faces the wrong way. I'd fix one mismatch and the next would pop up right behind it. This went on for a while. I said some words.
 
-The AI helpers were the *easy* part. The headache was the **dashboard** — the screen above, which lets me watch every hand-off as it happens. I wanted that view, so I plugged the crew into a popular visual dashboard tool. That's where I lost a day.
+What finally got me out wasn't grinding through the errors one at a time. It was stopping and asking a better question: not "how do I fix *this* one," but "what habit would've spared me *all* of them?" Here's what I'd tell past-me:
 
-The cause was almost embarrassingly ordinary: **I was using a newer version of the dashboard tool than the setup was written for.** Imagine buying a piece of furniture and using last year's instruction booklet — the parts are *almost* the same, but every few steps a screw is named differently and a panel faces the other way. Fixing one mismatch just revealed the next.
-
-<Figure
-  src="/img/n8n-pipeline-run-before.png"
-  alt="An early run on the dashboard that did not work — steps not completing properly"
-  caption="Before: an early attempt. It looked like it ran, but the steps weren't really connecting — the equivalent of the assembly line moving with nothing on the belt."
-/>
-
-<Figure
-  src="/img/n8n-pipeline-run-after.png"
-  alt="The same dashboard run working end to end, every step green"
-  caption="After: once I matched the versions and stopped hand-editing the setup, the same run completed cleanly — every helper doing its job, in order."
-/>
-
-What got me unstuck wasn't fixing errors one by one — it was stepping back and asking the better question: *what habit would have prevented all of these at once?* Here's what I landed on, in plain terms:
-
-| What tripped me up | The habit that fixes it |
+| What tripped me up | What I'd do instead |
 |---|---|
-| I used whatever the "latest" version was | **Lock to one exact version** and stick with it — don't let the ground move under you. |
-| I edited the setup file by hand | **Let the tool build its own setup, then save it** — don't reverse-engineer it yourself. |
-| A "nice to have" blocked a finished job | **Keep "it works" separate from "I can watch it work."** The crew worked the whole time; only the viewing screen was broken. |
-| I kept poking at it with no stopping point | **Give yourself a time limit** — "if the dashboard won't behave in an hour, get the proof another way." |
-| I leaned on the dashboard for proof | **Keep a simple backup way to check your results** that doesn't depend on the fancy tool. |
+| I grabbed whatever the "latest" version was | Pin one exact version and stay there. Don't let the floor move under you. |
+| I edited the setup file by hand | Let the tool write its own setup, then save *that*. Don't reverse-engineer it. |
+| A "nice to have" held up a finished job | Keep "it works" separate from "I can watch it work." The crew worked the whole time — only the viewing screen was broken. |
+| I kept poking with no cutoff | Set a timer. "If the dashboard won't behave in an hour, get the proof some other way." |
+| I leaned on the fancy tool for proof | Keep a dumb, reliable backup way to check your results. |
 
-That last habit is how I got the real timings above: a tiny script that talks to the crew directly and writes down how long each step took — boring, reliable, and version-proof. Once I also locked the dashboard to one version, *it* came up clean too. Now both work; only one is essential.
+That last one is, embarrassingly, how I got the timings above — a tiny throwaway script that just talks to the crew directly and writes down how long each step took. No dashboard required. Once I also pinned the dashboard to one version, it came up clean too. So now both work; only one of them actually matters.
 
-If there's one line to take from all this: **the AI parts were stable and pleasant; the tools around them were the fussy bit. Pick one version, stick to it, and always keep a simple way to check your work.**
+If you take one thing from all this: the AI was the easy part. The tools *around* the AI were the fussy, finicky, day-eating part. Pin your versions, and always keep a boring way to check your work.
 
 ## What's next
 
-The whole point of building it as a reusable crew is what comes next: point the **Filmmaker** at a different kind of AI model — a talking-host one — and the same five helpers will turn my *written posts* into short "watch instead of read" summaries. The Writer already knows how to write the longer narration; nothing else has to change.
+The reason I built it as a reusable crew instead of a one-off: I want to point the **Filmmaker** at a different kind of model — a talking-host one — and have the same five helpers turn my *written posts* into short "watch instead of read" summaries. The Writer already knows how to write the longer script. Nothing else has to change.
 
-The experiment worked. The videos are real, they're [on the site now](/), and the next batch will explain the writing itself — hopefully in plain English, too. 😄
+The experiment worked. The videos are real, they're [on the site now](/), and the next batch should explain the writing itself. In plain English, ideally. 😄
