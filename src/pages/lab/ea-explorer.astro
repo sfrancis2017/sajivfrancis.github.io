@@ -1,6 +1,10 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import HeroVideo from '@/components/HeroVideo.astro';
 import EAExplorer from '@/components/lab/EAExplorer/index.tsx';
+
+// Section teaser — paste the CDN URL from the video pipeline here (slug: ea-explorer).
+const heroVideo = '';
 ---
 
 <BaseLayout
@@ -8,6 +12,8 @@ import EAExplorer from '@/components/lab/EAExplorer/index.tsx';
   description="Pick an industry, toggle the systems you use, and get three AI-recommended enterprise reference architectures — primary plus two alternates — with diagrams, integration patterns, and a phased roadmap."
   mainClass="max-w-6xl"
 >
+  <HeroVideo src={heroVideo} class="max-w-3xl mb-8" />
+
   {/* Wrap in <article> so the global print stylesheet (which hides
        `main > *:not(article)` for blog posts) doesn't suppress this
        page during PDF export. */}

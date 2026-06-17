@@ -1,7 +1,11 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import HeroVideo from '@/components/HeroVideo.astro';
 import { fetchFeeds, relativeTime, NEWS_WORKER_URL } from '@/lib/news';
 import type { FeedDomain } from '@/lib/news';
+
+// Section teaser — paste the CDN URL from the video pipeline here (slug: news).
+const heroVideo = '';
 
 const { items, fetchedAt } = await fetchFeeds();
 
@@ -38,6 +42,8 @@ function shareUrls(item: { title: string; url: string; source: string }) {
   description="Curated tech news across SAP, Enterprise Architecture, AI, and Software Engineering — handpicked sources, refreshed every few hours."
   mainClass="max-w-6xl"
 >
+  <HeroVideo src={heroVideo} class="max-w-3xl mb-8" />
+
   <article>
     <header class="news-header">
       <div class="news-header-row">

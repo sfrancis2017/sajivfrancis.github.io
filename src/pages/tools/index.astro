@@ -1,5 +1,9 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import HeroVideo from '@/components/HeroVideo.astro';
+
+// Section teaser — paste the CDN URL from the video pipeline here (slug: tools).
+const heroVideo = '';
 
 // Tools are grouped by category so the page stays legible as it grows.
 // `where` flags processing locality: 'browser' (private) or 'server'.
@@ -62,6 +66,8 @@ const grouped = CATEGORY_ORDER
   description="Browser-first document and architecture tools. Files are processed locally — nothing is uploaded."
   mainClass="max-w-4xl"
 >
+  <HeroVideo src={heroVideo} class="max-w-3xl mb-8" />
+
   <article>
     <header class="mb-10">
       <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)] font-semibold">Toolkit</p>
