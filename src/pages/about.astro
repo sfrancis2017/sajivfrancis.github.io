@@ -20,6 +20,15 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
        the left-column text stays readable. Everything below flows without it,
        so the portrait can't stretch across the whole page. -->
   <div class="about-underlay">
+    <img
+      class="about-portrait-mobile"
+      src="/img/authors/sajivfrancis-about.png"
+      alt="Sajiv Francis"
+      width="1241"
+      height="1400"
+      loading="eager"
+      decoding="async"
+    />
     <section class="about-hero">
       <p class="about-eyebrow">About</p>
       <h1 class="about-name">Sajiv Francis</h1>
@@ -207,6 +216,11 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
   .about-hero {
     margin-bottom: 1.25rem;
   }
+  /* Shown only on mobile (see media query); the desktop portrait is the
+     background underlay above. */
+  .about-portrait-mobile {
+    display: none;
+  }
   .about-eyebrow {
     font-size: 0.78rem;
     text-transform: uppercase;
@@ -236,19 +250,23 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     max-width: 28rem;
   }
 
-  /* On narrow screens, push the portrait to peek from the right edge and
-     strengthen the scrim so text stays fully readable over it. */
+  /* Mobile: no room for a right-anchored underlay, so drop the background
+     and stack the full portrait above the text instead — whole image shown. */
   @media (max-width: 760px) {
     .about-underlay {
-      background-position: right -3.5rem center;
-      background-size: auto 120%;
+      background-image: none;
     }
     .about-underlay::before {
-      background: linear-gradient(
-        to right,
-        color-mix(in oklab, var(--color-bg) 94%, transparent) 0%,
-        color-mix(in oklab, var(--color-bg) 72%, transparent) 100%
-      );
+      display: none;
+    }
+    .about-portrait-mobile {
+      display: block;
+      width: 13rem;
+      max-width: 60%;
+      height: auto;
+      margin: 0 auto 1.25rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--color-border);
     }
     .about-hero,
     .about-now {
