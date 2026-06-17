@@ -175,6 +175,9 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
      on the left (text) to light on the right (image) for readability. */
   .about-underlay {
     position: relative;
+    /* Match the hero video's width (max-w-3xl = 48rem) so the box aligns with the
+       video frame above instead of running into the wider max-w-6xl column. */
+    max-width: 48rem;
     margin-bottom: 3rem;
     padding: 1.75rem;
     border-radius: 0.75rem;
