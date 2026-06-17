@@ -15,10 +15,11 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
        balloon inside this page's wider max-w-6xl editorial column. -->
   <HeroVideo src={heroVideo} class="max-w-3xl mb-8" />
 
-  <!-- Editorial header: name + intro on the left, a contained portrait
-       in a fixed frame on the right. The whole image is always visible —
-       never cover-cropped or bleeding past the column. Stacks on mobile. -->
-  <div class="about-top">
+  <!-- About hero + Now sit over a BOUNDED portrait underlay: the image is a
+       right-anchored backdrop on just this region, with a theme-aware scrim so
+       the left-column text stays readable. Everything below flows without it,
+       so the portrait can't stretch across the whole page. -->
+  <div class="about-underlay">
     <section class="about-hero">
       <p class="about-eyebrow">About</p>
       <h1 class="about-name">Sajiv Francis</h1>
@@ -34,35 +35,26 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
       </p>
     </section>
 
-    <figure class="about-portrait">
-      <img
-        src="/img/authors/sajivfrancis-about.png"
-        alt="Sajiv Francis"
-        width="1241"
-        height="1400"
-        loading="eager"
-        decoding="async"
-      />
-    </figure>
+    <article class="prose dark:prose-invert max-w-none about-now">
+      <h2>Now <span class="not-prose about-now-date">— May 2026</span></h2>
+      <ul>
+        <li>
+          Trying to work out what agentic architectures actually look
+          like in real enterprise stacks — beyond the demo videos.
+        </li>
+        <li>
+          Building tooling for my own work in public: RAG over my notes,
+          AI-grounded writing, automated white papers.
+        </li>
+        <li>
+          Following SAP S/4HANA's evolution — especially where AI starts
+          being useful inside it, not bolted on.
+        </li>
+      </ul>
+    </article>
   </div>
 
   <article class="prose dark:prose-invert max-w-none about-content">
-    <h2>Now <span class="not-prose about-now-date">— May 2026</span></h2>
-    <ul>
-      <li>
-        Trying to work out what agentic architectures actually look
-        like in real enterprise stacks — beyond the demo videos.
-      </li>
-      <li>
-        Building tooling for my own work in public: RAG over my notes,
-        AI-grounded writing, automated white papers.
-      </li>
-      <li>
-        Following SAP S/4HANA's evolution — especially where AI starts
-        being useful inside it, not bolted on.
-      </li>
-    </ul>
-
     <h2>Background</h2>
     <p>
       Eight years of building at the intersection of AI and enterprise
@@ -177,33 +169,43 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
      Mobile: the absolutely-positioned image is hidden; an <img> tag
      stacks above the text instead. Cleaner stacking and accessible alt.
      ---------------------------------------------------------------------- */
-  /* Editorial header: text column + a contained portrait in a fixed
-     frame. The whole image is always visible — no cover-crop, no bleed. */
-  .about-top {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 2.5rem;
-    align-items: start;
+  /* Bounded portrait underlay behind the About hero + Now only. The cutout
+     portrait is anchored to the right and sized to the region's height (never
+     stretched across the whole column); a theme-aware scrim fades from opaque
+     on the left (text) to light on the right (image) for readability. */
+  .about-underlay {
+    position: relative;
     margin-bottom: 3rem;
-    padding-top: 1rem;
-  }
-  .about-portrait {
-    margin: 0;
-    width: 16rem;
-    max-width: 38vw;
-  }
-  .about-portrait img {
-    display: block;
-    width: 100%;
-    height: auto;
+    padding: 1.75rem;
     border-radius: 0.75rem;
     border: 1px solid var(--color-border);
-    background: var(--color-bg-elevated, var(--color-bg));
+    overflow: hidden;
+    background-image: url('/img/authors/sajivfrancis-about.png');
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: contain;
   }
-
+  .about-underlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(
+      to right,
+      color-mix(in oklab, var(--color-bg) 93%, transparent) 0%,
+      color-mix(in oklab, var(--color-bg) 82%, transparent) 52%,
+      color-mix(in oklab, var(--color-bg) 55%, transparent) 100%
+    );
+  }
+  .about-hero,
+  .about-now {
+    position: relative;
+    z-index: 1;
+    max-width: 32rem;
+  }
   .about-hero {
-    max-width: 36rem;
-    margin-bottom: 0;
+    margin-bottom: 1.25rem;
   }
   .about-eyebrow {
     font-size: 0.78rem;
@@ -234,20 +236,22 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     max-width: 28rem;
   }
 
-  /* Stack the header on narrow screens: portrait above the intro,
-     at a comfortable contained size. */
+  /* On narrow screens, push the portrait to peek from the right edge and
+     strengthen the scrim so text stays fully readable over it. */
   @media (max-width: 760px) {
-    .about-top {
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
-      justify-items: start;
+    .about-underlay {
+      background-position: right -3.5rem center;
+      background-size: auto 120%;
     }
-    .about-portrait {
-      order: -1;
-      width: 12rem;
-      max-width: 55%;
+    .about-underlay::before {
+      background: linear-gradient(
+        to right,
+        color-mix(in oklab, var(--color-bg) 94%, transparent) 0%,
+        color-mix(in oklab, var(--color-bg) 72%, transparent) 100%
+      );
     }
-    .about-hero {
+    .about-hero,
+    .about-now {
       max-width: 100%;
     }
   }
