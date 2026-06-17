@@ -20,15 +20,6 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
        the left-column text stays readable. Everything below flows without it,
        so the portrait can't stretch across the whole page. -->
   <div class="about-underlay">
-    <img
-      class="about-portrait-mobile"
-      src="/img/authors/sajivfrancis-about.png"
-      alt="Sajiv Francis"
-      width="1241"
-      height="1400"
-      loading="eager"
-      decoding="async"
-    />
     <section class="about-hero">
       <p class="about-eyebrow">About</p>
       <h1 class="about-name">Sajiv Francis</h1>
@@ -216,11 +207,6 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
   .about-hero {
     margin-bottom: 1.25rem;
   }
-  /* Shown only on mobile (see media query); the desktop portrait is the
-     background underlay above. */
-  .about-portrait-mobile {
-    display: none;
-  }
   .about-eyebrow {
     font-size: 0.78rem;
     text-transform: uppercase;
@@ -250,23 +236,21 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     max-width: 28rem;
   }
 
-  /* Mobile: no room for a right-anchored underlay, so drop the background
-     and stack the full portrait above the text instead — whole image shown. */
+  /* Mobile: keep it an underlay, but fill the whole card (cover + centered)
+     so the portrait can never be half-cut, with a top-to-bottom scrim so the
+     full-width text stays readable over it. */
   @media (max-width: 760px) {
     .about-underlay {
-      background-image: none;
+      background-size: cover;
+      background-position: center top;
     }
     .about-underlay::before {
-      display: none;
-    }
-    .about-portrait-mobile {
-      display: block;
-      width: 13rem;
-      max-width: 60%;
-      height: auto;
-      margin: 0 auto 1.25rem;
-      border-radius: 0.75rem;
-      border: 1px solid var(--color-border);
+      background: linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--color-bg) 74%, transparent) 0%,
+        color-mix(in oklab, var(--color-bg) 88%, transparent) 60%,
+        color-mix(in oklab, var(--color-bg) 95%, transparent) 100%
+      );
     }
     .about-hero,
     .about-now {
