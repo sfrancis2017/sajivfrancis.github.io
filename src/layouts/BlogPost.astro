@@ -481,6 +481,11 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
           title.font = Object.assign({}, title.font || {}, { size: fs0 });
           title.text = wrapTitle(originalTitle, w0, fs0);
           layout.title = title;
+          // Hide legends below the mobile breakpoint (they crowd/overlap the
+          // plot, worst on bar charts); restore the author's intent above it.
+          const MOBILE_BP = 640;
+          const dleg = layout.showlegend !== false;
+          layout.showlegend = w0 > MOBILE_BP ? dleg : false;
           try {
             Plotly.newPlot(div, spec.data, layout, {
               responsive: true,
@@ -496,6 +501,7 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
                 Plotly.relayout(div, {
                   'title.font.size': fs,
                   'title.text': wrapTitle(originalTitle, w, fs),
+                  showlegend: w > MOBILE_BP ? dleg : false,
                 });
               } catch {
                 /* chart removed */
