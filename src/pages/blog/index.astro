@@ -6,7 +6,7 @@ import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
 
 // Section teaser — paste the CDN URL from the video pipeline here (slug: blog).
-const heroVideo = '';
+const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/blog/1781661585835.mp4';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
