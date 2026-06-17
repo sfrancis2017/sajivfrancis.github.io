@@ -15,16 +15,10 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
        balloon inside this page's wider max-w-6xl editorial column. -->
   <HeroVideo src={heroVideo} class="max-w-3xl mb-8" />
 
-  <!-- Top section: image is a background on the wrapper, positioned
-       top-right and bleeding to the viewport edge. The wrapper extends
-       through Hero + Now + Background + Why so the image is visible
-       (and the eye has something to follow) for the first ~1100-1300px
-       of scroll. Below this wrapper, content goes full-width.
-
-       This mirrors ianenders.com's editorial layout where the content
-       area is a single tall div with the image positioned `top right`
-       and text flowing in the left half. -->
-  <div class="about-with-portrait">
+  <!-- Editorial header: name + intro on the left, a contained portrait
+       in a fixed frame on the right. The whole image is always visible —
+       never cover-cropped or bleeding past the column. Stacks on mobile. -->
+  <div class="about-top">
     <section class="about-hero">
       <p class="about-eyebrow">About</p>
       <h1 class="about-name">Sajiv Francis</h1>
@@ -40,45 +34,55 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
       </p>
     </section>
 
-    <article class="prose dark:prose-invert max-w-none about-content-narrow">
-      <h2>Now <span class="not-prose about-now-date">— May 2026</span></h2>
-      <ul>
-        <li>
-          Trying to work out what agentic architectures actually look
-          like in real enterprise stacks — beyond the demo videos.
-        </li>
-        <li>
-          Building tooling for my own work in public: RAG over my notes,
-          AI-grounded writing, automated white papers.
-        </li>
-        <li>
-          Following SAP S/4HANA's evolution — especially where AI starts
-          being useful inside it, not bolted on.
-        </li>
-      </ul>
-
-      <h2>Background</h2>
-      <p>
-        Eight years of building at the intersection of AI and enterprise
-        systems — from a 2018 grad-school location tool for Connecticut
-        seniors, to an NLP-powered adaptive learning system in 2019
-        (predating mainstream RAG by four years), to enterprise data
-        orchestration, to leading AI programs inside one
-        of the world's largest technology companies.
-      </p>
-
-      <h2>Why this work</h2>
-      <p>
-        I came into enterprise architecture sideways — through digital transformation projects in SAP & software
-        engineering, then through trying to make AI useful inside
-        organizations. What I care about now is the
-        seam where new model capabilities meet decades-old enterprise
-        systems, and how architects translate one to the other without
-        breaking either.
-      </p>
-    </article>
-
+    <figure class="about-portrait">
+      <img
+        src="/img/authors/sajivfrancis-about.png"
+        alt="Sajiv Francis"
+        width="1241"
+        height="1400"
+        loading="eager"
+        decoding="async"
+      />
+    </figure>
   </div>
+
+  <article class="prose dark:prose-invert max-w-none about-content">
+    <h2>Now <span class="not-prose about-now-date">— May 2026</span></h2>
+    <ul>
+      <li>
+        Trying to work out what agentic architectures actually look
+        like in real enterprise stacks — beyond the demo videos.
+      </li>
+      <li>
+        Building tooling for my own work in public: RAG over my notes,
+        AI-grounded writing, automated white papers.
+      </li>
+      <li>
+        Following SAP S/4HANA's evolution — especially where AI starts
+        being useful inside it, not bolted on.
+      </li>
+    </ul>
+
+    <h2>Background</h2>
+    <p>
+      Eight years of building at the intersection of AI and enterprise
+      systems — from a 2018 grad-school location tool for Connecticut
+      seniors, to an NLP-powered adaptive learning system in 2019
+      (predating mainstream RAG by four years), to enterprise data
+      orchestration, to leading AI programs inside one
+      of the world's largest technology companies.
+    </p>
+
+    <h2>Why this work</h2>
+    <p>
+      I came into enterprise architecture sideways — through digital transformation projects in SAP & software
+      engineering, then through trying to make AI useful inside
+      organizations. What I care about now is the
+      seam where new model capabilities meet decades-old enterprise
+      systems, and how architects translate one to the other without
+      breaking either.
+    </p>
+  </article>
 
   <article class="prose dark:prose-invert max-w-none about-content">
     <h2>Life outside work</h2>
@@ -173,57 +177,33 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
      Mobile: the absolutely-positioned image is hidden; an <img> tag
      stacks above the text instead. Cleaner stacking and accessible alt.
      ---------------------------------------------------------------------- */
-  /* Wrapper with portrait as a subtle underlay behind text.
-     The image is intentionally desaturated and overlaid so text remains
-     readable in both themes. */
-  .about-with-portrait {
-    position: relative;
+  /* Editorial header: text column + a contained portrait in a fixed
+     frame. The whole image is always visible — no cover-crop, no bleed. */
+  .about-top {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2.5rem;
+    align-items: start;
     margin-bottom: 3rem;
-    padding-top: 2rem;
-    background-image: url('/img/authors/sajivfrancis-about.png');
-    background-size: cover;
-    background-position: center top;
-    background-repeat: no-repeat;
-    border-radius: 0.5rem;
-    overflow: hidden;
+    padding-top: 1rem;
   }
-  .about-with-portrait::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(
-        to bottom,
-        color-mix(in oklab, var(--color-bg) 82%, transparent),
-        color-mix(in oklab, var(--color-bg) 90%, transparent)
-      );
-    z-index: 0;
+  .about-portrait {
+    margin: 0;
+    width: 16rem;
+    max-width: 38vw;
   }
-  .about-with-portrait::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(circle at 18% 16%, color-mix(in oklab, var(--color-bg) 86%, transparent), transparent 46%),
-      repeating-linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--color-border) 20%, transparent) 0,
-        color-mix(in srgb, var(--color-border) 20%, transparent) 1px,
-        transparent 1px,
-        transparent 7px
-      );
-    opacity: 0.55;
-    z-index: 0;
+  .about-portrait img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated, var(--color-bg));
   }
 
   .about-hero {
-    position: relative;
-    z-index: 1;
     max-width: 36rem;
-    padding-right: 1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
   }
   .about-eyebrow {
     font-size: 0.78rem;
@@ -254,26 +234,21 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     max-width: 28rem;
   }
 
-  /* Content sections INSIDE the portrait wrapper need to stay in the
-     left half so they don't overlap the image. Width tuned so prose
-     ends well before the cutout's left edge. */
-  .about-content-narrow {
-    position: relative;
-    z-index: 1;
-    max-width: 36rem;
-    padding-right: 1rem;
-  }
-
-  @media (max-width: 900px) {
-    .about-with-portrait {
-      padding-top: 0.5rem;
-      background-size: 145%;
-      background-position: center top;
+  /* Stack the header on narrow screens: portrait above the intro,
+     at a comfortable contained size. */
+  @media (max-width: 760px) {
+    .about-top {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      justify-items: start;
     }
-    .about-hero,
-    .about-content-narrow {
+    .about-portrait {
+      order: -1;
+      width: 12rem;
+      max-width: 55%;
+    }
+    .about-hero {
       max-width: 100%;
-      padding-right: 0;
     }
   }
 
