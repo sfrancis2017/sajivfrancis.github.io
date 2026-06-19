@@ -239,7 +239,10 @@ South Africa\t20000\t14`;
 
     function getToken() {
       let t = localStorage.getItem('tools-access-token');
-      if (!t) { t = (prompt('Enter your tools owner token (saved to this browser):') || '').trim(); if (t) localStorage.setItem('tools-access-token', t); }
+      if (!t) {
+        t = (prompt('Matplotlib/Seaborn render on the tools server — enter your TOOLS token (NOT the chat token; the same token Word Art’s “Save to site” uses):') || '').trim();
+        if (t) localStorage.setItem('tools-access-token', t);
+      }
       return t;
     }
     const setStatus = (s) => { byId('status').textContent = s; };
@@ -276,7 +279,7 @@ South Africa\t20000\t14`;
             method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ library, spec, output: 'png' }),
           });
-          if (r.status === 401) { localStorage.removeItem('tools-access-token'); throw new Error('Owner token rejected — render again to re-enter it.'); }
+          if (r.status === 401) { localStorage.removeItem('tools-access-token'); throw new Error('Token rejected — Matplotlib/Seaborn need your TOOLS token (distinct from the chat token). Render again to re-enter it.'); }
           if (!r.ok) throw new Error(`${r.status} — ${(await r.text()).slice(0, 200)}`);
           const out = await r.json();
           const div = byId('result');
