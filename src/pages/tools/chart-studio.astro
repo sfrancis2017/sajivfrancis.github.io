@@ -302,8 +302,12 @@ South Africa\t20000\t14`;
     }
     async function copyFence() {
       if (!last) return;
-      const fence = { library: last.library, title: last.title || undefined, spec: last.spec };
-      const text = '```chart\n' + JSON.stringify(fence) + '\n```';
+      // Plotly → a raw ```plotly fence: it renders in the chat AND is rasterized to a
+      // PNG by the existing PPT/Word/PDF/docs export pipeline. Other libraries use the
+      // unified ```chart fence.
+      const text = last.library === 'plotly'
+        ? '```plotly\n' + JSON.stringify(last.spec) + '\n```'
+        : '```chart\n' + JSON.stringify({ library: last.library, title: last.title || undefined, spec: last.spec }) + '\n```';
       try { await navigator.clipboard.writeText(text); setStatus('Chart fence copied — paste into the chat or a whitepaper.'); }
       catch { setStatus('Copy failed — your browser blocked clipboard access.'); }
     }
