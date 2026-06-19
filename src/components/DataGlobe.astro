@@ -144,7 +144,8 @@ China, 7.1"></textarea>
       setError(`Could not load ${p.name}: ${e.message}`);
     }
   }
-  const loadDefault = () => loadIndicator(PRESETS[0]);
+  // Default to a tech/innovation indicator (on-brand) rather than population.
+  const loadDefault = () => loadIndicator(PRESETS.find((p) => p.code === 'GB.XPD.RSDV.GD.ZS') || PRESETS[0]);
 
   // ---- Parsing custom data (CSV / JSON / Sheets) ---------------------------
   function normalizeUrl(u) {
