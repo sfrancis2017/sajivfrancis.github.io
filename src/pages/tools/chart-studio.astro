@@ -33,6 +33,11 @@ Indonesia	29000	49
 China	30000	23"></textarea>
         </label>
         <div class="actions">
+          <label class="btn filebtn">Upload CSV<input type="file" id="fileInput" accept=".csv,.tsv,.txt" hidden /></label>
+          <input type="url" id="urlInput" class="urlin" placeholder="https://…/data.csv  (or a public Google Sheet)" />
+          <button class="btn" id="urlBtn">Fetch</button>
+        </div>
+        <div class="actions">
           <button class="btn" id="exampleBtn">Load example</button>
           <button class="btn primary" id="parseBtn">Parse →</button>
         </div>
@@ -99,10 +104,11 @@ China	30000	23"></textarea>
     let last = null; // { library, type, render: 'plotly'|'image' }
 
     // Chart type → required column roles, and which libraries can render it.
+    // 3rd element = multi-select (multiple series). Ctrl/Cmd-click to pick several.
     const ROLE_SPECS = {
-      bar:        [['x', 'Category (X)'], ['y', 'Value (Y)']],
-      line:       [['x', 'X'], ['y', 'Y (value)']],
-      scatter:    [['x', 'X (numeric)'], ['y', 'Y (numeric)']],
+      bar:        [['x', 'Category (X)'], ['y', 'Value(s) (Y)', true]],
+      line:       [['x', 'X'], ['y', 'Y series', true]],
+      scatter:    [['x', 'X (numeric)'], ['y', 'Y series', true]],
       pie:        [['labels', 'Labels'], ['values', 'Values']],
       choropleth: [['location', 'Location (country name)'], ['value', 'Value']],
       heatmap:    [['x', 'X (columns)'], ['y', 'Y (rows)'], ['value', 'Value']],
@@ -173,29 +179,36 @@ South Africa\t20000\t14`;
       const prev = libSel.value;
       libSel.innerHTML = allowed.map((l) => `<option value="${l}">${LIB_LABEL[l]}</option>`).join('');
       if (allowed.includes(prev)) libSel.value = prev;
-      // Role selects
+      // Role selects (multi-select for series-capable roles)
       const opts = parsed.headers.map((h) => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
-      byId('roles').innerHTML = ROLE_SPECS[type].map(([key, label], i) =>
-        `<label class="field"><span>${label}</span><select data-role="${key}">${opts}</select></label>`
+      byId('roles').innerHTML = ROLE_SPECS[type].map(([key, label, multi]) =>
+        `<label class="field"><span>${label}${multi ? ' · ⌘/Ctrl-click for several' : ''}</span>` +
+        `<select data-role="${key}"${multi ? ' multiple size="4"' : ''}>${opts}</select></label>`
       ).join('');
-      // Sensible default mapping: first col → first role, next numeric → value-ish roles
-      const selects = [...byId('roles').querySelectorAll('select')];
-      selects.forEach((s, i) => { if (parsed.headers[i] != null) s.value = parsed.headers[i]; });
+      // Defaults: role[i] → header[i] (multi-select defaults to that one column).
+      [...byId('roles').querySelectorAll('select')].forEach((s, i) => {
+        const def = parsed.headers[i] ?? parsed.headers[parsed.headers.length - 1];
+        if (s.multiple) [...s.options].forEach((o) => { o.selected = o.value === def; });
+        else if (def != null) s.value = def;
+      });
       // Globe toggle only for choropleth
       byId('globeWrap').hidden = type !== 'choropleth';
     }
     function currentRoles() {
       const r = {};
-      byId('roles').querySelectorAll('select').forEach((s) => { r[s.dataset.role] = s.value; });
+      byId('roles').querySelectorAll('select').forEach((s) => {
+        r[s.dataset.role] = s.multiple ? [...s.selectedOptions].map((o) => o.value) : s.value;
+      });
       return r;
     }
+    const yList = (roles) => Array.isArray(roles.y) ? roles.y.filter(Boolean) : (roles.y ? [roles.y] : []);
 
     // ---- Spec builders -------------------------------------------------------
     function buildPlotly(type, roles, title, globe) {
       const layout = { title: { text: title || '' }, margin: { t: 44, r: 20, b: 54, l: 64 }, autosize: true };
-      if (type === 'bar') return { data: [{ type: 'bar', x: col(roles.x), y: numCol(roles.y) }], layout };
-      if (type === 'line') return { data: [{ type: 'scatter', mode: 'lines+markers', x: col(roles.x), y: numCol(roles.y) }], layout };
-      if (type === 'scatter') return { data: [{ type: 'scatter', mode: 'markers', x: numCol(roles.x), y: numCol(roles.y) }], layout };
+      if (type === 'bar') { layout.barmode = 'group'; return { data: yList(roles).map((y) => ({ type: 'bar', name: y, x: col(roles.x), y: numCol(y) })), layout }; }
+      if (type === 'line') return { data: yList(roles).map((y) => ({ type: 'scatter', mode: 'lines+markers', name: y, x: col(roles.x), y: numCol(y) })), layout };
+      if (type === 'scatter') return { data: yList(roles).map((y) => ({ type: 'scatter', mode: 'markers', name: y, x: numCol(roles.x), y: numCol(y) })), layout };
       if (type === 'pie') return { data: [{ type: 'pie', labels: col(roles.labels), values: numCol(roles.values) }], layout };
       if (type === 'choropleth') {
         layout.geo = { projection: { type: globe ? 'orthographic' : 'natural earth' }, showframe: false, showcoastlines: true, coastlinecolor: '#bbb' };
@@ -204,9 +217,10 @@ South Africa\t20000\t14`;
       if (type === 'heatmap') { const { z, x, y } = pivot(roles.x, roles.y, roles.value); return { data: [{ type: 'heatmap', x, y, z, colorscale: 'Viridis' }], layout }; }
     }
     function buildBackend(type, roles, title) {
-      if (type === 'bar') return { chart_type: 'bar', data: { x: col(roles.x), y: numCol(roles.y) }, kwargs: { title } };
-      if (type === 'line') return { chart_type: 'line', data: { x: col(roles.x), y: numCol(roles.y) }, kwargs: { title } };
-      if (type === 'scatter') return { chart_type: 'scatter', data: { x: numCol(roles.x), y: numCol(roles.y) }, kwargs: { title } };
+      const ys = yList(roles);
+      if (type === 'bar') return { chart_type: 'bar', data: { x: col(roles.x), y: numCol(ys[0]) }, kwargs: { title } };
+      if (type === 'line') return { chart_type: 'line', data: { series: ys.map((y) => ({ name: y, x: col(roles.x), y: numCol(y) })) }, kwargs: { title } };
+      if (type === 'scatter') return { chart_type: 'scatter', data: { x: numCol(roles.x), y: numCol(ys[0]) }, kwargs: { title } };
       if (type === 'heatmap') { const { z, x, y } = pivot(roles.x, roles.y, roles.value); return { chart_type: 'heatmap', data: { z, x, y }, kwargs: { title, annot: true } }; }
       return null;
     }
@@ -301,6 +315,22 @@ South Africa\t20000\t14`;
     byId('renderBtn').addEventListener('click', render);
     byId('pngBtn').addEventListener('click', downloadPng);
     byId('fenceBtn').addEventListener('click', copyFence);
+    byId('fileInput').addEventListener('change', (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => { byId('data').value = String(reader.result || ''); doParse(); };
+      reader.readAsText(f);
+    });
+    byId('urlBtn').addEventListener('click', async () => {
+      const u = byId('urlInput').value.trim(); if (!u) return;
+      setStatus('Fetching…');
+      try {
+        const gs = u.match(/docs\.google\.com\/spreadsheets\/d\/([^/]+)/);
+        const url = gs ? `https://docs.google.com/spreadsheets/d/${gs[1]}/export?format=csv` : u;
+        const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        byId('data').value = await r.text(); doParse();
+      } catch (e) { setStatus(`Fetch failed: ${e.message} — source must allow CORS (GitHub raw / public Sheets do).`); }
+    });
     function doParse() {
       parsed = parseData(byId('data').value);
       if (!parsed.headers.length) return setStatus('No data — paste a table with a header row.');
@@ -338,6 +368,12 @@ South Africa\t20000\t14`;
 
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
   .roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+  .roles select[multiple] { min-height: 86px; }
+  .filebtn { cursor: pointer; }
+  .urlin {
+    flex: 1; min-width: 150px; background: var(--color-bg); border: 1px solid var(--color-border);
+    color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: var(--font-mono);
+  }
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field span { font-size: 12px; color: var(--color-fg-muted); }
   .field.full { grid-column: 1 / -1; }
