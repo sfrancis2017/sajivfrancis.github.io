@@ -5,6 +5,7 @@ import { buildPostUrl, formatDate } from '@/lib/utils';
 import { fetchFeeds, relativeTime } from '@/lib/news';
 import type { FeedItem } from '@/lib/news';
 import HeroVideo from '@/components/HeroVideo.astro';
+import DataGlobe from '@/components/DataGlobe.astro';
 
 // Phase 0 landing teaser — paste the CDN URL from the video pipeline here.
 const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/sajivfrancis-com/1781500515279.mp4';
@@ -145,4 +146,6 @@ try {
       </li>
     </ul>
   </section>
+
+  <DataGlobe />
 </BaseLayout>

@@ -243,9 +243,15 @@ South Africa\t20000\t14`;
         if (library === 'plotly') {
           const spec = buildPlotly(type, roles, title, globe);
           const Plotly = await loadPlotly();
-          const div = byId('result'); div.innerHTML = '';
-          await Plotly.newPlot(div, spec.data, spec.layout, { responsive: true, displaylogo: false });
-          last = { library, type, render: 'plotly', spec, title };
+          const div = byId('result');
+          div.classList.add('has-plot');   // switch container to full-width block
+          div.innerHTML = '';
+          const plot = document.createElement('div');
+          plot.style.cssText = 'width:100%;height:440px';
+          div.appendChild(plot);
+          await Plotly.newPlot(plot, spec.data, spec.layout, { responsive: true, displaylogo: false });
+          requestAnimationFrame(() => Plotly.Plots.resize(plot));  // fit now that it's laid out
+          last = { library, type, render: 'plotly', spec, title, plotDiv: plot };
           setStatus('Rendered (interactive).');
         } else {
           const spec = buildBackend(type, roles, title);
@@ -259,7 +265,9 @@ South Africa\t20000\t14`;
           if (r.status === 401) { localStorage.removeItem('tools-access-token'); throw new Error('Owner token rejected — render again to re-enter it.'); }
           if (!r.ok) throw new Error(`${r.status} — ${(await r.text()).slice(0, 200)}`);
           const out = await r.json();
-          byId('result').innerHTML = `<img src="${out.url}" alt="${esc(title || type)}" />`;
+          const div = byId('result');
+          div.classList.remove('has-plot');
+          div.innerHTML = `<img src="${out.url}" alt="${esc(title || type)}" />`;
           last = { library, type, render: 'image', url: out.url, spec, title };
           setStatus('Rendered (static PNG).');
         }
@@ -275,7 +283,7 @@ South Africa\t20000\t14`;
       if (!last) return;
       if (last.render === 'image') { window.open(last.url, '_blank'); return; }
       const Plotly = await loadPlotly();
-      const dataUrl = await Plotly.toImage(byId('result'), { format: 'png', scale: 2 });
+      const dataUrl = await Plotly.toImage(last.plotDiv || byId('result'), { format: 'png', scale: 2 });
       const a = document.createElement('a'); a.href = dataUrl; a.download = `${(last.title || last.type).replace(/\s+/g, '-')}.png`; a.click();
     }
     async function copyFence() {
@@ -365,7 +373,10 @@ South Africa\t20000\t14`;
     display: grid; place-items: center;
   }
   .result img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
-  .result .js-plotly-plot { width: 100% !important; }
+  /* When a Plotly chart is mounted, the pane is a full-width block (not centered grid)
+     so the plot fills it and positions correctly. */
+  .result.has-plot { display: block; place-items: initial; padding: 0; }
+  .result.has-plot > div, .result .js-plotly-plot, .result .plot-container { width: 100% !important; }
   .placeholder { font-size: 13px; color: var(--color-fg-subtle); }
 
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }

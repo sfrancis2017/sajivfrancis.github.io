@@ -1,0 +1,257 @@
+---
+// Interactive orthographic choropleth globe for the landing page. Defaults to live
+// World Bank population (2023); a visitor can drop in ANY country-keyed dataset via a
+// URL (CSV / JSON / GitHub raw / public Google Sheets) or manual input, and the globe
+// re-renders. Plotly loads from CDN at runtime — no npm dependency.
+const PLOTLY_CDN = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js';
+---
+
+<section class="mt-16 pt-12 border-t border-[var(--color-border)]">
+  <h2 class="text-sm uppercase tracking-wide text-[var(--color-fg-muted)] mb-2">World in Data</h2>
+  <p class="text-sm text-[var(--color-fg-muted)] mb-4 max-w-2xl">
+    An interactive globe — drag to spin. Defaults to world population (World Bank, 2023).
+    Drop in any <strong>country-keyed</strong> dataset (CSV, JSON, a GitHub raw URL, or a
+    public Google Sheet) and it re-renders. Built on the same chart engine as the
+    <a href="/tools/chart-studio/">Chart Studio</a>.
+  </p>
+
+  <div class="presets" id="globePresets"></div>
+
+  <div id="globe" class="globe"></div>
+
+  <div class="globe-controls">
+    <div class="source" id="globeSource">Loading default dataset…</div>
+    <div class="loader">
+      <input type="url" id="globeUrl" placeholder="https://raw.githubusercontent.com/…/data.csv  (or a public Google Sheet)" />
+      <button class="gbtn" id="globeLoad">Load</button>
+      <button class="gbtn ghost" id="globeManualToggle">Manual</button>
+      <a class="greset" id="globeReset" hidden>Reset to default →</a>
+    </div>
+    <div class="manual" id="globeManual" hidden>
+      <textarea id="globeManualData" placeholder="Country, Value
+United States, 9.2
+Germany, 8.7
+Singapore, 8.5
+China, 7.1"></textarea>
+      <button class="gbtn" id="globeManualRender">Render</button>
+    </div>
+    <div class="gerror" id="globeError" hidden></div>
+  </div>
+</section>
+
+<script is:inline define:vars={{ PLOTLY_CDN }}>
+  const byId = (id) => document.getElementById(id);
+
+  // One-click World Bank presets — all reachable via the same API, just a different
+  // indicator code. Tech/AI-relevant by design. (Population is the always-full default.)
+  const PRESETS = [
+    { code: 'SP.POP.TOTL',      label: 'Population',          name: 'Population' },
+    { code: 'IT.NET.USER.ZS',   label: 'Internet users %',    name: 'Individuals using the Internet (% of population)' },
+    { code: 'GB.XPD.RSDV.GD.ZS',label: 'R&D % of GDP',        name: 'Research & development expenditure (% of GDP)' },
+    { code: 'SP.POP.SCIE.RD.P6',label: 'Researchers / M',     name: 'Researchers in R&D (per million people)' },
+    { code: 'TX.VAL.TECH.MF.ZS',label: 'High-tech exports %', name: 'High-technology exports (% of manufactured exports)' },
+    { code: 'IT.CEL.SETS.P2',   label: 'Mobile / 100',        name: 'Mobile cellular subscriptions (per 100 people)' },
+  ];
+
+  // World Bank aggregate codes (regions/income groups) to exclude — keep only countries.
+  const AGGREGATES = new Set(['WLD','ARB','CSS','CEB','EAR','EAS','EAP','TEA','EMU','ECS','ECA','TEC',
+    'EUU','FCS','HPC','HIC','IBD','IBT','IDB','IDX','IDA','INX','LTE','LCN','LAC','TLA','LDC','LMY',
+    'LIC','LMC','MEA','MNA','TMN','MIC','NAC','INVALID','OED','OSS','PSS','PST','PRE','SST','SAS','TSA',
+    'SSF','SSA','TSS','UMC','AFE','AFW','HQ']);
+
+  let _plotly = null;
+  function loadPlotly() {
+    if (window.Plotly) return Promise.resolve(window.Plotly);
+    if (!_plotly) _plotly = new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = PLOTLY_CDN;
+      s.onload = () => res(window.Plotly); s.onerror = () => { _plotly = null; rej(new Error('Plotly failed to load')); };
+      document.head.appendChild(s);
+    });
+    return _plotly;
+  }
+
+  const setSource = (t) => { byId('globeSource').textContent = t; };
+  function setError(t) {
+    const e = byId('globeError');
+    if (!t) { e.hidden = true; e.textContent = ''; return; }
+    e.hidden = false; e.textContent = t;
+  }
+
+  // data: { mode:'iso'|'names', locations:[], z:[], text:[], label, source }
+  async function renderGlobe(data) {
+    const Plotly = await loadPlotly();
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const trace = {
+      type: 'choropleth',
+      locationmode: data.mode === 'iso' ? 'ISO-3' : 'country names',
+      locations: data.locations,
+      z: data.z,
+      text: data.text || data.locations,
+      colorscale: 'Viridis',
+      marker: { line: { color: dark ? '#333' : '#fff', width: 0.4 } },
+      colorbar: { title: { text: data.label || 'Value' }, thickness: 12, len: 0.7,
+        tickfont: { color: dark ? '#ccc' : '#444' }, titlefont: { color: dark ? '#ccc' : '#444' } },
+      hovertemplate: '%{text}<br>%{z:,}<extra></extra>',
+    };
+    const layout = {
+      geo: { projection: { type: 'orthographic', rotation: { lon: -30, lat: 20 } },
+        showframe: false, showcoastlines: true, coastlinecolor: dark ? '#555' : '#ccc',
+        landcolor: dark ? '#1d1d1d' : '#f2f2ee', showland: true, showocean: true,
+        oceancolor: dark ? '#0f0f0f' : '#fafaf7', bgcolor: 'rgba(0,0,0,0)' },
+      margin: { t: 0, r: 0, b: 0, l: 0 }, paper_bgcolor: 'rgba(0,0,0,0)', height: 460,
+    };
+    await Plotly.newPlot(byId('globe'), [trace], layout, { responsive: true, displaylogo: false, scrollZoom: false });
+    setSource(`⊕ ${data.source}`);
+    setError('');
+    setActivePreset('');  // loadIndicator re-highlights its chip; custom loads stay unhighlighted
+  }
+
+  // ---- World Bank indicator presets (latest non-null value per country) ----
+  function renderPresets() {
+    byId('globePresets').innerHTML = PRESETS.map((p) =>
+      `<button class="pchip" data-code="${p.code}">${p.label}</button>`).join('');
+    byId('globePresets').querySelectorAll('.pchip').forEach((b) =>
+      b.addEventListener('click', () => loadIndicator(PRESETS.find((x) => x.code === b.dataset.code))));
+  }
+  function setActivePreset(code) {
+    byId('globePresets').querySelectorAll('.pchip').forEach((b) => b.classList.toggle('active', b.dataset.code === code));
+  }
+  async function loadIndicator(p) {
+    setSource('Loading…'); setError('');
+    try {
+      const r = await fetch(`https://api.worldbank.org/v2/country/all/indicator/${p.code}?format=json&date=2017:2023&per_page=3000`);
+      const j = await r.json();
+      const recs = (Array.isArray(j) && j[1] ? j[1] : [])
+        .filter((d) => d && d.value != null && d.countryiso3code && !AGGREGATES.has(d.countryiso3code));
+      const latest = {};
+      for (const d of recs) { const k = d.countryiso3code; if (!latest[k] || +d.date > +latest[k].date) latest[k] = d; }
+      const arr = Object.values(latest);
+      if (!arr.length) throw new Error('no data returned');
+      await renderGlobe({
+        mode: 'iso', locations: arr.map((d) => d.countryiso3code), z: arr.map((d) => d.value),
+        text: arr.map((d) => `${d.country.value} (${d.date})`), label: p.label, source: `World Bank · ${p.name}`,
+      });
+      setActivePreset(p.code);
+      byId('globeReset').hidden = true;   // presets are built-in; reset is for custom data
+    } catch (e) {
+      setSource('Dataset unavailable.');
+      setError(`Could not load ${p.name}: ${e.message}`);
+    }
+  }
+  const loadDefault = () => loadIndicator(PRESETS[0]);
+
+  // ---- Parsing custom data (CSV / JSON / Sheets) ---------------------------
+  function normalizeUrl(u) {
+    // Google Sheets share URL → CSV export endpoint.
+    const m = u.match(/docs\.google\.com\/spreadsheets\/d\/([^/]+)/);
+    if (m) {
+      const gid = (u.match(/[#&]gid=(\d+)/) || [])[1] || '0';
+      return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`;
+    }
+    return u;
+  }
+  function parseCsv(text) {
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+    const split = (l) => l.split(',').map((s) => s.trim().replace(/^"|"$/g, ''));
+    const headers = split(lines[0]);
+    return { headers, rows: lines.slice(1).map(split) };
+  }
+  function fromTable(headers, rows) {
+    const ci = headers.findIndex((h) => /\b(country|nation|name|iso|location)\b/i.test(h));
+    let vi = headers.findIndex((h) => /\b(value|score|count|total|pop|index|rate|amount|gdp)\b/i.test(h));
+    if (vi < 0) vi = headers.findIndex((h, i) => i !== ci && rows.some((r) => !isNaN(parseFloat(r[i]))));
+    if (ci < 0 || vi < 0) throw new Error('Need a country column and a numeric value column.');
+    const locations = [], z = [];
+    for (const r of rows) {
+      const loc = (r[ci] || '').trim();
+      const n = parseFloat(String(r[vi]).replace(/[,$%\s]/g, ''));
+      if (loc && !isNaN(n)) { locations.push(loc); z.push(n); }
+    }
+    if (!locations.length) throw new Error('No usable rows (country + numeric value).');
+    const isIso = locations.every((l) => /^[A-Za-z]{3}$/.test(l));
+    return { mode: isIso ? 'iso' : 'names', locations, z, text: locations, label: headers[vi] };
+  }
+  async function loadFromUrl(rawUrl) {
+    setError(''); setSource('Loading…');
+    try {
+      const url = normalizeUrl(rawUrl.trim());
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Server returned ${r.status}.`);
+      const body = await r.text();
+      let data;
+      if (/^\s*[[{]/.test(body) && (url.endsWith('.json') || /\/json/.test(url) || body.trim()[0] === '[')) {
+        const json = JSON.parse(body);
+        const arr = Array.isArray(json) ? json : (json.data || json.values || []);
+        const headers = Object.keys(arr[0] || {});
+        data = fromTable(headers, arr.map((o) => headers.map((h) => o[h])));
+      } else {
+        const { headers, rows } = parseCsv(body);
+        data = fromTable(headers, rows);
+      }
+      const host = (() => { try { return new URL(url).host; } catch { return 'custom'; } })();
+      data.source = `Custom: ${host} · ${data.locations.length} countries`;
+      await renderGlobe(data);
+      byId('globeReset').hidden = false;
+    } catch (e) {
+      const hint = /Failed to fetch|NetworkError/i.test(e.message)
+        ? 'Network/CORS error — the source must allow cross-origin requests (GitHub raw + public Google Sheets do).'
+        : e.message;
+      setError(`Couldn't load that dataset: ${hint}`);
+      setSource('Load failed — default still shown.');
+    }
+  }
+
+  // ---- Wiring --------------------------------------------------------------
+  byId('globeLoad').addEventListener('click', () => {
+    const u = byId('globeUrl').value.trim();
+    if (u) loadFromUrl(u);
+  });
+  byId('globeManualToggle').addEventListener('click', () => {
+    const m = byId('globeManual'); m.hidden = !m.hidden;
+  });
+  byId('globeManualRender').addEventListener('click', () => {
+    try {
+      const { headers, rows } = parseCsv('Country,Value\n' +
+        byId('globeManualData').value.trim().split(/\r?\n/).map((l) => l.replace(/\t/g, ',')).join('\n'));
+      const data = fromTable(headers, rows);
+      data.source = `Manual input · ${data.locations.length} countries`;
+      renderGlobe(data).then(() => { byId('globeReset').hidden = false; });
+    } catch (e) { setError(e.message); }
+  });
+  byId('globeReset').addEventListener('click', (e) => { e.preventDefault(); byId('globeUrl').value = ''; loadDefault(); });
+
+  renderPresets();
+  loadDefault();
+</script>
+
+<style>
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .pchip {
+    border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg-muted);
+    border-radius: 999px; padding: 5px 11px; font-size: 12px; cursor: pointer;
+  }
+  .pchip:hover { border-color: var(--color-accent); color: var(--color-fg); }
+  .pchip.active { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+  .globe { width: 100%; min-height: 460px; }
+  .globe-controls { margin-top: 8px; }
+  .source { font-size: 12px; color: var(--color-fg-muted); margin-bottom: 8px; }
+  .loader { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .loader input {
+    flex: 1; min-width: 220px; background: var(--color-bg); border: 1px solid var(--color-border);
+    color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: var(--font-mono);
+  }
+  .gbtn {
+    border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+  .gbtn:hover { border-color: var(--color-accent); }
+  .gbtn.ghost { color: var(--color-fg-muted); }
+  .greset { font-size: 12px; color: var(--color-accent); text-decoration: none; cursor: pointer; }
+  .manual { margin-top: 8px; display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+  .manual textarea {
+    flex: 1; min-width: 240px; min-height: 110px; resize: vertical;
+    background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-fg);
+    border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: var(--font-mono);
+  }
+  .gerror { margin-top: 8px; font-size: 12px; color: #c0392b; }
+</style>
