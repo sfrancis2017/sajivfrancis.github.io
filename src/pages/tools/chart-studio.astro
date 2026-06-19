@@ -1,0 +1,373 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+// Backend (FastAPI on the droplet, reached via the tools tunnel). Override at build
+// with PUBLIC_TOOLS_API. /api/chart/render is owner-authed (matplotlib/seaborn render
+// server-side); Plotly renders client-side here, so it needs no token.
+const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfrancis.com/api';
+const PLOTLY_CDN = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js';
+---
+
+<BaseLayout
+  title="Chart Studio"
+  description="Paste a table → map columns to chart roles → render an interactive Plotly chart or a static Matplotlib/Seaborn image. World choropleth/globe, bar, line, scatter, pie, heatmap. Download PNG or copy a chart fence for the chat & whitepapers."
+  mainClass="max-w-6xl"
+>
+  <article class="container">
+    <header class="tool-header">
+      <div class="title">
+        <h1>Chart Studio</h1>
+        <div class="subtitle">Grid data → chart. Map columns to roles; render interactive (Plotly) or static (Matplotlib/Seaborn).</div>
+      </div>
+      <a class="back-link" href="/tools/">All tools</a>
+    </header>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Data</h2>
+        <label class="field full">
+          <span>Paste a table (tab- or comma-separated; first row = headers)</span>
+          <textarea id="data" placeholder="Country	Plant species	Forest %
+Brazil	34000	59
+Indonesia	29000	49
+China	30000	23"></textarea>
+        </label>
+        <div class="actions">
+          <button class="btn" id="exampleBtn">Load example</button>
+          <button class="btn primary" id="parseBtn">Parse →</button>
+        </div>
+        <div class="preview" id="preview" hidden></div>
+
+        <h2 style="margin-top:14px">Chart</h2>
+        <div class="grid">
+          <label class="field">
+            <span>Type</span>
+            <select id="ctype">
+              <option value="bar">Bar</option>
+              <option value="line">Line</option>
+              <option value="scatter">Scatter</option>
+              <option value="pie">Pie</option>
+              <option value="choropleth">World map (choropleth)</option>
+              <option value="heatmap">Heatmap</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Library</span>
+            <select id="library"></select>
+          </label>
+        </div>
+
+        <div class="roles" id="roles"></div>
+
+        <div class="grid">
+          <label class="field">
+            <span>Title (optional)</span>
+            <input type="text" id="title" placeholder="Plant species by country" />
+          </label>
+          <label class="field" id="globeWrap" hidden>
+            <span>Projection</span>
+            <select id="globe">
+              <option value="">Flat (natural earth)</option>
+              <option value="1">Globe (orthographic)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="renderBtn">Render chart</button>
+        </div>
+        <div class="status" id="status">Paste data, then Parse.</div>
+      </section>
+
+      <section class="panel">
+        <h2>Preview</h2>
+        <div id="result" class="result">
+          <div class="placeholder">Render to see your chart here.</div>
+        </div>
+        <div class="actions" id="resultActions" hidden>
+          <button class="btn" id="pngBtn">Download PNG</button>
+          <button class="btn" id="fenceBtn">Copy chart fence</button>
+        </div>
+        <div class="hint">The <code>chart</code> fence pastes straight into the chat or a whitepaper — they render it inline (and it can be embedded in slide/PPT exports).</div>
+      </section>
+    </div>
+  </article>
+
+  <script is:inline define:vars={{ API_BASE, PLOTLY_CDN }}>
+    const byId = (id) => document.getElementById(id);
+    let parsed = { headers: [], rows: [] };
+    let last = null; // { library, type, render: 'plotly'|'image' }
+
+    // Chart type → required column roles, and which libraries can render it.
+    const ROLE_SPECS = {
+      bar:        [['x', 'Category (X)'], ['y', 'Value (Y)']],
+      line:       [['x', 'X'], ['y', 'Y (value)']],
+      scatter:    [['x', 'X (numeric)'], ['y', 'Y (numeric)']],
+      pie:        [['labels', 'Labels'], ['values', 'Values']],
+      choropleth: [['location', 'Location (country name)'], ['value', 'Value']],
+      heatmap:    [['x', 'X (columns)'], ['y', 'Y (rows)'], ['value', 'Value']],
+    };
+    const LIBS_BY_TYPE = {
+      bar: ['plotly', 'matplotlib', 'seaborn'],
+      line: ['plotly', 'matplotlib', 'seaborn'],
+      scatter: ['plotly', 'matplotlib', 'seaborn'],
+      pie: ['plotly'],
+      choropleth: ['plotly'],
+      heatmap: ['plotly', 'matplotlib', 'seaborn'],
+    };
+    const LIB_LABEL = { plotly: 'Plotly (interactive)', matplotlib: 'Matplotlib (static PNG)', seaborn: 'Seaborn (static PNG)' };
+
+    const EXAMPLE = `Country\tPlant species\tForest %
+Brazil\t34000\t59
+Indonesia\t29000\t49
+China\t30000\t23
+United States\t17000\t34
+India\t18000\t24
+Colombia\t23000\t53
+Mexico\t26000\t34
+Australia\t21000\t17
+Peru\t19000\t57
+South Africa\t20000\t14`;
+
+    // ---- Parsing -------------------------------------------------------------
+    function splitLine(line, d) { return line.split(d).map((s) => s.trim()); }
+    function parseData(text) {
+      const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
+      if (!lines.length) return { headers: [], rows: [] };
+      const d = lines[0].includes('\t') ? '\t' : ',';
+      return { headers: splitLine(lines[0], d), rows: lines.slice(1).map((l) => splitLine(l, d)) };
+    }
+    const colIdx = (name) => parsed.headers.indexOf(name);
+    const col = (name) => { const i = colIdx(name); return i < 0 ? [] : parsed.rows.map((r) => r[i]); };
+    const numCol = (name) => col(name).map((v) => {
+      const n = parseFloat(String(v).replace(/[,$%\s]/g, '')); return isNaN(n) ? null : n;
+    });
+    function pivot(xn, yn, vn) {
+      const xs = [...new Set(col(xn))], ys = [...new Set(col(yn))];
+      const xi = colIdx(xn), yi = colIdx(yn), vi = colIdx(vn);
+      const z = ys.map((yv) => xs.map((xv) => {
+        const row = parsed.rows.find((r) => r[xi] === xv && r[yi] === yv);
+        const n = row ? parseFloat(String(row[vi]).replace(/[,$%\s]/g, '')) : 0;
+        return isNaN(n) ? 0 : n;
+      }));
+      return { z, x: xs, y: ys };
+    }
+
+    // ---- UI: preview table, role selects, library list -----------------------
+    function renderPreview() {
+      const box = byId('preview');
+      if (!parsed.headers.length) { box.hidden = true; return; }
+      const rows = parsed.rows.slice(0, 5);
+      box.innerHTML = '<table><thead><tr>' + parsed.headers.map((h) => `<th>${esc(h)}</th>`).join('') +
+        '</tr></thead><tbody>' + rows.map((r) => '<tr>' + parsed.headers.map((_, i) => `<td>${esc(r[i] ?? '')}</td>`).join('') + '</tr>').join('') +
+        '</tbody></table>' + (parsed.rows.length > 5 ? `<div class="muted">+${parsed.rows.length - 5} more rows</div>` : '');
+      box.hidden = false;
+    }
+    function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+    function rebuildControls() {
+      const type = byId('ctype').value;
+      // Library options
+      const libSel = byId('library');
+      const allowed = LIBS_BY_TYPE[type];
+      const prev = libSel.value;
+      libSel.innerHTML = allowed.map((l) => `<option value="${l}">${LIB_LABEL[l]}</option>`).join('');
+      if (allowed.includes(prev)) libSel.value = prev;
+      // Role selects
+      const opts = parsed.headers.map((h) => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
+      byId('roles').innerHTML = ROLE_SPECS[type].map(([key, label], i) =>
+        `<label class="field"><span>${label}</span><select data-role="${key}">${opts}</select></label>`
+      ).join('');
+      // Sensible default mapping: first col → first role, next numeric → value-ish roles
+      const selects = [...byId('roles').querySelectorAll('select')];
+      selects.forEach((s, i) => { if (parsed.headers[i] != null) s.value = parsed.headers[i]; });
+      // Globe toggle only for choropleth
+      byId('globeWrap').hidden = type !== 'choropleth';
+    }
+    function currentRoles() {
+      const r = {};
+      byId('roles').querySelectorAll('select').forEach((s) => { r[s.dataset.role] = s.value; });
+      return r;
+    }
+
+    // ---- Spec builders -------------------------------------------------------
+    function buildPlotly(type, roles, title, globe) {
+      const layout = { title: { text: title || '' }, margin: { t: 44, r: 20, b: 54, l: 64 }, autosize: true };
+      if (type === 'bar') return { data: [{ type: 'bar', x: col(roles.x), y: numCol(roles.y) }], layout };
+      if (type === 'line') return { data: [{ type: 'scatter', mode: 'lines+markers', x: col(roles.x), y: numCol(roles.y) }], layout };
+      if (type === 'scatter') return { data: [{ type: 'scatter', mode: 'markers', x: numCol(roles.x), y: numCol(roles.y) }], layout };
+      if (type === 'pie') return { data: [{ type: 'pie', labels: col(roles.labels), values: numCol(roles.values) }], layout };
+      if (type === 'choropleth') {
+        layout.geo = { projection: { type: globe ? 'orthographic' : 'natural earth' }, showframe: false, showcoastlines: true, coastlinecolor: '#bbb' };
+        return { data: [{ type: 'choropleth', locations: col(roles.location), locationmode: 'country names', z: numCol(roles.value), colorscale: 'Blues', colorbar: { title: { text: roles.value } } }], layout };
+      }
+      if (type === 'heatmap') { const { z, x, y } = pivot(roles.x, roles.y, roles.value); return { data: [{ type: 'heatmap', x, y, z, colorscale: 'Viridis' }], layout }; }
+    }
+    function buildBackend(type, roles, title) {
+      if (type === 'bar') return { chart_type: 'bar', data: { x: col(roles.x), y: numCol(roles.y) }, kwargs: { title } };
+      if (type === 'line') return { chart_type: 'line', data: { x: col(roles.x), y: numCol(roles.y) }, kwargs: { title } };
+      if (type === 'scatter') return { chart_type: 'scatter', data: { x: numCol(roles.x), y: numCol(roles.y) }, kwargs: { title } };
+      if (type === 'heatmap') { const { z, x, y } = pivot(roles.x, roles.y, roles.value); return { chart_type: 'heatmap', data: { z, x, y }, kwargs: { title, annot: true } }; }
+      return null;
+    }
+
+    // ---- Plotly CDN loader ---------------------------------------------------
+    let _plotly = null;
+    function loadPlotly() {
+      if (window.Plotly) return Promise.resolve(window.Plotly);
+      if (!_plotly) _plotly = new Promise((res, rej) => {
+        const s = document.createElement('script'); s.src = PLOTLY_CDN;
+        s.onload = () => res(window.Plotly); s.onerror = () => { _plotly = null; rej(new Error('Plotly CDN failed')); };
+        document.head.appendChild(s);
+      });
+      return _plotly;
+    }
+
+    function getToken() {
+      let t = localStorage.getItem('tools-access-token');
+      if (!t) { t = (prompt('Enter your tools owner token (saved to this browser):') || '').trim(); if (t) localStorage.setItem('tools-access-token', t); }
+      return t;
+    }
+    const setStatus = (s) => { byId('status').textContent = s; };
+
+    // ---- Render --------------------------------------------------------------
+    async function render() {
+      if (!parsed.headers.length) return setStatus('Paste data and click Parse first.');
+      const type = byId('ctype').value;
+      const library = byId('library').value;
+      const title = byId('title').value.trim();
+      const globe = !!byId('globe').value && type === 'choropleth';
+      const roles = currentRoles();
+      byId('renderBtn').disabled = true;
+      try {
+        if (library === 'plotly') {
+          const spec = buildPlotly(type, roles, title, globe);
+          const Plotly = await loadPlotly();
+          const div = byId('result'); div.innerHTML = '';
+          await Plotly.newPlot(div, spec.data, spec.layout, { responsive: true, displaylogo: false });
+          last = { library, type, render: 'plotly', spec, title };
+          setStatus('Rendered (interactive).');
+        } else {
+          const spec = buildBackend(type, roles, title);
+          if (!spec) { setStatus(`${library} doesn't support ${type} — switch to Plotly.`); return; }
+          const token = getToken(); if (!token) { setStatus('Owner token required for Matplotlib/Seaborn.'); return; }
+          setStatus('Rendering on server…');
+          const r = await fetch(`${API_BASE}/chart/render`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ library, spec, output: 'png' }),
+          });
+          if (r.status === 401) { localStorage.removeItem('tools-access-token'); throw new Error('Owner token rejected — render again to re-enter it.'); }
+          if (!r.ok) throw new Error(`${r.status} — ${(await r.text()).slice(0, 200)}`);
+          const out = await r.json();
+          byId('result').innerHTML = `<img src="${out.url}" alt="${esc(title || type)}" />`;
+          last = { library, type, render: 'image', url: out.url, spec, title };
+          setStatus('Rendered (static PNG).');
+        }
+        byId('resultActions').hidden = false;
+      } catch (e) {
+        setStatus(`Failed: ${e.message}`);
+      } finally {
+        byId('renderBtn').disabled = false;
+      }
+    }
+
+    async function downloadPng() {
+      if (!last) return;
+      if (last.render === 'image') { window.open(last.url, '_blank'); return; }
+      const Plotly = await loadPlotly();
+      const dataUrl = await Plotly.toImage(byId('result'), { format: 'png', scale: 2 });
+      const a = document.createElement('a'); a.href = dataUrl; a.download = `${(last.title || last.type).replace(/\s+/g, '-')}.png`; a.click();
+    }
+    async function copyFence() {
+      if (!last) return;
+      const fence = { library: last.library, title: last.title || undefined, spec: last.spec };
+      const text = '```chart\n' + JSON.stringify(fence) + '\n```';
+      try { await navigator.clipboard.writeText(text); setStatus('Chart fence copied — paste into the chat or a whitepaper.'); }
+      catch { setStatus('Copy failed — your browser blocked clipboard access.'); }
+    }
+
+    // ---- Wiring --------------------------------------------------------------
+    byId('exampleBtn').addEventListener('click', () => { byId('data').value = EXAMPLE; doParse(); });
+    byId('parseBtn').addEventListener('click', doParse);
+    byId('ctype').addEventListener('change', rebuildControls);
+    byId('renderBtn').addEventListener('click', render);
+    byId('pngBtn').addEventListener('click', downloadPng);
+    byId('fenceBtn').addEventListener('click', copyFence);
+    function doParse() {
+      parsed = parseData(byId('data').value);
+      if (!parsed.headers.length) return setStatus('No data — paste a table with a header row.');
+      renderPreview();
+      rebuildControls();
+      setStatus(`Parsed ${parsed.rows.length} rows, ${parsed.headers.length} columns. Map roles and render.`);
+    }
+  </script>
+</BaseLayout>
+
+<style>
+  .container { max-width: 1040px; margin: 0 auto; }
+  .tool-header {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .title h1 { font-size: 28px; font-weight: 600; margin-bottom: 3px; letter-spacing: -0.02em; }
+  .subtitle { font-size: 13px; color: var(--color-fg-muted); }
+  .back-link {
+    text-decoration: none; font-size: 12px; color: var(--color-fg-muted);
+    border: 1px solid var(--color-border); border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+  }
+  .back-link:hover { color: var(--color-fg); border-color: var(--color-accent); }
+
+  .layout { display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 12px; align-items: start; }
+  .panel {
+    background: var(--color-bg-elevated); border: 1px solid var(--color-border);
+    border-radius: 12px; padding: 12px;
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--color-fg-muted); margin-bottom: 10px;
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+  .roles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field span { font-size: 12px; color: var(--color-fg-muted); }
+  .field.full { grid-column: 1 / -1; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--color-bg); border: 1px solid var(--color-border);
+    color: var(--color-fg); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: var(--font-sans);
+  }
+  .field textarea { min-height: 150px; resize: vertical; line-height: 1.5; font-family: var(--font-mono); font-size: 12px; }
+
+  .preview { margin-top: 10px; overflow: auto; border: 1px solid var(--color-border); border-radius: 8px; }
+  .preview table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .preview th, .preview td { border-bottom: 1px solid var(--color-border); padding: 6px 8px; text-align: left; white-space: nowrap; }
+  .preview th { color: var(--color-fg-muted); font-weight: 600; background: var(--color-bg); }
+  .preview .muted { padding: 6px 8px; font-size: 11px; color: var(--color-fg-subtle); }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .btn {
+    border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg);
+    border-radius: 8px; padding: 9px 12px; font-size: 13px; font-family: var(--font-sans);
+    cursor: pointer; text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .btn:hover { border-color: var(--color-accent); }
+  .btn.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+  .btn:disabled { opacity: 0.6; cursor: progress; }
+
+  .status { margin-top: 8px; font-size: 12px; color: var(--color-fg-muted); min-height: 18px; }
+  .hint { margin-top: 8px; font-size: 11px; color: var(--color-fg-subtle); }
+  .hint code { font-family: var(--font-mono); }
+
+  .result {
+    min-height: 360px; overflow: hidden;
+    background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px;
+    display: grid; place-items: center;
+  }
+  .result img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
+  .result .js-plotly-plot { width: 100% !important; }
+  .placeholder { font-size: 13px; color: var(--color-fg-subtle); }
+
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 680px) { .grid, .roles { grid-template-columns: 1fr; } .title h1 { font-size: 24px; } }
+</style>
