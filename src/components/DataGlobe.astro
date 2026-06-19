@@ -107,11 +107,17 @@ China, 7.1"></textarea>
   }
 
   // ---- World Bank indicator presets (latest non-null value per country) ----
+  // Explicit AI dataset (CC BY-SA 4.0, Oxford Insights, via GitHub raw → CORS-OK).
+  const OXFORD_AI = 'https://raw.githubusercontent.com/OxfordInsights/AI-Readiness-Index/master/ai-readiness-data.csv';
   function renderPresets() {
-    byId('globePresets').innerHTML = PRESETS.map((p) =>
-      `<button class="pchip" data-code="${p.code}">${p.label}</button>`).join('');
+    byId('globePresets').innerHTML =
+      PRESETS.map((p) => `<button class="pchip" data-code="${p.code}">${p.label}</button>`).join('') +
+      `<button class="pchip" data-url="${OXFORD_AI}" data-source="Oxford Insights · Gov AI Readiness Index">AI Readiness</button>`;
     byId('globePresets').querySelectorAll('.pchip').forEach((b) =>
-      b.addEventListener('click', () => loadIndicator(PRESETS.find((x) => x.code === b.dataset.code))));
+      b.addEventListener('click', async () => {
+        if (b.dataset.url) { await loadFromUrl(b.dataset.url, b.dataset.source); b.classList.add('active'); }
+        else loadIndicator(PRESETS.find((x) => x.code === b.dataset.code));
+      }));
   }
   function setActivePreset(code) {
     byId('globePresets').querySelectorAll('.pchip').forEach((b) => b.classList.toggle('active', b.dataset.code === code));
@@ -171,7 +177,7 @@ China, 7.1"></textarea>
     const isIso = locations.every((l) => /^[A-Za-z]{3}$/.test(l));
     return { mode: isIso ? 'iso' : 'names', locations, z, text: locations, label: headers[vi] };
   }
-  async function loadFromUrl(rawUrl) {
+  async function loadFromUrl(rawUrl, sourceLabel) {
     setError(''); setSource('Loading…');
     try {
       const url = normalizeUrl(rawUrl.trim());
@@ -189,7 +195,8 @@ China, 7.1"></textarea>
         data = fromTable(headers, rows);
       }
       const host = (() => { try { return new URL(url).host; } catch { return 'custom'; } })();
-      data.source = `Custom: ${host} · ${data.locations.length} countries`;
+      data.source = sourceLabel ? `${sourceLabel} · ${data.locations.length} countries`
+                                : `Custom: ${host} · ${data.locations.length} countries`;
       await renderGlobe(data);
       byId('globeReset').hidden = false;
     } catch (e) {
