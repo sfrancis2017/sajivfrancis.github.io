@@ -15,8 +15,6 @@ const PLOTLY_CDN = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotl
     engine as the <a href="/tools/chart-studio/">Chart Studio</a>.
   </p>
 
-  <div class="presets" id="globePresets"></div>
-
   <div id="globe" class="globe"></div>
 
   <div class="globe-controls">
@@ -120,7 +118,9 @@ China, 7.1"></textarea>
       }));
   }
   function setActivePreset(code) {
-    byId('globePresets').querySelectorAll('.pchip').forEach((b) => b.classList.toggle('active', b.dataset.code === code));
+    const el = byId('globePresets');
+    if (!el) return; // preset chips were removed; default + URL loader remain
+    el.querySelectorAll('.pchip').forEach((b) => b.classList.toggle('active', b.dataset.code === code));
   }
   async function loadIndicator(p) {
     setSource('Loading…'); setError('');
@@ -228,7 +228,6 @@ China, 7.1"></textarea>
   });
   byId('globeReset').addEventListener('click', (e) => { e.preventDefault(); byId('globeUrl').value = ''; loadDefault(); });
 
-  renderPresets();
   loadDefault();
 </script>
 
