@@ -1,6 +1,7 @@
 import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
 import { buildPostUrl } from '@/lib/utils';
+import { categoryLabel } from '@/lib/categories';
 import type { APIContext } from 'astro';
 
 export async function GET(context: APIContext) {
@@ -18,7 +19,11 @@ export async function GET(context: APIContext) {
       pubDate: post.data.pubDate,
       description: post.data.description,
       link: buildPostUrl(post),
-      categories: post.data.tags,
+      // Lead with the controlled category, then freeform tags.
+      categories: [
+        ...(post.data.category ? [categoryLabel(post.data.category)] : []),
+        ...post.data.tags,
+      ],
     })),
     customData: `<language>en-us</language>`,
   });

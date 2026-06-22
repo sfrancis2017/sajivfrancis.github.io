@@ -109,6 +109,19 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
                 </label>
               </div>
               <label class="write-field">
+                <span>Category</span>
+                <select id="fm-category">
+                  <option value="">— none —</option>
+                  <option value="architecture">Architecture</option>
+                  <option value="ai">AI</option>
+                  <option value="software-engineering">Software Engineering</option>
+                  <option value="sap">SAP &amp; Enterprise Systems</option>
+                  <option value="finance">Finance</option>
+                  <option value="strategy">Strategy</option>
+                  <option value="reference">Reference</option>
+                </select>
+              </label>
+              <label class="write-field">
                 <span>Tags (comma-separated)</span>
                 <input type="text" id="fm-tags" placeholder="AI, Architecture, SAP" />
               </label>
@@ -527,6 +540,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   const fmPublishMode = $('fm-publishmode');
   const fmDraft = $('fm-draft');
   const fmTags = $('fm-tags');
+  const fmCategory = $('fm-category');
   const fmCoverImage = $('fm-cover-image');
   const fmCoverAlt = $('fm-cover-alt');
   const fmCoverUseLast = $('fm-cover-use-last');
@@ -597,6 +611,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       description: fmDescription.value.trim(),
       pubDate: fmPubDate.value,
       tags: fmTags.value.split(',').map((t) => t.trim()).filter(Boolean),
+      category: fmCategory.value || undefined,
       draft: fmDraft.checked,
       publishMode: fmPublishMode.value,
       slug: fmSlug.value.trim() || undefined,
@@ -613,6 +628,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     fmPublishMode.value = fm.publishMode ?? 'blog-first';
     fmDraft.checked = !!fm.draft;
     fmTags.value = (fm.tags ?? []).join(', ');
+    fmCategory.value = fm.category ?? '';
     fmCoverImage.value = fm.coverImage ?? '';
     fmCoverAlt.value = fm.coverAlt ?? '';
   }
