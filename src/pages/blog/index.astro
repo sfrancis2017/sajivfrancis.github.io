@@ -4,6 +4,7 @@ import HeroVideo from '@/components/HeroVideo.astro';
 import WriterLauncher from '@/components/WriterLauncher.astro';
 import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
+import { categoryLabel } from '@/lib/categories';
 
 // Section teaser — paste the CDN URL from the video pipeline here (slug: blog).
 const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/blog/1781661585835.mp4';
@@ -80,6 +81,16 @@ const readingTimes = new Map<string, number>(
                   </p>
                 )}
                 <p class="mt-2 text-[var(--color-fg-muted)]">{post.data.description}</p>
+                {post.data.category && (
+                  <p class="mt-3">
+                    <a
+                      href={`/blog/category/${post.data.category}/`}
+                      class="inline-block px-2.5 py-0.5 text-xs uppercase tracking-wider border border-[var(--color-border)] rounded-sm text-[var(--color-fg)] hover:border-[var(--color-fg-muted)] no-underline"
+                    >
+                      {categoryLabel(post.data.category)}
+                    </a>
+                  </p>
+                )}
                 {post.data.tags.length > 0 && (
                   <ul class="mt-3 flex flex-wrap gap-2 text-xs text-[var(--color-fg-subtle)]">
                     {post.data.tags.slice(0, 6).map((tag) => (

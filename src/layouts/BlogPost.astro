@@ -7,6 +7,7 @@ import TableOfContents from '@/components/TableOfContents.astro';
 import PostNav from '@/components/PostNav.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import { tagToSlug, buildPostUrl } from '@/lib/utils';
+import { categoryLabel } from '@/lib/categories';
 import type { CollectionEntry } from 'astro:content';
 
 interface Heading {
@@ -24,7 +25,7 @@ interface Props {
 }
 
 const { post, readingTime, headings = [], prev = null, next = null } = Astro.props;
-const { title, subtitle, description, pubDate, updatedDate, tags, videoUrl, coverImage } = post.data;
+const { title, subtitle, description, pubDate, updatedDate, tags, category, videoUrl, coverImage } = post.data;
 
 const formatDate = (d: Date) =>
   d.toLocaleDateString('en-US', {
@@ -82,6 +83,19 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
       {
         description && (
           <p class="mt-4 text-base text-[var(--color-fg-muted)]">{description}</p>
+        )
+      }
+
+      {
+        category && (
+          <p class="mt-5">
+            <a
+              href={`/blog/category/${category}/`}
+              class="inline-block px-2.5 py-0.5 text-xs uppercase tracking-wider border border-[var(--color-border)] rounded-sm text-[var(--color-fg)] hover:border-[var(--color-fg-muted)] no-underline"
+            >
+              {categoryLabel(category)}
+            </a>
+          </p>
         )
       }
 

@@ -1,4 +1,5 @@
 import { defineCollection, z } from 'astro:content';
+import { CATEGORY_VALUES } from '../lib/categories';
 
 const blog = defineCollection({
   type: 'content',
@@ -12,6 +13,9 @@ const blog = defineCollection({
     coverAlt: z.string().optional(),
     videoUrl: z.string().optional(), // YouTube/Vimeo embed URL for legacy project posts
     tags: z.array(z.string()).default([]),
+    // Controlled primary classification (one per post) — see CATEGORY-CRITERIA.md.
+    // Optional during backfill; legacy portfolio posts may omit it.
+    category: z.enum(CATEGORY_VALUES).optional(),
     draft: z.boolean().default(false),
     legacy: z.boolean().default(false), // marks ported portfolio posts vs new editorial content
 
