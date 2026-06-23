@@ -274,6 +274,19 @@
 }
 
 @media print {
+  /* Watermark — site info on every printed page, any local print path. Fixed
+     position repeats it per page. Generated PDFs carry the same in-template. */
+  body::after {
+    content: "sajivfrancis.com · © Sajiv Francis";
+    position: fixed;
+    bottom: 6mm;
+    right: 8mm;
+    font-size: 8pt;
+    letter-spacing: 0.02em;
+    color: rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+  }
+
   /* Hide site chrome — everything except the article body */
   body > header,
   body > footer,
