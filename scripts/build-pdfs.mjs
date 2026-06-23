@@ -28,12 +28,14 @@ const TEMPLATE = 'modern';
 const WATERMARK = 'sajivfrancis.com · © Sajiv Francis';
 const SCRIPT_VERSION = '1';
 
-const RENDER_URL = process.env.DOCRENDER_URL;
-const TOKEN = process.env.DOCRENDER_TOKEN;
+let RENDER_URL = (process.env.DOCRENDER_URL || '').trim();
+const TOKEN = (process.env.DOCRENDER_TOKEN || '').trim();
 if (!RENDER_URL || !TOKEN) {
   console.log('[build-pdfs] DOCRENDER_URL/DOCRENDER_TOKEN not set — skipping PDF generation.');
   process.exit(0);
 }
+// Tolerate a secret pasted without a scheme (the #1 cause of "Failed to parse URL").
+if (!/^https?:\/\//i.test(RENDER_URL)) RENDER_URL = 'https://' + RENDER_URL;
 const ONLY = process.argv.slice(2).find((a) => !a.startsWith('-'));
 
 function parseFront(raw) {
