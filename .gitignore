@@ -20,3 +20,6 @@ dist/
 CLAUDE.md
 SKILL.md
 skill.md
+
+# Build-time generated PDFs (regenerated in CI, cached)
+public/pdf/

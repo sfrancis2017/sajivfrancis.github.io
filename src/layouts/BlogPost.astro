@@ -22,9 +22,10 @@ interface Props {
   headings?: Heading[];
   prev?: CollectionEntry<'blog'> | null;
   next?: CollectionEntry<'blog'> | null;
+  pdfHref?: string | null;
 }
 
-const { post, readingTime, headings = [], prev = null, next = null } = Astro.props;
+const { post, readingTime, headings = [], prev = null, next = null, pdfHref = null } = Astro.props;
 const { title, subtitle, description, pubDate, updatedDate, tags, category, videoUrl, coverImage } = post.data;
 
 const formatDate = (d: Date) =>
@@ -68,6 +69,13 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
         {readingTime != null && <span>{readingTime} min read</span>}
         {venueLabel && <span aria-hidden="true">·</span>}
         {venueLabel && <span class="normal-case tracking-normal">{venueLabel}</span>}
+        {pdfHref && <span aria-hidden="true">·</span>}
+        {pdfHref && (
+          <a href={pdfHref} download class="normal-case tracking-normal inline-flex items-center gap-1 hover:text-[var(--color-fg)] no-underline">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            PDF
+          </a>
+        )}
       </div>
 
       <h1 class="mt-4 text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1]">

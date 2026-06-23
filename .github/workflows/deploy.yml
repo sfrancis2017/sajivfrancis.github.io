@@ -42,11 +42,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Incremental PDF cache: build-pdfs.mjs (prebuild) skips unchanged posts via
+      # its manifest, so restoring prior PDFs means only changed posts re-render.
+      - name: Cache generated PDFs
+        uses: actions/cache@v4
+        with:
+          path: public/pdf
+          key: blog-pdf-${{ hashFiles('src/content/blog/**') }}
+          restore-keys: blog-pdf-
+
       - name: Build site (Astro + Pagefind index)
         run: npm run build
         env:
           # Make build deterministic in CI
           NODE_ENV: production
+          # When unset (e.g. forks), build-pdfs.mjs skips PDF generation gracefully.
+          DOCRENDER_URL: ${{ secrets.DOCRENDER_URL }}
+          DOCRENDER_TOKEN: ${{ secrets.DOCRENDER_TOKEN }}
 
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
