@@ -9,8 +9,7 @@
     "start": "astro dev",
     "build": "astro build && pagefind --site dist",
     "preview": "astro preview",
-    "astro": "astro",
-    "prebuild": "node scripts/build-pdfs.mjs"
+    "astro": "astro"
   },
   "dependencies": {
     "@astrojs/mdx": "^4.2.0",
