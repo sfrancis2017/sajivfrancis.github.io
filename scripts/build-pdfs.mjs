@@ -36,6 +36,7 @@ if (!RENDER_URL || !TOKEN) {
 }
 // Tolerate a secret pasted without a scheme (the #1 cause of "Failed to parse URL").
 if (!/^https?:\/\//i.test(RENDER_URL)) RENDER_URL = 'https://' + RENDER_URL;
+try { console.log(`[build-pdfs] target host: ${new URL(RENDER_URL).host} · token chars: ${TOKEN.length}`); } catch {}
 const ONLY = process.argv.slice(2).find((a) => !a.startsWith('-'));
 
 function parseFront(raw) {
