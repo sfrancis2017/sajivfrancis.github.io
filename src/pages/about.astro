@@ -116,9 +116,10 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
 
     <section id="contact" class="not-prose about-contact-strip" aria-label="Keep in touch">
       <p class="about-contact-kicker">Keep in touch</p>
-      <h2 class="about-contact-title">Stay in touch on writing and docs</h2>
+      <h2 class="about-contact-title">Get new writing &amp; docs by email</h2>
       <p class="about-contact-copy">
-        Share your email and I will follow up directly when relevant.
+        I’ll send a short note when I publish something new — nothing else.
+        One click to confirm, one click to unsubscribe, any time.
       </p>
 
       <form
@@ -418,7 +419,10 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     const emailInput = form.querySelector('input[name="email"]');
     const websiteInput = form.querySelector('input[name="website"]');
     const submitBtn = form.querySelector('.about-contact-btn');
-    const endpoint = 'https://chat-worker.sfrancis2017.workers.dev/contact';
+    // Newsletter subscribe (double opt-in) — same pipeline as the site-wide
+    // widget. Sends a branded confirmation email; nobody is added until they
+    // click confirm.
+    const endpoint = 'https://chat.sajivfrancis.com/newsletter/subscribe';
 
     const setStatus = (message, tone) => {
       if (!statusEl) return;
@@ -437,26 +441,32 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
         return;
       }
 
-      setStatus('Submitting...');
+      setStatus('Subscribing...');
       if (submitBtn) submitBtn.disabled = true;
 
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, website }),
+          // honeypot 'website' maps to the worker's 'hp'; source tags origin.
+          body: JSON.stringify({ email, hp: website, source: 'about' }),
         });
 
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.ok) {
           throw new Error(payload.error || `HTTP ${response.status}`);
         }
 
         form.reset();
-        setStatus('Thanks — received. I will follow up directly.', 'is-success');
+        setStatus(
+          payload.already
+            ? 'You’re already subscribed — thanks!'
+            : 'Almost there — check your inbox to confirm your subscription.',
+          'is-success',
+        );
       } catch (err) {
-        setStatus('Could not submit right now. Please email connectsfrancis@gmail.com.', 'is-error');
-        console.error('[about-contact] submit failed', err);
+        setStatus('Could not subscribe right now. Please email connectsfrancis@gmail.com.', 'is-error');
+        console.error('[about-contact] subscribe failed', err);
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }
