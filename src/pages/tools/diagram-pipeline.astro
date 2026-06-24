@@ -606,6 +606,32 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     // toDrawio() below is a flat fallback (no lanes, type-palette colours) used
     // only when the server is unreachable.
     const DRAWIO_API = 'https://tools-api.sajivfrancis.com/api/convert/drawio';
+
+    // Append classDef + class lines to the Mermaid so the SERVER converter
+    // colours every node by its inferred component type (the pipeline's core
+    // strength) — deterministic, every node coloured. Appended last, so these
+    // assignments win over any sparse colours in the source Mermaid.
+    function injectTypeColors(mermaidSrc, graph) {
+      const pal = PALETTES[drawioScheme] || {};
+      const byType = {}; // type -> { fill, stroke, ids: [] }
+      for (const n of graph.nodes.values()) {
+        const t = typeLookup[n.label.toLowerCase().trim()] || inferType(n);
+        const c = pal[t];
+        if (!c) continue;
+        const key = String(t).replace(/[^A-Za-z0-9_]/g, '') || 'node';
+        if (!byType[key]) byType[key] = { fill: c.fill, stroke: c.stroke, ids: [] };
+        byType[key].ids.push(n.id);
+      }
+      const lines = [];
+      for (const key of Object.keys(byType)) {
+        const info = byType[key];
+        if (!info.ids.length) continue;
+        lines.push(`classDef ty_${key} fill:${info.fill},stroke:${info.stroke};`);
+        lines.push(`class ${info.ids.join(',')} ty_${key};`);
+      }
+      return lines.length ? mermaidSrc.replace(/\s*$/, '') + '\n' + lines.join('\n') + '\n' : mermaidSrc;
+    }
+
     async function genDrawio() {
       const g = currentGraph();
       if (g.nodes.size === 0) { $('statusD').textContent = 'No nodes found — add a flowchart in step 2.'; return; }
@@ -615,13 +641,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         const r = await fetch(DRAWIO_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mermaid: $('code').value, filename: 'diagram' }),
+          body: JSON.stringify({ mermaid: injectTypeColors($('code').value, g), filename: 'diagram' }),
         });
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json();
         if (!j || !j.drawio) throw new Error('no drawio in response');
         lastXml = j.drawio;
-        $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections · subgraph lanes + Mermaid colours.`;
+        $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections · lanes + ${drawioScheme} type colours.`;
       } catch (e) {
         // Offline / server error → flat client builder so the tool still works.
         lastXml = toDrawio(g, layout(g));
