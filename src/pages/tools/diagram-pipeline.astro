@@ -137,6 +137,16 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const $ = (id) => document.getElementById(id);
     const WORKER = 'https://ea-explorer-worker.sfrancis2017.workers.dev';
     const REF_KEY = 'diagram-pipeline:ref';
+
+    // Attach the owner token (if signed in) so the worker / tools-api skip the
+    // per-IP rate limit for the owner — important when bulk-converting. Public
+    // users send no token and stay rate-limited. Harmless on the public convert
+    // endpoint (it ignores the header).
+    function ownerHeaders(base) {
+      const h = Object.assign({}, base || {});
+      try { const t = localStorage.getItem('tools-access-token'); if (t) h['Authorization'] = 'Bearer ' + t; } catch (e) {}
+      return h;
+    }
     let file = null, _mermaid = null, lastXml = '', drawioScheme = 'archimate', typeLookup = {};
 
     async function mermaidLib() {
@@ -576,7 +586,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         }
         const { b64, mediaType } = await imagePayload(file);
         $('status').textContent = 'Reading the diagram with vision AI…';
-        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: b64, mediaType }) });
+        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: ownerHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ image: b64, mediaType }) });
         const j = await resp.json();
         if (!resp.ok) throw new Error(j.error || ('HTTP ' + resp.status));
         $('code').value = (j.mermaid || '').trim();
@@ -640,7 +650,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       try {
         const r = await fetch(DRAWIO_API, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: ownerHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ mermaid: injectTypeColors($('code').value, g), filename: 'diagram' }),
         });
         if (!r.ok) throw new Error('HTTP ' + r.status);
