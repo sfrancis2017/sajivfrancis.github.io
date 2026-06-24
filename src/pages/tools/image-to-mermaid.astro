@@ -61,7 +61,12 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       try {
         const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
         const b64 = String(dataUrl).split(',')[1];
-        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: b64, mediaType: file.type || 'image/png' }) });
+        // Send the owner token if signed in, so the worker skips the per-IP
+        // rate limit for the owner (public users stay rate-limited).
+        const headers = { 'Content-Type': 'application/json' };
+        const ownerTok = localStorage.getItem('tools-access-token');
+        if (ownerTok) headers['Authorization'] = 'Bearer ' + ownerTok;
+        const resp = await fetch(WORKER + '/image-to-mermaid', { method: 'POST', headers, body: JSON.stringify({ image: b64, mediaType: file.type || 'image/png' }) });
         const j = await resp.json();
         if (!resp.ok) throw new Error(j.error || ('HTTP ' + resp.status));
         $('code').value = (j.mermaid || '').trim();

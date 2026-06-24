@@ -1,0 +1,108 @@
+---
+// Site-wide owner-mode indicator.
+//
+// sajivfrancis.com is served by GitHub Pages (no Cloudflare Access on this
+// origin), so "owner mode" = presence of an owner token in localStorage. Two
+// tokens back the owner features on this origin:
+//   • 'write-token'        (CHAT_TOKEN)  — writing editor + server PDF render
+//   • 'tools-access-token' (TOOLS_TOKEN) — chart-studio / map-maker / word-art
+// A single sign-in via the Cloudflare Access SSO handoff (?token=both) fetches
+// BOTH, so one login lights up every owner feature. The badge shows the state
+// on EVERY page and stays in sync across open tabs via the `storage` event.
+// Signed-out and signed-in owner are indistinguishable until login, so the
+// sign-in affordance is visible to everyone (quiet); owner mode is green.
+---
+
+<div id="owner-badge" class="owner-badge" data-owner="0" hidden>
+  <button type="button" id="owner-badge-action" class="owner-badge-action" aria-live="polite"></button>
+</div>
+
+<style>
+  .owner-badge {
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    z-index: 50;
+  }
+  .owner-badge-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 0.45rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+    background: var(--color-bg, #fff);
+    color: var(--color-fg-muted, #666);
+    cursor: pointer;
+    box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.3);
+    opacity: 0.6;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .owner-badge-action:hover { opacity: 1; }
+  /* Owner-mode: green so it's unmistakable you're elevated. */
+  .owner-badge[data-owner='1'] .owner-badge-action {
+    color: #15803d;
+    border-color: color-mix(in srgb, #15803d 45%, transparent);
+    opacity: 0.95;
+  }
+  :global([data-theme='dark']) .owner-badge-action { background: #1a1a1a; color: #999; }
+  :global([data-theme='dark']) .owner-badge[data-owner='1'] .owner-badge-action { color: #4ade80; }
+</style>
+
+<script is:inline>
+  (function () {
+    const CHAT_KEY = 'write-token';
+    const TOOLS_KEY = 'tools-access-token';
+    const HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff?token=both&redirect=';
+    const LOGOUT = 'https://sajivfrancis.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=';
+
+    // Capture tokens handed back in the URL fragment after the Access SSO.
+    const h = location.hash || '';
+    const chat = h.match(/(?:^#|&)chat-token=([^&]+)/);
+    const tools = h.match(/(?:^#|&)tools-token=([^&]+)/);
+    if (chat || tools) {
+      try {
+        if (chat) localStorage.setItem(CHAT_KEY, decodeURIComponent(chat[1]));
+        if (tools) localStorage.setItem(TOOLS_KEY, decodeURIComponent(tools[1]));
+      } catch (e) {}
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+
+    const badge = document.getElementById('owner-badge');
+    const btn = document.getElementById('owner-badge-action');
+    if (!badge || !btn) return;
+
+    function isOwner() {
+      return !!(localStorage.getItem(CHAT_KEY) || localStorage.getItem(TOOLS_KEY));
+    }
+    function render() {
+      const owner = isOwner();
+      badge.dataset.owner = owner ? '1' : '0';
+      btn.textContent = owner ? '● Owner mode — sign out' : '🔑 Owner sign-in';
+      btn.title = owner
+        ? 'Signed in as owner. Click to sign out everywhere (chat, trading, tools, writing).'
+        : 'Sign in with Cloudflare Access to unlock owner features (writing, PDF, tools) without pasting tokens.';
+      badge.hidden = false;
+    }
+
+    btn.addEventListener('click', function () {
+      if (isOwner()) {
+        if (!confirm('Sign out of owner mode everywhere (chat, trading, tools, writing)?\nThis ends the shared session on this device.')) return;
+        try { localStorage.removeItem(CHAT_KEY); localStorage.removeItem(TOOLS_KEY); } catch (e) {}
+        location.href = LOGOUT + encodeURIComponent(location.origin + location.pathname);
+      } else {
+        location.href = HANDOFF + encodeURIComponent(location.href);
+      }
+    });
+
+    // Live cross-tab sync: a sign-in/out in another tab updates this badge.
+    window.addEventListener('storage', function (e) {
+      if (e.key === CHAT_KEY || e.key === TOOLS_KEY || e.key === null) render();
+    });
+
+    render();
+  })();
+</script>
