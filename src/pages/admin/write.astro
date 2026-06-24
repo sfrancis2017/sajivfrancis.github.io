@@ -28,10 +28,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
           Write
         </h1>
       </div>
-      <p class="text-xs text-[var(--color-fg-muted)] hidden md:block">
-        Draft → review (grounded against tagged repos + corpus) → publish to
-        <code class="px-1 bg-[var(--color-bg-subtle)] rounded">src/content/blog/</code>
-      </p>
+      <div class="flex items-center gap-3">
+        <p class="text-xs text-[var(--color-fg-muted)] hidden md:block">
+          Draft → review (grounded against tagged repos + corpus) → publish to
+          <code class="px-1 bg-[var(--color-bg-subtle)] rounded">src/content/blog/</code>
+        </p>
+        <button type="button" id="btn-signout" class="write-button" hidden title="Sign out everywhere (ends Access session)">🔓 Sign out</button>
+      </div>
     </header>
 
     <!-- Token gate (shown when no token in localStorage) -->
@@ -42,6 +45,12 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
         It uses the same Bearer token as the chat surface
         (<code>CHAT_TOKEN</code>). Saved to this device only.
       </p>
+      <div class="write-actions" style="margin-bottom:1rem">
+        <button type="button" id="gate-sso-signin" class="write-button write-button-primary">
+          🔑 Sign in with Access (SSO)
+        </button>
+      </div>
+      <p class="write-section-help" style="opacity:.7;font-size:.85em">Or paste the token manually:</p>
       <form id="token-form" class="write-form">
         <label class="write-field">
           <span>Compose token</span>
@@ -513,13 +522,41 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
   function clearToken() { localStorage.removeItem(TOKEN_KEY); }
 
+  // ---- Owner-mode SSO via Cloudflare Access -----------------------------
+  // One MFA login (shared across chat/trading/tools/writing) lets a same-origin
+  // Access-gated endpoint (served by chat-worker via the sajivfrancis.com
+  // /admin/api/* route) hand back the owner token — no manual paste.
+  async function tryAccessSSO() {
+    if (getToken()) return true;
+    try {
+      const r = await fetch('/admin/api/owner-token', { credentials: 'same-origin', redirect: 'manual' });
+      if (!r.ok) return false;
+      if (!(r.headers.get('content-type') || '').includes('application/json')) return false;
+      const d = await r.json();
+      if (d && d.token) { setToken(d.token); return true; }
+    } catch { /* no Access session → show the gate */ }
+    return false;
+  }
+  function accessSsoLogin() {
+    location.href = '/admin/api/sso-login?redirect=' + encodeURIComponent(location.href);
+  }
+  function accessSsoLogout() {
+    clearToken();
+    location.href =
+      'https://sajivfrancis.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=' +
+      encodeURIComponent(location.origin + '/');
+  }
+
   const gateEl = document.getElementById('token-gate');
   const surfaceEl = document.getElementById('editor-surface');
   const tokenForm = document.getElementById('token-form');
   const tokenInput = document.getElementById('token-input');
 
   function showGate() { gateEl.hidden = false; surfaceEl.hidden = true; }
-  function showSurface() { gateEl.hidden = true; surfaceEl.hidden = false; }
+  function showSurface() {
+    gateEl.hidden = true; surfaceEl.hidden = false;
+    const so = document.getElementById('btn-signout'); if (so) so.hidden = false;
+  }
 
   tokenForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -528,6 +565,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     setToken(t);
     tokenInput.value = '';
     bootstrap();
+  });
+
+  // Access SSO sign-in from the gate (preferred over manual token entry).
+  document.getElementById('gate-sso-signin')?.addEventListener('click', accessSsoLogin);
+  // Sign out everywhere (clears token + ends the Access session).
+  document.getElementById('btn-signout')?.addEventListener('click', () => {
+    if (confirm('Sign out of owner mode everywhere (chat, trading, tools, writing)?')) accessSsoLogout();
   });
 
   // ---- DOM refs ---------------------------------------------------------
@@ -1100,7 +1144,9 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
   // ---- Bootstrap --------------------------------------------------------
   async function bootstrap() {
-    if (!getToken()) { showGate(); return; }
+    // Auto-elevate via the Cloudflare Access session before falling back to the
+    // manual token gate.
+    if (!getToken() && !(await tryAccessSSO())) { showGate(); return; }
     showSurface();
     await loadDraftsList();
     schedulePreview();
