@@ -58,8 +58,11 @@
         aria-label="Close"
       >×</button>
     </header>
-    <p class="writer-launcher-help">
-      Enter your compose token to open the writer. Saved to this device only.
+    <button type="button" id="writer-launcher-sso" class="writer-launcher-submit" style="width:100%;justify-content:center;margin-bottom:0.8rem">
+      🔑 Sign in with Access (SSO)
+    </button>
+    <p class="writer-launcher-help" style="opacity:.7">
+      Or enter your compose token manually (saved to this device only):
     </p>
     <form id="writer-launcher-form">
       <input
@@ -236,15 +239,32 @@
     spinner.hidden = !loading;
   }
 
-  btn.addEventListener('click', () => {
-    // If a token is already saved, skip the prompt entirely.
-    const existing = localStorage.getItem(TOKEN_KEY);
-    if (existing) {
-      window.location.href = '/admin/write';
-      return;
-    }
+  // Owner-mode SSO via Cloudflare Access. A same-origin Access-gated endpoint
+  // (served by chat-worker via the sajivfrancis.com /admin/api route) hands back
+  // the owner token when a valid Access session exists — no manual paste.
+  async function tryAccessSSO(): Promise<boolean> {
+    try {
+      const r = await fetch('/admin/api/owner-token', { credentials: 'same-origin', redirect: 'manual' });
+      if (!r.ok) return false;
+      if (!(r.headers.get('content-type') || '').includes('application/json')) return false;
+      const d = await r.json();
+      if (d && d.token) { localStorage.setItem(TOKEN_KEY, d.token); return true; }
+    } catch { /* no session */ }
+    return false;
+  }
+  function accessSsoLogin(redirect: string) {
+    window.location.href = '/admin/api/sso-login?redirect=' + encodeURIComponent(redirect);
+  }
+
+  btn.addEventListener('click', async () => {
+    // Already owner → straight to the editor.
+    if (localStorage.getItem(TOKEN_KEY)) { window.location.href = '/admin/write'; return; }
+    // Try a silent Access session first; fall back to the modal.
+    if (await tryAccessSSO()) { window.location.href = '/admin/write'; return; }
     openModal();
   });
+
+  document.getElementById('writer-launcher-sso')?.addEventListener('click', () => accessSsoLogin('/admin/write'));
 
   modal.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
