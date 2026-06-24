@@ -31,13 +31,17 @@
 </button>
 
 <style>
+  /* Mirrors the chat launcher's CSS exactly (bottom-6 right-6 z-30 h-14 w-14
+     rounded-full bg-fg text-bg shadow-lg). It shares the SAME bottom anchor as
+     the chat icon and is lifted by a constant transform, so the gap between the
+     two never drifts (even when the mobile address bar hides and the viewport
+     changes). Inverts with the theme just like the chat icon. */
   .owner-badge {
     position: fixed;
-    /* Stack directly above the chat launcher (bottom-6 = 1.5rem, h-14 = 3.5rem)
-       with a small gap, same right edge → a coordinated pair. */
+    bottom: 1.5rem;
     right: 1.5rem;
-    bottom: 5.75rem;
-    z-index: 30; /* same layer as the chat button; chat modal (z-50) covers it */
+    transform: translateY(-4.25rem); /* sit just above the 3.5rem chat button */
+    z-index: 30;
     width: 3.5rem;
     height: 3.5rem;
     border-radius: 9999px;
@@ -46,23 +50,17 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    /* Inverts with the theme, exactly like the chat icon. */
     background: var(--color-fg);
     color: var(--color-bg);
-    box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
-    transition: opacity 0.2s ease, background-color 0.2s ease;
-    opacity: 0.85;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    transition: opacity 0.15s ease;
   }
-  .owner-badge:hover { opacity: 1; }
+  .owner-badge:hover { opacity: 0.9; }
   /* Owner mode → green, unmistakable on both themes. */
-  .owner-badge[data-owner='1'] { background: #16a34a; color: #fff; opacity: 0.95; }
+  .owner-badge[data-owner='1'] { background: #16a34a; color: #fff; }
   .owner-badge .ob-out { display: none; }
   .owner-badge[data-owner='1'] .ob-in { display: none; }
   .owner-badge[data-owner='1'] .ob-out { display: block; }
-  @media (max-width: 640px) {
-    /* Keep clear of the home indicator, mirroring the chat launcher. */
-    .owner-badge { right: 1.5rem; bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem); }
-  }
 </style>
 
 <script is:inline>
