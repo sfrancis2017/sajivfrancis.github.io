@@ -522,23 +522,24 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
   function clearToken() { localStorage.removeItem(TOKEN_KEY); }
 
-  // ---- Owner-mode SSO via Cloudflare Access -----------------------------
-  // One MFA login (shared across chat/trading/tools/writing) lets a same-origin
-  // Access-gated endpoint (served by chat-worker via the sajivfrancis.com
-  // /admin/api/* route) hand back the owner token — no manual paste.
-  async function tryAccessSSO() {
-    if (getToken()) return true;
-    try {
-      const r = await fetch('/admin/api/owner-token', { credentials: 'same-origin', redirect: 'manual' });
-      if (!r.ok) return false;
-      if (!(r.headers.get('content-type') || '').includes('application/json')) return false;
-      const d = await r.json();
-      if (d && d.token) { setToken(d.token); return true; }
-    } catch { /* no Access session → show the gate */ }
-    return false;
+  // ---- Owner-mode SSO via Cloudflare Access (cross-origin handoff) -------
+  // sajivfrancis.com is served by GitHub Pages and bypasses Cloudflare, so an
+  // Access-gated /admin/api endpoint can't live on this origin. We bootstrap
+  // from chat.sajivfrancis.com (Cloudflare-proxied + Access-gated): a top-level
+  // redirect to its /admin/api/sso-handoff runs the one shared MFA login, then
+  // 302s back here with the owner token in the URL *fragment* — never sent to
+  // the GitHub Pages server. We read it, persist it, and strip the hash.
+  const SSO_HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff';
+  function consumeHandoffToken() {
+    const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+    if (!m) return false;
+    try { setToken(decodeURIComponent(m[1])); } catch { return false; }
+    // Drop the token from the visible URL / history entry.
+    history.replaceState(null, '', location.pathname + location.search);
+    return true;
   }
   function accessSsoLogin() {
-    location.href = '/admin/api/sso-login?redirect=' + encodeURIComponent(location.href);
+    location.href = SSO_HANDOFF + '?redirect=' + encodeURIComponent(location.href);
   }
   function accessSsoLogout() {
     clearToken();
@@ -1144,9 +1145,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
   // ---- Bootstrap --------------------------------------------------------
   async function bootstrap() {
-    // Auto-elevate via the Cloudflare Access session before falling back to the
-    // manual token gate.
-    if (!getToken() && !(await tryAccessSSO())) { showGate(); return; }
+    // If we just returned from the Access handoff, capture the token from the
+    // URL fragment. Then fall back to the manual token gate if still unowned.
+    consumeHandoffToken();
+    if (!getToken()) { showGate(); return; }
     showSurface();
     await loadDraftsList();
     schedulePreview();
