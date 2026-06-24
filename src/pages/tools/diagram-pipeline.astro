@@ -600,14 +600,35 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     });
 
     // ---------- STEP 3: draw.io ----------
-    function genDrawio() {
+    // Primary path: the server converter (tools-api /api/convert/drawio) — it
+    // preserves Mermaid subgraphs as container LANES, carries classDef/style
+    // COLOURS into the shapes, and applies a Sugiyama LAYOUT. The local
+    // toDrawio() below is a flat fallback (no lanes, type-palette colours) used
+    // only when the server is unreachable.
+    const DRAWIO_API = 'https://tools-api.sajivfrancis.com/api/convert/drawio';
+    async function genDrawio() {
       const g = currentGraph();
       if (g.nodes.size === 0) { $('statusD').textContent = 'No nodes found — add a flowchart in step 2.'; return; }
       typeLookup = fullTypeMap(g, typeMapFromGrid()); // pick up any Type overrides from step 4
-      lastXml = toDrawio(g, layout(g));
+      $('statusD').textContent = 'Building draw.io (lanes + colours) on the server…';
+      try {
+        const r = await fetch(DRAWIO_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mermaid: $('code').value, filename: 'diagram' }),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        if (!j || !j.drawio) throw new Error('no drawio in response');
+        lastXml = j.drawio;
+        $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections · subgraph lanes + Mermaid colours.`;
+      } catch (e) {
+        // Offline / server error → flat client builder so the tool still works.
+        lastXml = toDrawio(g, layout(g));
+        $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections · ${drawioScheme} colours (offline fallback).`;
+      }
       const ta = $('drawioXml'); ta.hidden = false; ta.value = lastXml;
       $('dlDrawio').disabled = false; $('openDrawio').disabled = false; $('copyDrawio').disabled = false;
-      $('statusD').textContent = `${g.nodes.size} shapes · ${g.edges.length} connections · ${drawioScheme} colours.`;
     }
     $('genDrawio').addEventListener('click', genDrawio);
     $('scheme').addEventListener('change', (e) => { drawioScheme = e.target.value; if (lastXml) genDrawio(); });
