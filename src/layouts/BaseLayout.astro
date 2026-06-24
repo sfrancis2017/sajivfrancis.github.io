@@ -104,5 +104,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
     <Search />
     <ChatLauncher />
     <OwnerBadge />
+    <!-- Newsletter subscribe widget (popup + inline). One worker-served script,
+         identical on the main site and docs, so the UI stays uniform. -->
+    <script src="https://chat.sajivfrancis.com/newsletter/widget.js" defer></script>
   </body>
 </html>

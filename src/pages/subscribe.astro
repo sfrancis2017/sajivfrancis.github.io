@@ -1,0 +1,40 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+// Shareable subscribe landing page — paste this link in WhatsApp / text / bio.
+// The inline form is hydrated by the newsletter widget (loaded in BaseLayout).
+---
+
+<BaseLayout
+  title="Subscribe"
+  description="Get an email when new writing or docs are published on sajivfrancis.com — no spam, unsubscribe any time."
+>
+  <section class="sub-wrap">
+    <p class="sub-eyebrow">Newsletter</p>
+    <h1 class="sub-title">Get new posts by email</h1>
+    <p class="sub-lede">
+      I write about enterprise architecture, AI, and how I build the things on
+      this site. Subscribe and I’ll send a short note whenever new
+      <strong>writing</strong> or <strong>docs</strong> go up — nothing else.
+      One click to confirm, one click to leave, any time.
+    </p>
+
+    <div data-newsletter-inline data-title="Subscribe for new posts" class="sub-form"></div>
+
+    <p class="sub-alt">
+      Prefer RSS? <a href="/rss.xml">Subscribe via your reader</a> instead.
+    </p>
+  </section>
+</BaseLayout>
+
+<style>
+  .sub-wrap { max-width: 560px; margin: 2rem auto 4rem; }
+  .sub-eyebrow {
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 0.5rem;
+  }
+  .sub-title { font-size: 2rem; line-height: 1.2; margin: 0 0 1rem; letter-spacing: -0.02em; }
+  .sub-lede { font-size: 1.05rem; line-height: 1.65; color: var(--color-fg); margin: 0 0 1.75rem; }
+  .sub-form { margin: 0 0 1.25rem; }
+  .sub-alt { font-size: 0.9rem; color: var(--color-fg-muted); }
+  .sub-alt a { color: inherit; text-decoration: underline; }
+</style>
