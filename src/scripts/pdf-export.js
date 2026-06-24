@@ -12,9 +12,27 @@
  * visitor clicks the button.
  */
 
-const RENDER_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/render/public';
+// Owner-only render (server-intensive WeasyPrint on the droplet). Public
+// visitors use the browser's Print → Save as PDF instead. The owner token is
+// CHAT_TOKEN, the same one the writing editor uses on this origin
+// (key 'write-token'), bootstrapped via the Cloudflare Access SSO handoff.
+const RENDER_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/render';
+const SSO_HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff';
+const OWNER_TOKEN_KEY = 'write-token';
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Capture an owner token handed back in the URL fragment after Access SSO.
+(function captureOwnerToken() {
+  const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+  if (!m) return;
+  try { localStorage.setItem(OWNER_TOKEN_KEY, decodeURIComponent(m[1])); } catch (e) {}
+  history.replaceState(null, '', location.pathname + location.search);
+})();
+function ownerToken() { return localStorage.getItem(OWNER_TOKEN_KEY); }
+function ownerSsoLogin() {
+  location.href = SSO_HANDOFF + '?redirect=' + encodeURIComponent(location.href);
+}
 
 let _mermaid = null;
 function loadMermaid() {
@@ -207,16 +225,20 @@ async function runExport(btn) {
   if (label) label.textContent = 'Generating…';
 
   try {
+    const token = ownerToken();
+    if (!token) { ownerSsoLogin(); return; }  // shouldn't happen (button is owner-gated)
     const markdown = await rasterizeMermaid(replaceChartFences(src.markdown));
     const res = await fetch(RENDER_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         markdown,
         template: src.template || 'modern',
+        format: 'pdf',
         meta: src.meta || {},
       }),
     });
+    if (res.status === 401) { localStorage.removeItem(OWNER_TOKEN_KEY); throw new Error('owner token rejected — sign in again'); }
     if (!res.ok) {
       let detail = '';
       try { detail = (await res.json())?.error || ''; } catch {}
@@ -234,9 +256,30 @@ async function runExport(btn) {
   }
 }
 
+// Non-owners: replace the server-render button with a browser Print hint (plus a
+// quiet owner sign-in entry, since docs/blog are GitHub Pages with no Access).
+function showPrintHint(btn) {
+  const hint = document.createElement('span');
+  hint.className = 'pdf-print-hint';
+  hint.style.cssText = 'font-size:0.85em;opacity:0.7;display:inline-flex;gap:0.5em;align-items:center;';
+  const tip = document.createElement('span');
+  tip.innerHTML = 'Use your browser’s <strong>Print → Save as PDF</strong>';
+  const link = document.createElement('a');
+  link.href = '#';
+  link.textContent = 'owner sign-in';
+  link.style.cssText = 'opacity:0.55;font-size:0.92em;';
+  link.addEventListener('click', (e) => { e.preventDefault(); ownerSsoLogin(); });
+  hint.append(tip, document.createTextNode('·'), link);
+  btn.replaceWith(hint);
+}
+
 export function initPdfExport() {
   const btn = document.getElementById('download-pdf-btn');
   if (!btn || btn.dataset.pdfBound) return;
   btn.dataset.pdfBound = '1';
-  btn.addEventListener('click', () => runExport(btn));
+  if (ownerToken()) {
+    btn.addEventListener('click', () => runExport(btn));
+  } else {
+    showPrintHint(btn);
+  }
 }
