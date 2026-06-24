@@ -1,55 +1,68 @@
 ---
-// Site-wide owner-mode indicator.
+// Site-wide owner-mode indicator — a round icon button that matches the chat
+// launcher (same size/shape/colours) and stacks directly above it in the
+// bottom-right corner, so the two read as a coordinated pair on every page
+// (and on mobile). Like the chat icon it uses --color-fg / --color-bg, so it
+// INVERTS with the theme: dark button on a light page, light button on a dark
+// page. Owner mode turns it green.
 //
-// sajivfrancis.com is served by GitHub Pages (no Cloudflare Access on this
-// origin), so "owner mode" = presence of an owner token in localStorage. Two
-// tokens back the owner features on this origin:
-//   • 'write-token'        (CHAT_TOKEN)  — writing editor + server PDF render
-//   • 'tools-access-token' (TOOLS_TOKEN) — chart-studio / map-maker / word-art
-// A single sign-in via the Cloudflare Access SSO handoff (?token=both) fetches
-// BOTH, so one login lights up every owner feature. The badge shows the state
-// on EVERY page and stays in sync across open tabs via the `storage` event.
-// Signed-out and signed-in owner are indistinguishable until login, so the
-// sign-in affordance is visible to everyone (quiet); owner mode is green.
+// sajivfrancis.com is GitHub Pages (no Cloudflare Access here), so "owner" =
+// presence of an owner token in localStorage: 'write-token' (CHAT_TOKEN —
+// writing + PDF) and/or 'tools-access-token' (TOOLS_TOKEN — tools). One sign-in
+// (?token=both) fetches both. State stays in sync across tabs via `storage`.
 ---
 
-<div id="owner-badge" class="owner-badge" data-owner="0" hidden>
-  <button type="button" id="owner-badge-action" class="owner-badge-action" aria-live="polite"></button>
-</div>
+<button
+  type="button"
+  id="owner-badge"
+  class="owner-badge"
+  data-owner="0"
+  hidden
+  aria-label="Owner sign-in"
+>
+  <!-- signed-out: user icon -->
+  <svg class="ob-ic ob-in" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4" /><path d="M4 21v-1a8 8 0 0 1 16 0v1" />
+  </svg>
+  <!-- owner: log-out icon -->
+  <svg class="ob-ic ob-out" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" />
+  </svg>
+</button>
 
 <style>
   .owner-badge {
     position: fixed;
-    bottom: 1rem;
-    left: 1rem;
-    z-index: 50;
-  }
-  .owner-badge-action {
-    display: inline-flex;
+    /* Stack directly above the chat launcher (bottom-6 = 1.5rem, h-14 = 3.5rem)
+       with a small gap, same right edge → a coordinated pair. */
+    right: 1.5rem;
+    bottom: 5.75rem;
+    z-index: 30; /* same layer as the chat button; chat modal (z-50) covers it */
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 9999px;
+    border: 0;
+    display: flex;
     align-items: center;
-    gap: 0.4rem;
-    font: inherit;
-    font-size: 0.8rem;
-    line-height: 1;
-    padding: 0.45rem 0.7rem;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-    background: var(--color-bg, #fff);
-    color: var(--color-fg-muted, #666);
+    justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.3);
-    opacity: 0.6;
-    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    /* Inverts with the theme, exactly like the chat icon. */
+    background: var(--color-fg);
+    color: var(--color-bg);
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+    opacity: 0.85;
   }
-  .owner-badge-action:hover { opacity: 1; }
-  /* Owner-mode: green so it's unmistakable you're elevated. */
-  .owner-badge[data-owner='1'] .owner-badge-action {
-    color: #15803d;
-    border-color: color-mix(in srgb, #15803d 45%, transparent);
-    opacity: 0.95;
+  .owner-badge:hover { opacity: 1; }
+  /* Owner mode → green, unmistakable on both themes. */
+  .owner-badge[data-owner='1'] { background: #16a34a; color: #fff; opacity: 0.95; }
+  .owner-badge .ob-out { display: none; }
+  .owner-badge[data-owner='1'] .ob-in { display: none; }
+  .owner-badge[data-owner='1'] .ob-out { display: block; }
+  @media (max-width: 640px) {
+    /* Keep clear of the home indicator, mirroring the chat launcher. */
+    .owner-badge { right: 1.5rem; bottom: calc(env(safe-area-inset-bottom, 0px) + 5.75rem); }
   }
-  :global([data-theme='dark']) .owner-badge-action { background: #1a1a1a; color: #999; }
-  :global([data-theme='dark']) .owner-badge[data-owner='1'] .owner-badge-action { color: #4ade80; }
 </style>
 
 <script is:inline>
@@ -58,8 +71,6 @@
     const TOOLS_KEY = 'tools-access-token';
     const HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff?token=both&redirect=';
     const LOGOUT = 'https://sajivfrancis.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=';
-    // Cloudflare rejects a logout returnTo to the GitHub Pages apex, so bounce
-    // through the Access-host redirector, which 302s back to this page.
     const RETURN_VIA = 'https://chat.sajivfrancis.com/sso-return?to=';
 
     // Capture tokens handed back in the URL fragment after the Access SSO.
@@ -74,21 +85,20 @@
       history.replaceState(null, '', location.pathname + location.search);
     }
 
-    const badge = document.getElementById('owner-badge');
-    const btn = document.getElementById('owner-badge-action');
-    if (!badge || !btn) return;
+    const btn = document.getElementById('owner-badge');
+    if (!btn) return;
 
     function isOwner() {
       return !!(localStorage.getItem(CHAT_KEY) || localStorage.getItem(TOOLS_KEY));
     }
     function render() {
       const owner = isOwner();
-      badge.dataset.owner = owner ? '1' : '0';
-      btn.textContent = owner ? '● Owner mode — sign out' : '🔑 Owner sign-in';
+      btn.dataset.owner = owner ? '1' : '0';
+      btn.setAttribute('aria-label', owner ? 'Owner mode — sign out' : 'Owner sign-in');
       btn.title = owner
         ? 'Signed in as owner. Click to sign out everywhere (chat, trading, tools, writing).'
-        : 'Sign in with Cloudflare Access to unlock owner features (writing, PDF, tools) without pasting tokens.';
-      badge.hidden = false;
+        : 'Sign in with Cloudflare Access to unlock owner features (writing, PDF, tools).';
+      btn.hidden = false;
     }
 
     btn.addEventListener('click', function () {
