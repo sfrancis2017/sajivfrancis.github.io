@@ -182,17 +182,38 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
     function setSave(s) { byId('saveStatus').textContent = s; }
     byId('generateBtn').addEventListener('click', generate);
 
+    // ---- Owner-mode SSO (Cloudflare Access cross-origin handoff) ------------
+    // Bootstrap the TOOLS token from chat.sajivfrancis.com/admin/api/sso-handoff
+    // (one shared MFA login, returned in the URL fragment, shared across all
+    // /tools pages via same-origin localStorage). Manual paste stays a fallback.
+    (function captureSsoToken() {
+      const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+      if (!m) return;
+      try { localStorage.setItem('tools-access-token', decodeURIComponent(m[1])); } catch (e) {}
+      history.replaceState(null, '', location.pathname + location.search);
+    })();
+    function ownerSsoLogin() {
+      location.href = 'https://chat.sajivfrancis.com/admin/api/sso-handoff?token=tools&redirect=' + encodeURIComponent(location.href);
+    }
+    function getToolsToken() {
+      let t = localStorage.getItem('tools-access-token');
+      if (t) return t;
+      if (confirm('“Save to site” commits the banner via the tools server (owner only).\n\nOK = sign in with Access SSO (one-time; you’ll return here).\nCancel = paste your TOOLS token manually.')) {
+        ownerSsoLogin();
+        return null; // navigating away to sign in
+      }
+      t = (prompt('Enter your TOOLS token (saved to this browser):') || '').trim();
+      if (t) localStorage.setItem('tools-access-token', t);
+      return t || null;
+    }
+
     // Owner-only: commit the generated banner into the site repo (permanent).
     byId('saveBtn').addEventListener('click', async () => {
       if (!lastUrl) return;
       const name = byId('bannerName').value.trim();
       if (!name) return setSave('Enter a filename first.');
-      let token = localStorage.getItem('tools-access-token');
-      if (!token) {
-        token = (prompt('Enter your tools owner token (saved to this browser):') || '').trim();
-        if (!token) return;
-        localStorage.setItem('tools-access-token', token);
-      }
+      const token = getToolsToken();
+      if (!token) return;
       setSave('Saving to site…');
       byId('saveBtn').disabled = true;
       try {

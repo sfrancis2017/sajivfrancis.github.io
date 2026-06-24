@@ -237,13 +237,30 @@ South Africa\t20000\t14`;
       return _plotly;
     }
 
+    // ---- Owner-mode SSO (Cloudflare Access cross-origin handoff) ------------
+    // sajivfrancis.com is GitHub Pages (no Access here), so bootstrap the TOOLS
+    // token from chat.sajivfrancis.com/admin/api/sso-handoff?token=tools: one
+    // shared MFA login, returned in the URL fragment, stored for all /tools
+    // pages (same origin → shared localStorage). Manual paste stays as fallback.
+    (function captureSsoToken() {
+      const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+      if (!m) return;
+      try { localStorage.setItem('tools-access-token', decodeURIComponent(m[1])); } catch (e) {}
+      history.replaceState(null, '', location.pathname + location.search);
+    })();
+    function ownerSsoLogin() {
+      location.href = 'https://chat.sajivfrancis.com/admin/api/sso-handoff?token=tools&redirect=' + encodeURIComponent(location.href);
+    }
     function getToken() {
       let t = localStorage.getItem('tools-access-token');
-      if (!t) {
-        t = (prompt('Matplotlib/Seaborn render on the tools server — enter your TOOLS token (NOT the chat token; the same token Word Art’s “Save to site” uses):') || '').trim();
-        if (t) localStorage.setItem('tools-access-token', t);
+      if (t) return t;
+      if (confirm('Matplotlib/Seaborn render on the tools server needs owner mode.\n\nOK = sign in with Access SSO (one-time; you’ll return here — do it before entering data).\nCancel = paste your TOOLS token manually.')) {
+        ownerSsoLogin();
+        return null; // navigating away to sign in
       }
-      return t;
+      t = (prompt('Enter your TOOLS token (NOT the chat token):') || '').trim();
+      if (t) localStorage.setItem('tools-access-token', t);
+      return t || null;
     }
     const setStatus = (s) => { byId('status').textContent = s; };
 

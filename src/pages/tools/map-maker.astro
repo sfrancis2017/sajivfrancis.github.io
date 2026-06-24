@@ -191,14 +191,35 @@ const API_BASE = import.meta.env.PUBLIC_TOOLS_API ?? 'https://tools-api.sajivfra
     }
     const render = () => renderCode(build(byId('input').value));
 
+    // ---- Owner-mode SSO (Cloudflare Access cross-origin handoff) ------------
+    // Bootstrap the TOOLS token from chat.sajivfrancis.com/admin/api/sso-handoff
+    // (one shared MFA login, returned in the URL fragment, shared across all
+    // /tools pages via same-origin localStorage). Manual paste stays a fallback.
+    (function captureSsoToken() {
+      const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+      if (!m) return;
+      try { localStorage.setItem('tools-access-token', decodeURIComponent(m[1])); } catch (e) {}
+      history.replaceState(null, '', location.pathname + location.search);
+    })();
+    function ownerSsoLogin() {
+      location.href = 'https://chat.sajivfrancis.com/admin/api/sso-handoff?token=tools&redirect=' + encodeURIComponent(location.href);
+    }
+    function getToolsToken() {
+      let t = localStorage.getItem('tools-access-token');
+      if (t) return t;
+      if (confirm('Map extraction runs on the tools server (owner only).\n\nOK = sign in with Access SSO (one-time; you’ll return here — do it before choosing a source).\nCancel = paste your TOOLS token manually.')) {
+        ownerSsoLogin();
+        return null; // navigating away to sign in
+      }
+      t = (prompt('Enter your TOOLS token (saved to this browser):') || '').trim();
+      if (t) localStorage.setItem('tools-access-token', t);
+      return t || null;
+    }
+
     // ── Backend auto-extract (owner only) ─────────────────────────────────────
     async function generate() {
-      let token = localStorage.getItem('tools-access-token');
-      if (!token) {
-        token = (prompt('Enter your tools owner token (saved to this browser):') || '').trim();
-        if (!token) return;
-        localStorage.setItem('tools-access-token', token);
-      }
+      const token = getToolsToken();
+      if (!token) return;
       const fd = new FormData();
       fd.set('model', model);
       if (source === 'url') {
