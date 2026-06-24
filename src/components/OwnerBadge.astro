@@ -58,6 +58,9 @@
     const TOOLS_KEY = 'tools-access-token';
     const HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff?token=both&redirect=';
     const LOGOUT = 'https://sajivfrancis.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=';
+    // Cloudflare rejects a logout returnTo to the GitHub Pages apex, so bounce
+    // through the Access-host redirector, which 302s back to this page.
+    const RETURN_VIA = 'https://chat.sajivfrancis.com/sso-return?to=';
 
     // Capture tokens handed back in the URL fragment after the Access SSO.
     const h = location.hash || '';
@@ -92,7 +95,8 @@
       if (isOwner()) {
         if (!confirm('Sign out of owner mode everywhere (chat, trading, tools, writing)?\nThis ends the shared session on this device.')) return;
         try { localStorage.removeItem(CHAT_KEY); localStorage.removeItem(TOOLS_KEY); } catch (e) {}
-        location.href = LOGOUT + encodeURIComponent(location.origin + location.pathname);
+        const ret = RETURN_VIA + encodeURIComponent(location.origin + location.pathname);
+        location.href = LOGOUT + encodeURIComponent(ret);
       } else {
         location.href = HANDOFF + encodeURIComponent(location.href);
       }

@@ -543,9 +543,12 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   }
   function accessSsoLogout() {
     clearToken();
+    // Cloudflare rejects a logout returnTo to the GitHub Pages apex, so bounce
+    // through the Access-host redirector which 302s back to the main site.
+    const ret = 'https://chat.sajivfrancis.com/sso-return?to=' + encodeURIComponent(location.origin + '/');
     location.href =
       'https://sajivfrancis.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=' +
-      encodeURIComponent(location.origin + '/');
+      encodeURIComponent(ret);
   }
 
   const gateEl = document.getElementById('token-gate');
