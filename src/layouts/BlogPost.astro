@@ -22,10 +22,9 @@ interface Props {
   headings?: Heading[];
   prev?: CollectionEntry<'blog'> | null;
   next?: CollectionEntry<'blog'> | null;
-  pdfHref?: string | null;
 }
 
-const { post, readingTime, headings = [], prev = null, next = null, pdfHref = null } = Astro.props;
+const { post, readingTime, headings = [], prev = null, next = null } = Astro.props;
 const { title, subtitle, description, pubDate, updatedDate, tags, category, videoUrl, coverImage } = post.data;
 
 const formatDate = (d: Date) =>
@@ -47,6 +46,35 @@ const postUrl = new URL(buildPostUrl(post), Astro.site).toString();
 const shareText = `${title} — by Sajiv Francis`;
 const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(postUrl)}`;
 const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`;
+
+// ---- Runtime "Download PDF" data island ----------------------------------
+// Strip MDX machinery so the raw post body renders cleanly through WeasyPrint.
+function stripMdx(b: string) {
+  return b
+    .replace(/^import\s.*$/gm, '')
+    .replace(/^export\s.*$/gm, '')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/<\/?[A-Z][A-Za-z0-9]*(?:\s[^>]*?)?\/?>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+const pdfBody = stripMdx(post.body ?? '');
+const pdfFileSlug = post.slug.replace(/^\d{4}-\d{2}-\d{2}-/, '');
+const pdfSource = {
+  markdown: pdfBody,
+  template: 'modern',
+  slug: pdfFileSlug || 'post',
+  meta: {
+    title,
+    short_title: title,
+    subtitle: subtitle || (description && description !== title ? description : ''),
+    date: pubDate.toISOString().slice(0, 10),
+  },
+};
+const showPdf = pdfBody.length > 40;
+// XSS-safe JSON data island: escape `<` so a literal "</script>" can't close
+// the tag early. JSON.parse decodes < back to <.
+const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
 ---
 
 <BaseLayout title={title} description={description} ogImage={coverImage}>
@@ -69,12 +97,12 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
         {readingTime != null && <span>{readingTime} min read</span>}
         {venueLabel && <span aria-hidden="true">·</span>}
         {venueLabel && <span class="normal-case tracking-normal">{venueLabel}</span>}
-        {pdfHref && <span aria-hidden="true">·</span>}
-        {pdfHref && (
-          <a href={pdfHref} download class="normal-case tracking-normal inline-flex items-center gap-1 hover:text-[var(--color-fg)] no-underline">
+        {showPdf && <span aria-hidden="true">·</span>}
+        {showPdf && (
+          <button id="download-pdf-btn" type="button" class="normal-case tracking-normal inline-flex items-center gap-1 hover:text-[var(--color-fg)] no-underline bg-transparent border-0 p-0 cursor-pointer text-[var(--color-fg-subtle)] disabled:opacity-60 disabled:cursor-progress">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            PDF
-          </a>
+            <span class="pdf-btn-label">PDF</span>
+          </button>
         )}
       </div>
 
@@ -243,7 +271,17 @@ const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${
     pageUrl={postUrl}
     pageTitle={title}
   />
+
+  {showPdf && (
+    <script id="pdf-source" type="application/json" is:inline set:html={pdfSourceJson} />
+  )}
 </BaseLayout>
+
+<script>
+  import { initPdfExport } from '@/scripts/pdf-export.js';
+  initPdfExport();
+  document.addEventListener('astro:page-load', initPdfExport);
+</script>
 
 <script>
   document
