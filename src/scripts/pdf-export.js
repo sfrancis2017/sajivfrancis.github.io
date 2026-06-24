@@ -143,7 +143,9 @@ async function mermaidToPng(code) {
     const svgEl = wrap.querySelector('svg');
     if (!svgEl) return null;
     const bw = Math.max(svgEl.getBoundingClientRect().width, 1);
-    const scale = Math.max(3, Math.min(5, Math.ceil(1800 / bw)));
+    // Moderate scale: crisp for print but keeps the base64 payload reasonable
+    // (a diagram-heavy page must fit the worker's render cap). 2–4× target ~1400px.
+    const scale = Math.max(2, Math.min(4, Math.ceil(1400 / bw)));
     return await svgToPngDataUrl(svgEl, scale);
   } catch (e) {
     console.warn('mermaid render failed; leaving fence as code block', e);
