@@ -180,7 +180,11 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
       )
     }
 
-    <slot />
+    <!-- Annotation target: RecogitoJS attaches to this body wrapper only
+         (not the header/footer), so reader notes anchor to the post text. -->
+    <div data-annotate>
+      <slot />
+    </div>
 
     {
       updatedDate && (

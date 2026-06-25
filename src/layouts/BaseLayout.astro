@@ -107,5 +107,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
     <!-- Newsletter subscribe widget (popup + inline). One worker-served script,
          identical on the main site and docs, so the UI stays uniform. -->
     <script src="https://chat.sajivfrancis.com/newsletter/widget.js" defer></script>
+    <!-- Annotation layer (RecogitoJS). Self-skips unless the page has a
+         [data-annotate] body (blog posts) — so it only loads where it's used. -->
+    <script src="https://chat.sajivfrancis.com/annotations/widget.js" defer></script>
   </body>
 </html>
