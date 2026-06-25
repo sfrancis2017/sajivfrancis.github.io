@@ -19,7 +19,7 @@
 const RENDER_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/render';
 const SSO_HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff';
 const OWNER_TOKEN_KEY = 'write-token';
-const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // Capture an owner token handed back in the URL fragment after Access SSO.
