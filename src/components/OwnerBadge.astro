@@ -73,6 +73,7 @@
 
     function gc(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?m[1]:null;}
     function bcastSignout(){document.cookie='owner_signout='+Date.now()+'; Domain=.sajivfrancis.com; Path=/; Max-Age=31536000; SameSite=Lax; Secure';}
+    function bcastSignin(){document.cookie='owner_signin='+Date.now()+'; Domain=.sajivfrancis.com; Path=/; Max-Age=31536000; SameSite=Lax; Secure';}
 
     // Cross-subdomain global sign-out: if a sign-out happened on ANY
     // *.sajivfrancis.com surface AFTER we obtained our tokens, clear ours too —
@@ -92,7 +93,28 @@
         if (tools) localStorage.setItem(TOOLS_KEY, decodeURIComponent(tools[1]));
         localStorage.setItem('owner_at', String(Date.now())); // mark a fresh sign-in so it survives prior sign-outs
       } catch (e) {}
+      bcastSignin(); // propagate to other *.sajivfrancis.com surfaces
       history.replaceState(null, '', location.pathname + location.search);
+    }
+
+    // Cross-subdomain auto-sync of sign-IN. If owner mode was established on
+    // another surface (signal cookie) more recently than our token here AND any
+    // sign-out, and we're not owner here yet, pull our tokens via the Access
+    // handoff automatically. One attempt per signal per tab session (sessionStorage
+    // guard) so a no-token return can't loop; public visitors have no signal and
+    // are never redirected.
+    var _si = parseInt(gc('owner_signin') || '0', 10);
+    if (_si) {
+      var _so = parseInt(gc('owner_signout') || '0', 10);
+      var _at = parseInt(localStorage.getItem('owner_at') || '0', 10);
+      var _tried = 0;
+      try { _tried = parseInt(sessionStorage.getItem('owner_sync_tried') || '0', 10); } catch (e) {}
+      var _owner = !!(localStorage.getItem(CHAT_KEY) || localStorage.getItem(TOOLS_KEY));
+      if (!_owner && _si > _at && _si > _so && _si > _tried) {
+        try { sessionStorage.setItem('owner_sync_tried', String(_si)); } catch (e) {}
+        location.replace(HANDOFF + encodeURIComponent(location.href));
+        return; // navigating away to pull tokens — skip rendering the signed-out badge
+      }
     }
 
     const btn = document.getElementById('owner-badge');
