@@ -445,14 +445,27 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
      site CSS vars; mirrors the contact-strip card chrome.
      ---------------------------------------------------------------------- */
   .radio {
+    --radio-teal: #16e6c4;    /* fluorescent teal */
+    --radio-teal-2: #0bb9a8;  /* deeper teal for the radiant depth */
+    /* No max-width — fill the 40rem content column, matching the
+       "keep in touch" strip's width. */
     margin: 1.25rem 0 0.5rem;
-    max-width: 34rem;
-    border: 1px solid var(--color-border);
+    border: 1px solid color-mix(in srgb, var(--radio-teal) 50%, var(--color-border));
     border-radius: 0.75rem;
     padding: 0.9rem 1rem;
     background:
-      radial-gradient(circle at 90% 12%, color-mix(in srgb, var(--color-accent) 13%, transparent) 0%, transparent 46%),
-      linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 94%, var(--color-accent) 6%) 0%, var(--color-bg) 100%);
+      radial-gradient(130% 150% at 88% 6%, color-mix(in srgb, var(--radio-teal) 32%, transparent) 0%, transparent 55%),
+      radial-gradient(120% 130% at 6% 118%, color-mix(in srgb, var(--radio-teal-2) 24%, transparent) 0%, transparent 52%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 84%, var(--radio-teal) 16%) 0%, var(--color-bg) 100%);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--radio-teal) 20%, transparent),
+      0 10px 34px -14px color-mix(in srgb, var(--radio-teal) 50%, transparent);
+  }
+  /* Gentle "on air" glow pulse while a station is playing. */
+  .radio[data-playing="1"] { animation: radioglow 2.6s ease-in-out infinite; }
+  @keyframes radioglow {
+    0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--radio-teal) 22%, transparent), 0 10px 32px -14px color-mix(in srgb, var(--radio-teal) 45%, transparent); }
+    50%      { box-shadow: 0 0 0 1px color-mix(in srgb, var(--radio-teal) 42%, transparent), 0 12px 46px -10px color-mix(in srgb, var(--radio-teal) 74%, transparent); }
   }
   .radio-top { display: flex; align-items: center; gap: 0.8rem; }
   .radio-play {
@@ -460,15 +473,16 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     width: 2.9rem;
     height: 2.9rem;
     border-radius: 50%;
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-fg);
-    color: var(--color-bg);
+    border: 1px solid color-mix(in srgb, var(--radio-teal) 65%, #000);
+    background: linear-gradient(145deg, var(--radio-teal), var(--radio-teal-2));
+    color: #042422;
     display: grid;
     place-items: center;
     cursor: pointer;
-    transition: transform 140ms ease, opacity 140ms ease;
+    box-shadow: 0 2px 12px -3px color-mix(in srgb, var(--radio-teal) 60%, transparent);
+    transition: transform 140ms ease, box-shadow 140ms ease;
   }
-  .radio-play:hover { transform: translateY(-1px); }
+  .radio-play:hover { transform: translateY(-1px); box-shadow: 0 4px 18px -3px color-mix(in srgb, var(--radio-teal) 75%, transparent); }
   .radio-play svg { width: 1.3rem; height: 1.3rem; }
   .radio-play .ic-pause { display: none; }
   .radio[data-playing="1"] .radio-play .ic-play { display: none; }
@@ -495,9 +509,9 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     text-overflow: ellipsis;
   }
   .radio-desc { margin: 0.05rem 0 0; font-size: 0.8rem; color: var(--color-fg-muted); }
-  .radio-vol { flex: none; width: 5.5rem; accent-color: var(--color-accent); cursor: pointer; }
+  .radio-vol { flex: none; width: 5.5rem; accent-color: var(--radio-teal); cursor: pointer; }
   .radio-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 0.7rem; opacity: 0.3; }
-  .radio-eq i { width: 2px; height: 28%; background: var(--color-accent); border-radius: 1px; }
+  .radio-eq i { width: 2px; height: 28%; background: var(--radio-teal); border-radius: 1px; box-shadow: 0 0 6px color-mix(in srgb, var(--radio-teal) 70%, transparent); }
   .radio[data-playing="1"] .radio-eq { opacity: 1; }
   .radio[data-playing="1"] .radio-eq i { animation: radioeq 0.9s ease-in-out infinite; }
   .radio[data-playing="1"] .radio-eq i:nth-child(2) { animation-delay: 0.15s; }
@@ -516,8 +530,14 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     cursor: pointer;
     transition: color 140ms ease, border-color 140ms ease;
   }
-  .radio-chip:hover { color: var(--color-fg); border-color: var(--color-accent); }
-  .radio-chip[aria-current="true"] { color: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
+  .radio-chip:hover { color: var(--color-fg); border-color: var(--radio-teal); }
+  .radio-chip[aria-current="true"] {
+    color: #042422;
+    border-color: var(--radio-teal);
+    background: linear-gradient(145deg, var(--radio-teal), var(--radio-teal-2));
+    font-weight: 600;
+    box-shadow: 0 0 12px -3px color-mix(in srgb, var(--radio-teal) 65%, transparent);
+  }
   .radio-foot {
     margin: 0.7rem 0 0;
     font-size: 0.72rem;
@@ -527,10 +547,11 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     flex-wrap: wrap;
   }
   .radio-foot a { color: var(--color-fg-muted); text-decoration: underline; }
-  .radio-foot a:hover { color: var(--color-accent); }
+  .radio-foot a:hover { color: var(--radio-teal); }
   @media (max-width: 520px) { .radio-vol { width: 4rem; } }
   @media (prefers-reduced-motion: reduce) {
-    .radio[data-playing="1"] .radio-eq i { animation: none; }
+    .radio[data-playing="1"] .radio-eq i,
+    .radio[data-playing="1"] { animation: none; }
   }
 </style>
 
