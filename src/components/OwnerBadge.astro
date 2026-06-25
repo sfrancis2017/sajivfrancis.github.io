@@ -71,6 +71,17 @@
     const LOGOUT = 'https://sajivfrancis.cloudflareaccess.com/cdn-cgi/access/logout?returnTo=';
     const RETURN_VIA = 'https://chat.sajivfrancis.com/sso-return?to=';
 
+    function gc(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?m[1]:null;}
+    function bcastSignout(){document.cookie='owner_signout='+Date.now()+'; Domain=.sajivfrancis.com; Path=/; Max-Age=31536000; SameSite=Lax; Secure';}
+
+    // Cross-subdomain global sign-out: if a sign-out happened on ANY
+    // *.sajivfrancis.com surface AFTER we obtained our tokens, clear ours too —
+    // so one sign-out wipes owner mode on chat/trading/tools/writing/docs.
+    var _so = gc('owner_signout'), _at = localStorage.getItem('owner_at') || '0';
+    if (_so && parseInt(_so, 10) > parseInt(_at, 10)) {
+      try { localStorage.removeItem(CHAT_KEY); localStorage.removeItem(TOOLS_KEY); localStorage.setItem('owner_at', _so); } catch (e) {}
+    }
+
     // Capture tokens handed back in the URL fragment after the Access SSO.
     const h = location.hash || '';
     const chat = h.match(/(?:^#|&)chat-token=([^&]+)/);
@@ -79,6 +90,7 @@
       try {
         if (chat) localStorage.setItem(CHAT_KEY, decodeURIComponent(chat[1]));
         if (tools) localStorage.setItem(TOOLS_KEY, decodeURIComponent(tools[1]));
+        localStorage.setItem('owner_at', String(Date.now())); // mark a fresh sign-in so it survives prior sign-outs
       } catch (e) {}
       history.replaceState(null, '', location.pathname + location.search);
     }
@@ -103,6 +115,7 @@
       if (isOwner()) {
         if (!confirm('Sign out of owner mode everywhere (chat, trading, tools, writing)?\nThis ends the shared session on this device.')) return;
         try { localStorage.removeItem(CHAT_KEY); localStorage.removeItem(TOOLS_KEY); } catch (e) {}
+        bcastSignout(); // tell every other *.sajivfrancis.com surface to sign out too
         const ret = RETURN_VIA + encodeURIComponent(location.origin + location.pathname);
         location.href = LOGOUT + encodeURIComponent(ret);
       } else {
