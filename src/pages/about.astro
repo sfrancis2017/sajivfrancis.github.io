@@ -85,6 +85,35 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
       once did.
     </p>
 
+    <p>
+      And there's almost always instrumental jazz on while I work — here's
+      the rotation, if you'd like it playing too:
+    </p>
+
+    <section class="radio not-prose" data-playing="0" aria-label="Instrumental jazz radio">
+      <div class="radio-top">
+        <button class="radio-play" id="radio-play" type="button" aria-label="Play">
+          <svg class="ic-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="ic-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+        </button>
+        <div class="radio-meta">
+          <p class="radio-kicker">On rotation
+            <span class="radio-eq" id="radio-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          </p>
+          <p class="radio-name" id="radio-name">—</p>
+          <p class="radio-desc" id="radio-desc">instrumental jazz</p>
+        </div>
+        <input class="radio-vol" id="radio-vol" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume" />
+      </div>
+      <div class="radio-chips" id="radio-chips"></div>
+      <p class="radio-foot">
+        <a id="radio-home" href="#" target="_blank" rel="noopener noreferrer">station site ↗</a>
+        <span aria-hidden="true">·</span>
+        <span>stations via <a href="https://www.radio-browser.info" target="_blank" rel="noopener noreferrer">radio-browser</a></span>
+      </p>
+      <audio id="radio-audio" preload="none"></audio>
+    </section>
+
     <h2>Education &amp; communities</h2>
     <div class="not-prose about-edu-grid">
       <div>
@@ -408,6 +437,101 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     font-size: 0.78rem;
     color: var(--color-fg-muted);
   }
+
+  /* ----------------------------------------------------------------------
+     Instrumental-jazz radio widget. Pure client-side: an <audio> element
+     playing curated HTTPS streams; stations resolved by UUID from
+     radio-browser on demand (hardcoded URL fallback). Theme-aware via the
+     site CSS vars; mirrors the contact-strip card chrome.
+     ---------------------------------------------------------------------- */
+  .radio {
+    margin: 1.25rem 0 0.5rem;
+    max-width: 34rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    background:
+      radial-gradient(circle at 90% 12%, color-mix(in srgb, var(--color-accent) 13%, transparent) 0%, transparent 46%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 94%, var(--color-accent) 6%) 0%, var(--color-bg) 100%);
+  }
+  .radio-top { display: flex; align-items: center; gap: 0.8rem; }
+  .radio-play {
+    flex: none;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-fg);
+    color: var(--color-bg);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 140ms ease, opacity 140ms ease;
+  }
+  .radio-play:hover { transform: translateY(-1px); }
+  .radio-play svg { width: 1.3rem; height: 1.3rem; }
+  .radio-play .ic-pause { display: none; }
+  .radio[data-playing="1"] .radio-play .ic-play { display: none; }
+  .radio[data-playing="1"] .radio-play .ic-pause { display: block; }
+  .radio-meta { flex: 1; min-width: 0; }
+  .radio-kicker {
+    margin: 0;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    color: var(--color-fg-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .radio-name {
+    margin: 0.12rem 0 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .radio-desc { margin: 0.05rem 0 0; font-size: 0.8rem; color: var(--color-fg-muted); }
+  .radio-vol { flex: none; width: 5.5rem; accent-color: var(--color-accent); cursor: pointer; }
+  .radio-eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 0.7rem; opacity: 0.3; }
+  .radio-eq i { width: 2px; height: 28%; background: var(--color-accent); border-radius: 1px; }
+  .radio[data-playing="1"] .radio-eq { opacity: 1; }
+  .radio[data-playing="1"] .radio-eq i { animation: radioeq 0.9s ease-in-out infinite; }
+  .radio[data-playing="1"] .radio-eq i:nth-child(2) { animation-delay: 0.15s; }
+  .radio[data-playing="1"] .radio-eq i:nth-child(3) { animation-delay: 0.3s; }
+  .radio[data-playing="1"] .radio-eq i:nth-child(4) { animation-delay: 0.45s; }
+  @keyframes radioeq { 0%, 100% { height: 22%; } 50% { height: 100%; } }
+  .radio-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+  .radio-chip {
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-bg);
+    color: var(--color-fg-muted);
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 0.32rem 0.7rem;
+    cursor: pointer;
+    transition: color 140ms ease, border-color 140ms ease;
+  }
+  .radio-chip:hover { color: var(--color-fg); border-color: var(--color-accent); }
+  .radio-chip[aria-current="true"] { color: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
+  .radio-foot {
+    margin: 0.7rem 0 0;
+    font-size: 0.72rem;
+    color: var(--color-fg-muted);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .radio-foot a { color: var(--color-fg-muted); text-decoration: underline; }
+  .radio-foot a:hover { color: var(--color-accent); }
+  @media (max-width: 520px) { .radio-vol { width: 4rem; } }
+  @media (prefers-reduced-motion: reduce) {
+    .radio[data-playing="1"] .radio-eq i { animation: none; }
+  }
 </style>
 
 <script is:inline>
@@ -471,5 +595,93 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
         if (submitBtn) submitBtn.disabled = false;
       }
     });
+  })();
+</script>
+
+<script is:inline>
+  // Instrumental-jazz radio. Curated by stationuuid; the fresh stream URL is
+  // resolved from radio-browser on play (hardcoded HTTPS URL as fallback, so it
+  // works even if the API is down). Pure browser playback — no backend.
+  (() => {
+    const root = document.querySelector('.radio');
+    if (!root) return;
+
+    // Curated, verified HTTPS + MP3/AAC (no mixed-content, no HLS dependency).
+    const STATIONS = [
+      { uuid: '960c7c81-0601-11e8-ae97-52543be04c81', name: 'Secret Agent',  desc: 'Lounge & spy jazz',     url: 'https://ice6.somafm.com/secretagent-128-mp3',          home: 'https://somafm.com/secretagent/' },
+      { uuid: 'ea8059be-d119-4de3-b27b-0d9bd6aedb17', name: 'Adroit Jazz',   desc: 'Bebop & big band',       url: 'https://icecast.walmradio.com:8443/jazz',              home: 'https://walmradio.com/jazz' },
+      { uuid: '7ada8a81-5ae1-418c-8f18-51d2f38d86a4', name: 'Bossa Jazz',    desc: 'Instrumental bossa nova', url: 'https://centova5.transmissaodigital.com:20104/live',    home: 'https://bossajazzbrasil.com/' },
+      { uuid: '4a018de7-b452-4412-b86f-86254c5d53be', name: 'ABC Lounge',    desc: 'Lounge & smooth jazz',   url: 'https://eu1.fastcast4u.com/proxy/kpmxz?mp=/1',          home: 'https://www.abc-lounge.com/' },
+      { uuid: '962aa032-0601-11e8-ae97-52543be04c81', name: 'Groove Salad',  desc: 'Downtempo & chill',      url: 'https://ice5.somafm.com/groovesalad-128-aac',          home: 'https://somafm.com/groovesalad/' },
+    ];
+    const API = 'https://de1.api.radio-browser.info';
+    const $ = (id) => document.getElementById(id);
+    const audio = $('radio-audio'), nameEl = $('radio-name'), descEl = $('radio-desc'),
+          chipsEl = $('radio-chips'), homeEl = $('radio-home'), volEl = $('radio-vol'), playBtn = $('radio-play');
+
+    let idx = 0;
+
+    // Restore last station + volume.
+    try { const u = localStorage.getItem('radio-station'); const i = STATIONS.findIndex((s) => s.uuid === u); if (i >= 0) idx = i; } catch (e) {}
+    let vol = 0.8; try { const sv = parseFloat(localStorage.getItem('radio-vol')); if (!isNaN(sv)) vol = sv; } catch (e) {}
+    audio.volume = vol; volEl.value = String(vol);
+
+    // Station chips.
+    STATIONS.forEach((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'radio-chip'; b.textContent = s.name;
+      b.addEventListener('click', () => select(i, true));
+      chipsEl.appendChild(b); s._chip = b;
+    });
+
+    const setState = (t) => { descEl.textContent = t; };
+    const setPlaying = (p) => { root.dataset.playing = p ? '1' : '0'; playBtn.setAttribute('aria-label', p ? 'Pause' : 'Play'); };
+    function setMeta() {
+      const s = STATIONS[idx];
+      nameEl.textContent = s.name; descEl.textContent = s.desc; homeEl.href = s.home;
+      STATIONS.forEach((x) => x._chip.setAttribute('aria-current', x === s ? 'true' : 'false'));
+    }
+
+    // Resolve the freshest stream URL (cached); fall back to the baked HTTPS URL.
+    async function resolve(s) {
+      if (s._url) return s._url;
+      try {
+        const r = await fetch(API + '/json/stations/byuuid/' + s.uuid);
+        const a = await r.json();
+        const u = a && a[0] && a[0].url_resolved;
+        if (u && u.indexOf('https://') === 0) { s._url = u; return u; }
+      } catch (e) { /* API down → fallback */ }
+      return s.url;
+    }
+    // Politely register a play with radio-browser (helps station rankings).
+    const registerPlay = (s) => { try { fetch(API + '/json/url/' + s.uuid); } catch (e) {} };
+
+    async function start() {
+      const s = STATIONS[idx];
+      setState('Connecting…');
+      const url = await resolve(s);
+      audio.src = url;
+      try { await audio.play(); s._retried = false; registerPlay(s); }
+      catch (e) { setPlaying(false); setState('Tap ▶ to start'); }
+    }
+    async function select(i, autoplay) {
+      idx = i; setMeta();
+      try { localStorage.setItem('radio-station', STATIONS[i].uuid); } catch (e) {}
+      if (autoplay || !audio.paused) await start();
+    }
+
+    playBtn.addEventListener('click', () => { if (audio.paused) start(); else audio.pause(); });
+    volEl.addEventListener('input', () => { audio.volume = parseFloat(volEl.value); try { localStorage.setItem('radio-vol', volEl.value); } catch (e) {} });
+
+    audio.addEventListener('playing', () => { setPlaying(true); setState(STATIONS[idx].desc); });
+    audio.addEventListener('pause', () => setPlaying(false));
+    audio.addEventListener('waiting', () => setState('Buffering…'));
+    audio.addEventListener('error', async () => {
+      const s = STATIONS[idx];
+      if (!s._retried) { s._retried = true; s._url = null; const url = await resolve(s); audio.src = url; audio.play().catch(() => {}); }
+      else { setPlaying(false); setState('Station offline — try another'); }
+    });
+
+    setMeta();
   })();
 </script>
