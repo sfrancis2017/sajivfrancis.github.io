@@ -336,7 +336,12 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
       mermaid.initialize({
         startOnLoad: false,
         theme: isDark() ? 'dark' : 'default',
-        securityLevel: 'strict',
+        // 'loose' (not 'strict') so node labels render. In strict mode Mermaid
+        // runs the finished SVG through DOMPurify, which strips the XHTML inside
+        // each htmlLabels <foreignObject> — the diagram lays out but every node
+        // comes out blank. Blog diagrams are authored by us (trusted .mdx, never
+        // visitor input), so 'loose' is safe and matches pdf-export.js + the chat.
+        securityLevel: 'loose',
         fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
       });
     }

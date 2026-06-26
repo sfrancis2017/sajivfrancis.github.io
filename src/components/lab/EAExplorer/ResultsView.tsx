@@ -191,7 +191,10 @@ function MermaidDiagram({ arch }: { arch: Architecture }) {
         mermaid.initialize({
           startOnLoad: false,
           theme: isDark ? 'dark' : 'default',
-          securityLevel: 'strict',
+          // 'loose' so node labels render — strict mode runs the SVG through
+          // DOMPurify and strips the htmlLabels <foreignObject> content, leaving
+          // blank nodes. Source is our own generated architecture, not user input.
+          securityLevel: 'loose',
           fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         });
         const source = architectureToMermaid(arch);
