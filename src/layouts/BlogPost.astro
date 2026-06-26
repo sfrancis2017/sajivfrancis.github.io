@@ -364,12 +364,64 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
       return el.textContent ?? '';
     }
 
+    // iOS WebKit can't render Mermaid's cytoscape-based mindmaps (blank on every
+    // iPhone browser, in every mermaid version — it's a WebKit/cytoscape limit,
+    // not a version bug), but dagre flowcharts render fine. So on phones we
+    // convert a mindmap's indentation hierarchy into a left-to-right flowchart
+    // with wrapped labels — narrow enough to fit the screen and scroll vertically
+    // instead of the wide sprawl. Desktop keeps the authored mindmap; one source
+    // of truth in the post.
+    function wrapLabel(s: string, max = 18): string {
+      const words = s.split(' ');
+      const lines: string[] = [];
+      let cur = '';
+      for (const w of words) {
+        if (cur && (cur + ' ' + w).length > max) { lines.push(cur); cur = w; }
+        else cur = cur ? cur + ' ' + w : w;
+      }
+      if (cur) lines.push(cur);
+      return lines.join('<br>');
+    }
+    function mindmapToFlowchart(src: string): string | null {
+      const rows = src.split('\n');
+      let seen = false;
+      const nodes: { indent: number; label: string; id: string }[] = [];
+      for (const row of rows) {
+        if (!seen) { if (/^\s*mindmap\b/.test(row)) seen = true; continue; }
+        if (!row.trim()) continue;
+        const indent = row.match(/^[ \t]*/)![0].replace(/\t/g, '  ').length;
+        let label = row.trim();
+        const shaped = label.match(/^[A-Za-z0-9_]*\s*[([{]+([^)\]}]+)[)\]}]+\s*$/);
+        if (shaped) label = shaped[1];
+        label = label.replace(/<br\s*\/?>/gi, ' ').replace(/"/g, '').replace(/\s+/g, ' ').trim().slice(0, 90);
+        if (label) nodes.push({ indent, label, id: 'M' + nodes.length });
+      }
+      if (nodes.length < 2) return null;
+      const out = ['flowchart LR'];
+      const stack: { indent: number; id: string }[] = [];
+      for (const n of nodes) {
+        while (stack.length && stack[stack.length - 1].indent >= n.indent) stack.pop();
+        const parent = stack.length ? stack[stack.length - 1] : null;
+        out.push(`  ${n.id}["${wrapLabel(n.label)}"]`);
+        if (parent) out.push(`  ${parent.id} --> ${n.id}`);
+        stack.push({ indent: n.indent, id: n.id });
+      }
+      return out.join('\n');
+    }
+
     async function renderAll() {
       const targets = document.querySelectorAll<HTMLElement>(
         'pre[data-language="mermaid"], .mermaid-rendered'
       );
+      const isMobile = window.matchMedia('(max-width: 640px)').matches;
       for (const el of targets) {
-        const source = extractMermaidSource(el);
+        const raw = extractMermaidSource(el);
+        // Desktop: authored mindmap. Mobile: equivalent LR flowchart (renders on iOS).
+        let source = raw;
+        if (isMobile && /^\s*mindmap\b/.test(raw)) {
+          const conv = mindmapToFlowchart(raw);
+          if (conv) source = conv;
+        }
         const id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
         try {
           const { svg } = await mermaid.render(id, source);
