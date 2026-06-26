@@ -54,7 +54,20 @@ const hide = Astro.url.pathname.startsWith('/chat');
             role="separator"
             aria-label="Drag to resize chat height"
             aria-orientation="horizontal"
-            class="hidden md:block absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-10"
+            class="hidden md:block absolute top-0 left-2 right-2 h-2 cursor-ns-resize z-10"
+          />
+          <div
+            id="chat-launcher-resize-x"
+            role="separator"
+            aria-label="Drag to resize chat width"
+            aria-orientation="vertical"
+            class="hidden md:block absolute top-2 bottom-0 left-0 w-2 cursor-ew-resize z-10"
+          />
+          <div
+            id="chat-launcher-resize-xy"
+            role="separator"
+            aria-label="Drag to resize chat"
+            class="hidden md:block absolute top-0 left-0 h-3 w-3 cursor-nwse-resize z-20"
           />
           <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
             <span class="text-sm font-medium text-[var(--color-fg)]">
@@ -146,9 +159,11 @@ const hide = Astro.url.pathname.startsWith('/chat');
           border-radius: 0 !important;
         }
 
-        /* Top-edge grab handle for vertical resize of the docked panel.
-           Shows a faint pill on hover/drag so it's discoverable. Hidden when
-           expanded full-screen (no point resizing a maximized panel). */
+        /* Edge grab handles for resizing the docked panel. Each shows a faint
+           pill on hover/drag so it's discoverable. The panel is anchored
+           bottom-right, so the top edge controls height, the left edge controls
+           width, and the top-left corner controls both. Hidden when expanded
+           full-screen (no point resizing a maximized panel). */
         #chat-launcher-resize::after {
           content: '';
           position: absolute;
@@ -162,11 +177,28 @@ const hide = Astro.url.pathname.startsWith('/chat');
           opacity: 0;
           transition: opacity 0.15s ease;
         }
+        #chat-launcher-resize-x::after {
+          content: '';
+          position: absolute;
+          left: 3px;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 36px;
+          width: 3px;
+          border-radius: 999px;
+          background: var(--color-border);
+          opacity: 0;
+          transition: opacity 0.15s ease;
+        }
         #chat-launcher-resize:hover::after,
-        #chat-launcher-panel.resizing #chat-launcher-resize::after {
+        #chat-launcher-panel.resizing #chat-launcher-resize::after,
+        #chat-launcher-resize-x:hover::after,
+        #chat-launcher-panel.resizing #chat-launcher-resize-x::after {
           opacity: 1;
         }
-        #chat-launcher-panel.expanded #chat-launcher-resize {
+        #chat-launcher-panel.expanded #chat-launcher-resize,
+        #chat-launcher-panel.expanded #chat-launcher-resize-x,
+        #chat-launcher-panel.expanded #chat-launcher-resize-xy {
           display: none !important;
         }
         /* While dragging, don't let the iframe swallow pointer events. */
@@ -200,6 +232,10 @@ const hide = Astro.url.pathname.startsWith('/chat');
         const iconExpand = expandBtn.querySelector('.icon-expand')!;
         const iconCollapse = expandBtn.querySelector('.icon-collapse')!;
         const resizeHandle = document.getElementById('chat-launcher-resize')!;
+        const resizeHandleX = document.getElementById('chat-launcher-resize-x')!;
+        const resizeHandleXY = document.getElementById(
+          'chat-launcher-resize-xy'
+        )!;
 
         let mounted = false;
         let lastScrollY = 0;
@@ -209,6 +245,7 @@ const hide = Astro.url.pathname.startsWith('/chat');
             iframe.src = 'https://chat.sajivfrancis.com';
             mounted = true;
           }
+          applyStoredSize();
           lastScrollY = window.scrollY;
           modal.hidden = false;
           document.body.style.overflow = 'hidden';
@@ -235,41 +272,107 @@ const hide = Astro.url.pathname.startsWith('/chat');
           );
         }
 
-        // Vertical drag-resize of the docked panel. The panel is anchored
-        // bottom-right, so growing its height extends it upward. Clamp between
-        // a usable minimum and the full available viewport height.
+        // Drag-resize of the docked panel. The panel is anchored bottom-right,
+        // so growing its height extends it upward and growing its width extends
+        // it leftward. Top edge = height, left edge = width, corner = both.
+        // The chosen size is persisted in localStorage and reapplied on open.
         const MIN_H = 360;
-        let dragStartY = 0;
-        let dragStartH = 0;
+        const MIN_W = 320;
+        const H_KEY = 'chat-launcher-h';
+        const W_KEY = 'chat-launcher-w';
+        const isDesktop = () =>
+          window.matchMedia('(min-width: 768px)').matches;
 
         function maxPanelHeight() {
           // Mirror md:max-h-[calc(100vh-3rem)] — 3rem ≈ 48px of margin.
           return window.innerHeight - 48;
         }
+        function maxPanelWidth() {
+          return window.innerWidth - 48;
+        }
+
+        function applyStoredSize() {
+          // Inline sizes would override the full-screen mobile layout, so only
+          // apply them on desktop; clear them otherwise.
+          if (!isDesktop()) {
+            panel.style.height = '';
+            panel.style.width = '';
+            return;
+          }
+          const h = parseInt(localStorage.getItem(H_KEY) || '', 10);
+          const w = parseInt(localStorage.getItem(W_KEY) || '', 10);
+          if (h) {
+            panel.style.height =
+              Math.max(MIN_H, Math.min(h, maxPanelHeight())) + 'px';
+          }
+          if (w) {
+            panel.style.width =
+              Math.max(MIN_W, Math.min(w, maxPanelWidth())) + 'px';
+          }
+        }
+
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartH = 0;
+        let dragStartW = 0;
+        let dragAxis = ''; // 'y' | 'x' | 'xy'
 
         function onResizeMove(e: PointerEvent) {
-          const dy = dragStartY - e.clientY; // drag up → positive → taller
-          let h = dragStartH + dy;
-          h = Math.max(MIN_H, Math.min(h, maxPanelHeight()));
-          panel.style.height = h + 'px';
+          if (dragAxis === 'y' || dragAxis === 'xy') {
+            const dy = dragStartY - e.clientY; // drag up → taller
+            const h = Math.max(
+              MIN_H,
+              Math.min(dragStartH + dy, maxPanelHeight())
+            );
+            panel.style.height = h + 'px';
+          }
+          if (dragAxis === 'x' || dragAxis === 'xy') {
+            const dx = dragStartX - e.clientX; // drag left → wider
+            const w = Math.max(
+              MIN_W,
+              Math.min(dragStartW + dx, maxPanelWidth())
+            );
+            panel.style.width = w + 'px';
+          }
         }
 
         function onResizeEnd() {
           panel.classList.remove('resizing');
           window.removeEventListener('pointermove', onResizeMove);
           window.removeEventListener('pointerup', onResizeEnd);
+          const rect = panel.getBoundingClientRect();
+          if (dragAxis === 'y' || dragAxis === 'xy') {
+            localStorage.setItem(H_KEY, String(Math.round(rect.height)));
+          }
+          if (dragAxis === 'x' || dragAxis === 'xy') {
+            localStorage.setItem(W_KEY, String(Math.round(rect.width)));
+          }
         }
 
-        resizeHandle.addEventListener('pointerdown', (e) => {
+        function startResize(axis: string, e: PointerEvent) {
           // Only the docked (non-expanded) panel is resizable.
           if (panel.classList.contains('expanded')) return;
           e.preventDefault();
-          dragStartY = (e as PointerEvent).clientY;
-          dragStartH = panel.getBoundingClientRect().height;
+          dragAxis = axis;
+          dragStartX = e.clientX;
+          dragStartY = e.clientY;
+          const rect = panel.getBoundingClientRect();
+          dragStartH = rect.height;
+          dragStartW = rect.width;
           panel.classList.add('resizing');
           window.addEventListener('pointermove', onResizeMove);
           window.addEventListener('pointerup', onResizeEnd);
-        });
+        }
+
+        resizeHandle.addEventListener('pointerdown', (e) =>
+          startResize('y', e as PointerEvent)
+        );
+        resizeHandleX.addEventListener('pointerdown', (e) =>
+          startResize('x', e as PointerEvent)
+        );
+        resizeHandleXY.addEventListener('pointerdown', (e) =>
+          startResize('xy', e as PointerEvent)
+        );
 
         button.addEventListener('click', openLauncher);
         backdrop.addEventListener('click', closeLauncher);
