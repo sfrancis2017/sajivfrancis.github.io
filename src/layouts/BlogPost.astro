@@ -329,13 +329,15 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
   if (initialBlocks.length > 0) {
     const { default: mermaid } = await import('mermaid');
 
-    const isDark = () =>
-      document.documentElement.dataset.theme === 'dark';
-
     function configure() {
       mermaid.initialize({
         startOnLoad: false,
-        theme: isDark() ? 'dark' : 'default',
+        // Always render the LIGHT theme, even on dark-mode pages (matches the
+        // chat + pdf-export). A dark-themed SVG keeps its dark fills when printed
+        // — the print CSS only lightens the page, not inline SVG colors — so it
+        // came out as dark boxes on white paper. Light diagrams read fine on a
+        // dark page and print correctly everywhere.
+        theme: 'default',
         // 'loose' (not 'strict') so node labels render. In strict mode Mermaid
         // runs the finished SVG through DOMPurify, which strips the XHTML inside
         // each htmlLabels <foreignObject> — the diagram lays out but every node
