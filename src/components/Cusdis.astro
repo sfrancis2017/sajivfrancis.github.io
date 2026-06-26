@@ -55,6 +55,17 @@ const HOST = 'https://cusdis.com';
   <script async defer src="https://cusdis.com/js/cusdis.es.js"></script>
 </section>
 
+<style is:global>
+  /* The Cusdis iframe is auto-injected into #cusdis_thread and sized at runtime.
+     Give it a sane floor so it's never stuck at the 150px default (which clips
+     the comment form) if the resize message is missed, and let it grow from
+     there. The buffered resize listener below handles the exact height. */
+  #cusdis_thread iframe {
+    width: 100%;
+    min-height: 320px;
+  }
+</style>
+
 <script>
   // Re-render Cusdis when the user toggles theme so the comment widget
   // matches the surrounding page (light/dark). Cusdis exposes a global
@@ -76,5 +87,24 @@ const HOST = 'https://cusdis.com';
   }).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-theme'],
+  });
+
+  // Full-height fix. The Cusdis iframe posts JSON {from:'cusdis',event:'resize',
+  // data:<height>}; Cusdis's own loader sets iframe.style.height = data + 'px'
+  // with NO slack, so the submit button / footer can sit a few px below the
+  // fold. We re-apply the height with a small buffer on a microtask so ours runs
+  // AFTER the loader's handler for the same message and wins.
+  window.addEventListener('message', (e) => {
+    let msg = e.data;
+    if (typeof msg === 'string') {
+      try { msg = JSON.parse(msg); } catch { return; }
+    }
+    if (!msg || msg.from !== 'cusdis' || msg.event !== 'resize') return;
+    const h = parseInt(msg.data, 10);
+    if (Number.isNaN(h) || h <= 0) return;
+    setTimeout(() => {
+      const frame = document.querySelector('#cusdis_thread iframe') as HTMLIFrameElement | null;
+      if (frame) frame.style.height = h + 24 + 'px';
+    }, 0);
   });
 </script>
