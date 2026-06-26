@@ -127,7 +127,7 @@ const hide = Astro.url.pathname.startsWith('/chat');
         </div>
       </div>
 
-      <style>
+      <style is:global>
         /* Expanded state: panel fills the viewport (overrides bottom-right
            panel sizing). Mobile is already full-screen, so this only matters
            on md+ screens. */
@@ -137,6 +137,16 @@ const hide = Astro.url.pathname.startsWith('/chat');
           height: 100% !important;
           max-height: 100% !important;
           border-radius: 0 !important;
+        }
+
+        /* While the chat is open, hide the floating owner badge. It shares the
+           bottom-right corner with the launcher and — on laptop, where the panel
+           is a small docked card rather than full-screen — renders over the chat
+           interface. Hiding it for the duration of the session removes the
+           overlap on every breakpoint. is:global so this rule can reach the
+           OwnerBadge component's scoped element. */
+        body.chat-launcher-open #owner-badge {
+          display: none !important;
         }
       </style>
 
@@ -166,12 +176,14 @@ const hide = Astro.url.pathname.startsWith('/chat');
           lastScrollY = window.scrollY;
           modal.hidden = false;
           document.body.style.overflow = 'hidden';
+          document.body.classList.add('chat-launcher-open');
           closeBtn.focus();
         }
 
         function closeLauncher() {
           modal.hidden = true;
           document.body.style.overflow = '';
+          document.body.classList.remove('chat-launcher-open');
           button.focus();
           // Restore scroll position (overflow:hidden can shift on some browsers)
           window.scrollTo(0, lastScrollY);
