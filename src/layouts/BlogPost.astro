@@ -451,6 +451,21 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
       document.body.style.overflow = '';
     }
 
+    // Wait for the page webfont (Inter) before rendering. Mermaid measures text
+    // to lay out diagrams; measuring before the font loads gives wrong metrics
+    // and corrupts layout — worst for mindmaps, whose cytoscape layout is highly
+    // text-size-sensitive. On desktop the font is usually cached so it slips
+    // through; on mobile it loads slower, which is why the mindmap rendered on
+    // laptop but not phone. Best-effort: never block rendering for long.
+    if (document.fonts && document.fonts.ready) {
+      try {
+        await Promise.race([
+          document.fonts.ready,
+          new Promise((r) => setTimeout(r, 3000)),
+        ]);
+      } catch {}
+    }
+
     configure();
     await renderAll();
 
