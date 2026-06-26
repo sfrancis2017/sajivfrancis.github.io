@@ -364,12 +364,57 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
       return el.textContent ?? '';
     }
 
+    // Mindmap → flowchart fallback for mobile. Mermaid lays out mindmaps with
+    // cytoscape, which iOS WebKit can't render (the diagram is blank on iPhone,
+    // both Chrome and DuckDuckGo, since all iOS browsers use WebKit) — while
+    // flowcharts use dagre and render everywhere. We keep the authored mindmap on
+    // desktop and, on phones, convert its indentation hierarchy into an
+    // equivalent top-down flowchart so the same information shows. One source of
+    // truth in the post; the conversion is automatic.
+    function mindmapToFlowchart(src: string): string | null {
+      const rows = src.split('\n');
+      let seenHeader = false;
+      const nodes: { indent: number; label: string; id: string }[] = [];
+      for (const row of rows) {
+        if (!seenHeader) {
+          if (/^\s*mindmap\b/.test(row)) seenHeader = true;
+          continue;
+        }
+        if (!row.trim()) continue;
+        const indent = row.match(/^[ \t]*/)![0].replace(/\t/g, '  ').length;
+        let label = row.trim();
+        // Strip a node id + shape wrapper if present, e.g. root((Title)), A[Txt].
+        const shaped = label.match(/^[A-Za-z0-9_]*\s*[([{]+([^)\]}]+)[)\]}]+\s*$/);
+        if (shaped) label = shaped[1];
+        label = label.replace(/<br\s*\/?>/gi, ' ').replace(/"/g, '').replace(/\s+/g, ' ').trim().slice(0, 90);
+        if (label) nodes.push({ indent, label, id: 'M' + nodes.length });
+      }
+      if (nodes.length < 2) return null;
+      const out = ['flowchart TD'];
+      const stack: { indent: number; id: string }[] = [];
+      for (const n of nodes) {
+        while (stack.length && stack[stack.length - 1].indent >= n.indent) stack.pop();
+        const parent = stack.length ? stack[stack.length - 1] : null;
+        out.push(`  ${n.id}["${n.label}"]`);
+        if (parent) out.push(`  ${parent.id} --> ${n.id}`);
+        stack.push({ indent: n.indent, id: n.id });
+      }
+      return out.join('\n');
+    }
+
     async function renderAll() {
       const targets = document.querySelectorAll<HTMLElement>(
         'pre[data-language="mermaid"], .mermaid-rendered'
       );
+      const isMobile = window.matchMedia('(max-width: 640px)').matches;
       for (const el of targets) {
-        const source = extractMermaidSource(el);
+        const raw = extractMermaidSource(el);
+        // Desktop renders the mindmap as authored; mobile swaps in the flowchart.
+        let source = raw;
+        if (isMobile && /^\s*mindmap\b/.test(raw)) {
+          const converted = mindmapToFlowchart(raw);
+          if (converted) source = converted;
+        }
         const id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
         try {
           const { svg } = await mermaid.render(id, source);
