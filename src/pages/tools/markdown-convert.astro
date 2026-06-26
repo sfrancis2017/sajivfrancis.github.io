@@ -43,7 +43,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     let _mermaid, _plotly, _docx;
     async function mermaidLib() {
       if (!_mermaid) {
-        _mermaid = (await import('mermaid')).default;
+        _mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs')).default;
         _mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
       }
       return _mermaid;
