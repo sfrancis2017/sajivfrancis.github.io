@@ -19,7 +19,6 @@
 const RENDER_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/render';
 const SSO_HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff';
 const OWNER_TOKEN_KEY = 'write-token';
-const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // Capture an owner token handed back in the URL fragment after Access SSO.
@@ -37,7 +36,7 @@ function ownerSsoLogin() {
 let _mermaid = null;
 function loadMermaid() {
   if (!_mermaid) {
-    _mermaid = import(/* @vite-ignore */ MERMAID_CDN).then((m) => {
+    _mermaid = import('mermaid').then((m) => {
       const mermaid = m.default;
       // Force the LIGHT theme — dark-mode pages would otherwise render dark
       // diagrams that look wrong on a white PDF page.

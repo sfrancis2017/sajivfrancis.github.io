@@ -37,7 +37,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     let file = null, _mermaid = null;
 
     async function mermaidLib() {
-      if (!_mermaid) { _mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs')).default; _mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'default' }); }
+      if (!_mermaid) { _mermaid = (await import('mermaid')).default; _mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'default' }); }
       return _mermaid;
     }
     function sel(f) {
