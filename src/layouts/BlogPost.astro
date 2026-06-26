@@ -341,13 +341,30 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
       });
     }
 
+    // Recover the diagram source. For an already-rendered diagram we stored the
+    // exact source on `data-source`. For the raw Shiki <pre>, we must NOT use
+    // `.textContent`: Shiki wraps every line in a `<span class="line">`, and the
+    // newlines that separate them are not guaranteed to survive as text nodes in
+    // every build — when they don't, `.textContent` collapses the whole diagram
+    // onto one line and Mermaid throws "Parse error on line 1" (e.g.
+    // `flowchart LR classDef ...`). Rebuilding from the line spans, joined with
+    // "\n", reconstructs the source verbatim regardless of inter-span whitespace.
+    function extractMermaidSource(el: HTMLElement): string {
+      const stored = el.getAttribute('data-source');
+      if (stored !== null) return stored;
+      const lines = el.querySelectorAll('.line');
+      if (lines.length > 0) {
+        return Array.from(lines, (l) => l.textContent ?? '').join('\n');
+      }
+      return el.textContent ?? '';
+    }
+
     async function renderAll() {
       const targets = document.querySelectorAll<HTMLElement>(
         'pre[data-language="mermaid"], .mermaid-rendered'
       );
       for (const el of targets) {
-        const source =
-          el.getAttribute('data-source') ?? el.textContent ?? '';
+        const source = extractMermaidSource(el);
         const id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
         try {
           const { svg } = await mermaid.render(id, source);
