@@ -49,6 +49,13 @@ const hide = Astro.url.pathname.startsWith('/chat');
           id="chat-launcher-panel"
           class="chat-panel absolute inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[420px] md:h-[640px] md:max-h-[calc(100vh-3rem)] bg-[var(--color-bg)] md:rounded-xl shadow-2xl border border-[var(--color-border)] flex flex-col overflow-hidden"
         >
+          <div
+            id="chat-launcher-resize"
+            role="separator"
+            aria-label="Drag to resize chat height"
+            aria-orientation="horizontal"
+            class="hidden md:block absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-10"
+          />
           <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
             <span class="text-sm font-medium text-[var(--color-fg)]">
               Chat with Sajiv
@@ -139,6 +146,34 @@ const hide = Astro.url.pathname.startsWith('/chat');
           border-radius: 0 !important;
         }
 
+        /* Top-edge grab handle for vertical resize of the docked panel.
+           Shows a faint pill on hover/drag so it's discoverable. Hidden when
+           expanded full-screen (no point resizing a maximized panel). */
+        #chat-launcher-resize::after {
+          content: '';
+          position: absolute;
+          top: 3px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 36px;
+          height: 3px;
+          border-radius: 999px;
+          background: var(--color-border);
+          opacity: 0;
+          transition: opacity 0.15s ease;
+        }
+        #chat-launcher-resize:hover::after,
+        #chat-launcher-panel.resizing #chat-launcher-resize::after {
+          opacity: 1;
+        }
+        #chat-launcher-panel.expanded #chat-launcher-resize {
+          display: none !important;
+        }
+        /* While dragging, don't let the iframe swallow pointer events. */
+        #chat-launcher-panel.resizing #chat-launcher-iframe {
+          pointer-events: none;
+        }
+
         /* While the chat is open, hide the floating owner badge. It shares the
            bottom-right corner with the launcher and — on laptop, where the panel
            is a small docked card rather than full-screen — renders over the chat
@@ -164,6 +199,7 @@ const hide = Astro.url.pathname.startsWith('/chat');
         ) as HTMLIFrameElement;
         const iconExpand = expandBtn.querySelector('.icon-expand')!;
         const iconCollapse = expandBtn.querySelector('.icon-collapse')!;
+        const resizeHandle = document.getElementById('chat-launcher-resize')!;
 
         let mounted = false;
         let lastScrollY = 0;
@@ -198,6 +234,42 @@ const hide = Astro.url.pathname.startsWith('/chat');
             expanded ? 'Collapse chat' : 'Expand chat'
           );
         }
+
+        // Vertical drag-resize of the docked panel. The panel is anchored
+        // bottom-right, so growing its height extends it upward. Clamp between
+        // a usable minimum and the full available viewport height.
+        const MIN_H = 360;
+        let dragStartY = 0;
+        let dragStartH = 0;
+
+        function maxPanelHeight() {
+          // Mirror md:max-h-[calc(100vh-3rem)] — 3rem ≈ 48px of margin.
+          return window.innerHeight - 48;
+        }
+
+        function onResizeMove(e: PointerEvent) {
+          const dy = dragStartY - e.clientY; // drag up → positive → taller
+          let h = dragStartH + dy;
+          h = Math.max(MIN_H, Math.min(h, maxPanelHeight()));
+          panel.style.height = h + 'px';
+        }
+
+        function onResizeEnd() {
+          panel.classList.remove('resizing');
+          window.removeEventListener('pointermove', onResizeMove);
+          window.removeEventListener('pointerup', onResizeEnd);
+        }
+
+        resizeHandle.addEventListener('pointerdown', (e) => {
+          // Only the docked (non-expanded) panel is resizable.
+          if (panel.classList.contains('expanded')) return;
+          e.preventDefault();
+          dragStartY = (e as PointerEvent).clientY;
+          dragStartH = panel.getBoundingClientRect().height;
+          panel.classList.add('resizing');
+          window.addEventListener('pointermove', onResizeMove);
+          window.addEventListener('pointerup', onResizeEnd);
+        });
 
         button.addEventListener('click', openLauncher);
         backdrop.addEventListener('click', closeLauncher);
