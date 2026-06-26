@@ -377,6 +377,24 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
           wrapper.className = 'mermaid-rendered';
           wrapper.setAttribute('data-source', source);
           wrapper.innerHTML = svg;
+          // On phones, a wide diagram (mindmaps especially) shrinks to an
+          // unreadable thumbnail. Instead, pin diagrams that can't fit to their
+          // natural size and let the bordered box scroll (CSS handles overflow +
+          // a height cap) so the reader can pan around. Narrow diagrams that
+          // already fit are left to scale normally. Desktop is untouched.
+          if (window.matchMedia('(max-width: 640px)').matches) {
+            const svgEl = wrapper.querySelector('svg');
+            const vb = svgEl?.getAttribute('viewBox');
+            if (svgEl && vb) {
+              const dims = vb.split(/\s+/).map(Number);
+              const w = dims[2], h = dims[3];
+              if (w > 700 && h > 0) {
+                svgEl.style.maxWidth = 'none';
+                svgEl.setAttribute('width', String(Math.round(w)));
+                svgEl.setAttribute('height', String(Math.round(h)));
+              }
+            }
+          }
           // Append an expand button. Dense architecture diagrams scale
           // down too far to read on the post page; clicking opens a
           // fullscreen modal with the SVG at natural size + pan/zoom.

@@ -145,6 +145,19 @@
   text-align: center;
 }
 
+/* On phones, wide diagrams are pinned to natural size in JS; turn the box into a
+   2-axis scrollable viewport with a height cap so a tall mindmap doesn't take
+   over the screen. Momentum scrolling for a native feel; left-align so the
+   diagram starts at its origin instead of being centered off-screen. */
+@media (max-width: 640px) {
+  .mermaid-rendered {
+    overflow: auto;
+    max-height: 78vh;
+    -webkit-overflow-scrolling: touch;
+    text-align: left;
+  }
+}
+
 /* Plotly charts embedded as ```plotly fenced blocks. The wrapper replaces the
    raw-JSON <pre>; Plotly draws into it responsively. White chart bg sits on a
    bordered card so it reads cleanly in both light and dark themes. */
