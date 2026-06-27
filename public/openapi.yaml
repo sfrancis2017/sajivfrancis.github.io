@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: Sajiv Francis — RAG Chat API
+  version: 1.0.0
+  description: >-
+    Retrieval-augmented chat grounded in Sajiv Francis's published writing and
+    architecture notes. Each turn embeds the latest user message, retrieves the
+    top-K most similar passages from a Postgres/pgvector store (optionally
+    topic-filtered), and streams a grounded Anthropic Claude answer back over
+    Server-Sent Events. A public, rate-limited, read-only mode answers from the
+    public corpus; owner mode (bearer token) unlocks synthesis features.
+  contact:
+    name: Sajiv Francis
+    url: https://sajivfrancis.com
+  license:
+    name: All rights reserved
+servers:
+  - url: https://chat.sajivfrancis.com
+    description: Production (Cloudflare Worker)
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Service is up.
+  /topics:
+    get:
+      operationId: listTopics
+      summary: List the topic filters available for retrieval
+      responses:
+        '200':
+          description: Topics that can be passed to /chat for OR-filtered retrieval.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  topics:
+                    type: array
+                    items:
+                      type: string
+  /chat:
+    post:
+      operationId: chat
+      summary: Ask a question; receive a grounded answer streamed over SSE
+      description: >-
+        Public mode is rate-limited to 5 messages per minute and 30 per day and
+        answers only from the public corpus. Owner mode (bearer token) removes
+        the limit and enables synthesis modes.
+      security:
+        - {}            # public, read-only mode (no auth)
+        - bearerAuth: [] # owner mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Server-Sent Events stream of answer tokens and citations.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                data: {"delta":"Sajiv is an enterprise architect and AI platform builder…"}
+
+                data: {"done":true}
+        '400':
+          description: Invalid JSON, or `messages` was missing/empty.
+        '403':
+          description: Chat is private, or a requested feature is owner-only.
+        '429':
+          description: Rate limit exceeded (public mode).
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Owner access token. Omit for public, rate-limited read-only access.
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          description: The conversation so far; the final item is the new user turn.
+          items:
+            type: object
+            required:
+              - role
+              - content
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+        topics:
+          type: array
+          description: Optional topic filters (OR-combined) applied to retrieval.
+          items:
+            type: string
+      example:
+        messages:
+          - role: user
+            content: How is this RAG chat built?
+        topics:
+          - architecture

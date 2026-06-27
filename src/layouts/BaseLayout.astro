@@ -32,6 +32,33 @@ const ogImageUrl = new URL(ogImage, Astro.site).toString();
 
 const fullTitle = title === 'Sajiv Francis' ? title : `${title} — Sajiv Francis`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
+
+// JSON-LD Person entity. Emitted site-wide so search/AI crawlers build a
+// consistent identity graph for "Sajiv Francis" across every page.
+const personJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: 'Sajiv Francis',
+  url: 'https://sajivfrancis.com',
+  jobTitle: 'Enterprise Architect',
+  description:
+    'Enterprise Architect and AI platform builder — SAP S/4HANA, TOGAF, and AI-native platforms.',
+  image: new URL('/img/og-default.png', Astro.site).toString(),
+  sameAs: [
+    'https://github.com/sfrancis2017',
+    'https://www.linkedin.com/in/sajiv-francis',
+  ],
+  knowsAbout: [
+    'SAP S/4HANA',
+    'Enterprise Architecture',
+    'TOGAF',
+    'ArchiMate',
+    'Artificial Intelligence',
+    'AI-native platforms',
+    'Retrieval-Augmented Generation',
+    'AI platform engineering',
+  ],
+};
 ---
 
 <!doctype html>
@@ -46,6 +73,13 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="canonical" href={canonicalUrl} />
+
+    <!-- Person structured data (schema.org / JSON-LD) -->
+    <script
+      type="application/ld+json"
+      is:inline
+      set:html={JSON.stringify(personJsonLd)}
+    />
 
     <!-- Inter variable font -->
     <link rel="preconnect" href="https://rsms.me/" />

@@ -9,4 +9,22 @@ Allow: /
 Disallow: /admin/
 Disallow: /pagefind/
 
+# AI agent crawlers — explicitly allowed. Named groups are listed separately
+# because a crawler that matches its own User-agent ignores the wildcard group,
+# so the /admin and /pagefind exclusions are repeated here to stay in effect.
+User-agent: GPTBot
+Allow: /
+Disallow: /admin/
+Disallow: /pagefind/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin/
+Disallow: /pagefind/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin/
+Disallow: /pagefind/
+
 Sitemap: https://sajivfrancis.com/sitemap-index.xml

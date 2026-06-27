@@ -1,0 +1,29 @@
+# Sajiv Francis
+
+> Enterprise Architect and AI platform builder. I lead large-scale SAP S/4HANA
+> programs, practice TOGAF/ArchiMate enterprise architecture, and design and
+> ship AI-native platforms — including retrieval-augmented (RAG) and agent
+> systems. This site hosts my writing, a working RAG chat grounded in my own
+> architecture notes and published work, browser-first architecture tools, and
+> reference documentation.
+
+## About
+- [About Sajiv Francis](https://sajivfrancis.com/about): Background and focus — Enterprise Architect leading AI programs at a Fortune 100 technology company; SAP S/4HANA, TOGAF, and AI-native platforms.
+
+## Writing
+- [Blog](https://sajivfrancis.com/blog): Essays on the intersection of AI and enterprise-architecture practice.
+- [News](https://sajivfrancis.com/news): Curated reading across SAP, Enterprise Architecture, AI, and software engineering.
+
+## Build & Tools
+- [Tools](https://sajivfrancis.com/tools): Browser-first document and architecture tools (PDF, Markdown, diagram pipelines) — files are processed locally, nothing is uploaded.
+- [EA Explorer (Lab)](https://sajivfrancis.com/lab/ea-explorer): Interactive enterprise-architecture exploration.
+
+## Chat & Docs
+- [RAG Chat](https://sajivfrancis.com/chat): A retrieval-grounded chat over my architecture notes and published writing — Cloudflare Workers + Postgres/pgvector + Anthropic Claude.
+- [Documentation](https://docs.sajivfrancis.com): Reference docs and architecture deep-dives.
+
+## Machine-readable
+- [RAG Chat OpenAPI spec](https://sajivfrancis.com/openapi.yaml): The chat API endpoint, for agent crawlers and tooling.
+
+## Expertise
+SAP S/4HANA · Enterprise Architecture · TOGAF · ArchiMate · AI-native platforms · Retrieval-Augmented Generation (RAG) · agent systems · AI platform engineering.
