@@ -94,7 +94,9 @@
         localStorage.setItem('owner_at', String(Date.now())); // mark a fresh sign-in so it survives prior sign-outs
       } catch (e) {}
       bcastSignin(); // propagate to other *.sajivfrancis.com surfaces
-      history.replaceState(null, '', location.pathname + location.search);
+      var _clean = new URL(location.href);
+      _clean.searchParams.delete('owner_sso'); // drop the retry-bound param once captured
+      history.replaceState(null, '', _clean.pathname + _clean.search);
     }
 
     // Cross-subdomain auto-sync of sign-IN. If owner mode was established on
@@ -110,9 +112,19 @@
       var _tried = 0;
       try { _tried = parseInt(sessionStorage.getItem('owner_sync_tried') || '0', 10); } catch (e) {}
       var _owner = !!(localStorage.getItem(CHAT_KEY) || localStorage.getItem(TOOLS_KEY));
-      if (!_owner && _si > _at && _si > _so && _si > _tried) {
+      // URL-based retry bound. The sessionStorage/localStorage guards above are
+      // wiped by mobile Safari ITP / private mode / storage partitioning — when a
+      // captured token fails to persist, _owner stays false and this redirect
+      // would fire on every load (handoff → back → fail → loop = blank screen).
+      // The owner_sso counter rides in the URL, survives the redirect regardless
+      // of storage, and caps the handoff at one attempt — then we render the
+      // signed-out badge instead of looping.
+      var _ssoTries = parseInt(new URL(location.href).searchParams.get('owner_sso') || '0', 10);
+      if (!_owner && _si > _at && _si > _so && _si > _tried && _ssoTries < 1) {
         try { sessionStorage.setItem('owner_sync_tried', String(_si)); } catch (e) {}
-        location.replace(HANDOFF + encodeURIComponent(location.href));
+        var _ret = new URL(location.href);
+        _ret.searchParams.set('owner_sso', String(_ssoTries + 1));
+        location.replace(HANDOFF + encodeURIComponent(_ret.href));
         return; // navigating away to pull tokens — skip rendering the signed-out badge
       }
     }
