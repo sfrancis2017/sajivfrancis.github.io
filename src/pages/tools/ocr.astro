@@ -2,16 +2,16 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 ---
 
-<BaseLayout title="OCR — Extract Text" description="Extract editable text from images or scanned PDFs in your browser. Files never leave your device." mainClass="max-w-4xl">
+<BaseLayout title="OCR — Extract Text" description="Extract editable text from images or scanned PDFs in your browser — batch several files at once. Files never leave your device." mainClass="max-w-4xl">
   <article class="tool">
     <header class="thead">
       <p class="kick">Tools · Extract &amp; Analyze</p>
       <h1>OCR — Extract Text</h1>
-      <p class="sub">Pull editable text out of an image or scanned PDF, then copy, edit, or download it. Runs locally — nothing is uploaded.</p>
+      <p class="sub">Pull editable text out of images or scanned PDFs — several at once — then copy, edit, or download. Runs locally — nothing is uploaded.</p>
       <a class="back" href="/tools/">Back to all tools</a>
     </header>
 
-    <div class="drop" id="drop"><input type="file" id="file" accept="image/*,.pdf,application/pdf" /><div class="dl">Select an image or PDF</div><div class="ds">PNG, JPG, or a scanned PDF. Processing runs in your browser.</div></div>
+    <div class="drop" id="drop"><input type="file" id="file" multiple accept="image/*,.pdf,application/pdf" /><div class="dl">Select images or PDFs</div><div class="ds">PNG, JPG, or scanned PDFs — pick several at once. Processing runs in your browser.</div></div>
 
     <div class="panel" id="settings" style="display:none;">
       <div class="row">
@@ -32,6 +32,11 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       <div class="status" id="status">Pick a language and extract.</div>
     </div>
 
+    <div class="panel" id="filewrap" hidden>
+      <h2>Per-file <span class="pill" id="filecount"></span></h2>
+      <div class="filelist" id="filelist"></div>
+    </div>
+
     <div class="panel" id="outwrap" hidden>
       <h2>Extracted text <span class="pill" id="chars"></span></h2>
       <textarea id="out" class="out" spellcheck="false" placeholder="Extracted text will appear here…"></textarea>
@@ -47,15 +52,24 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
   <script is:inline>
     const $ = (id) => document.getElementById(id);
-    let file = null;
+    let files = [];     // one or many images / PDFs, in selection order
+    let results = [];    // [{ name, text, error? }] after extraction
 
     function setProgress(p) { $('progwrap').hidden = false; $('bar').style.width = Math.round(p * 100) + '%'; }
-    function sel(f) { file = f; $('settings').style.display = ''; $('status').textContent = 'Ready: ' + f.name; }
-    $('file').addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) sel(f); });
+
+    function accept(f) { return f.type.startsWith('image/') || /pdf$/i.test(f.name) || f.type === 'application/pdf'; }
+    function pick(list) {
+      const arr = Array.from(list || []).filter(accept);
+      if (!arr.length) return;
+      files = arr;
+      $('settings').style.display = '';
+      $('status').textContent = arr.length === 1 ? ('Ready: ' + arr[0].name) : `Ready: ${arr.length} files`;
+    }
+    $('file').addEventListener('change', (e) => pick(e.target.files));
     const dz = $('drop');
     dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
-    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer?.files?.[0]; if (f) sel(f); });
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); pick(e.dataTransfer?.files); });
 
     async function pdfToCanvases(f) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -73,32 +87,44 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     }
 
     $('go').addEventListener('click', async () => {
-      if (!file) return;
+      if (!files.length) return;
       $('go').disabled = true; setProgress(0.02);
       $('status').textContent = 'Loading OCR engine…';
       let worker;
+      const totalFiles = files.length;
+      results = [];
+      let totalPages = 0;
       try {
-        const isPdf = /pdf$/i.test(file.name) || file.type === 'application/pdf';
-        const pages = isPdf ? await pdfToCanvases(file) : [file];
-        const total = pages.length;
-        let donePages = 0, text = '';
+        // One worker for the whole batch — the language is fixed at start, and
+        // spinning a fresh worker per file would re-download the model each time.
         worker = await Tesseract.createWorker($('lang').value, 1, {
-          logger: (m) => {
-            if (m.status === 'recognizing text') $('status').textContent = `Reading${total > 1 ? ` (page ${donePages + 1} / ${total})` : ''}… ${Math.round(m.progress * 100)}%`;
-            else $('status').textContent = m.status + (m.progress ? ` ${Math.round(m.progress * 100)}%` : '');
-          },
+          logger: (m) => { if (m.status !== 'recognizing text') $('status').textContent = m.status + (m.progress ? ` ${Math.round(m.progress * 100)}%` : ''); },
         });
-        for (const pg of pages) {
-          const { data } = await worker.recognize(pg);
-          text += (total > 1 ? `\n\n----- Page ${donePages + 1} -----\n\n` : '') + (data.text || '').trim();
-          donePages++;
-          setProgress(donePages / total);
+        for (let fi = 0; fi < files.length; fi++) {
+          const f = files[fi];
+          // Per-file try/catch: one corrupt image or PDF is recorded and the
+          // rest of the batch still completes.
+          try {
+            const isPdf = /pdf$/i.test(f.name) || f.type === 'application/pdf';
+            const pages = isPdf ? await pdfToCanvases(f) : [f];
+            let ftext = '';
+            for (let pi = 0; pi < pages.length; pi++) {
+              $('status').textContent = `Reading ${f.name}${pages.length > 1 ? ` (page ${pi + 1}/${pages.length})` : ''}…`;
+              const { data } = await worker.recognize(pages[pi]);
+              ftext += (pages.length > 1 ? `\n\n----- Page ${pi + 1} -----\n\n` : '') + (data.text || '').trim();
+              totalPages++;
+              // Smooth bar across files without pre-rendering every PDF up front.
+              setProgress((fi + (pi + 1) / pages.length) / totalFiles);
+            }
+            results.push({ name: f.name, text: ftext.trim() });
+          } catch (err) {
+            results.push({ name: f.name, text: '', error: err.message || String(err) });
+          }
         }
         await worker.terminate();
-        $('out').value = text.trim();
-        $('outwrap').hidden = false;
-        $('chars').textContent = `${$('out').value.length.toLocaleString()} chars`;
-        $('status').textContent = `Done — ${donePages} ${donePages === 1 ? 'page/image' : 'pages'} read.`;
+        renderResults(totalFiles);
+        const failed = results.filter((r) => r.error).length;
+        $('status').textContent = `Done — ${totalFiles} ${totalFiles === 1 ? 'file' : 'files'}, ${totalPages} ${totalPages === 1 ? 'page/image' : 'pages'} read${failed ? `, ${failed} failed` : ''}.`;
         setProgress(1);
       } catch (err) {
         $('status').textContent = 'Error: ' + (err.message || err);
@@ -106,11 +132,43 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       } finally { $('go').disabled = false; }
     });
 
+    function combinedText() {
+      const many = results.length > 1;
+      return results.map((r) => {
+        const body = r.error ? `[failed: ${r.error}]` : r.text;
+        return many ? `===== ${r.name} =====\n\n${body}` : body;
+      }).join('\n\n\n').trim();
+    }
+
+    function renderResults(totalFiles) {
+      $('out').value = combinedText();
+      $('outwrap').hidden = false;
+      $('chars').textContent = `${$('out').value.length.toLocaleString()} chars`;
+      const fl = $('filelist');
+      fl.innerHTML = '';
+      if (totalFiles > 1) {
+        $('filecount').textContent = `${totalFiles} files`;
+        results.forEach((r) => {
+          const row = document.createElement('div'); row.className = 'frow';
+          const nm = document.createElement('span'); nm.className = 'fn'; nm.textContent = r.name;
+          const ct = document.createElement('span'); ct.className = 'fc';
+          ct.textContent = r.error ? 'failed' : `${r.text.length.toLocaleString()} chars`;
+          const dl = document.createElement('button'); dl.className = 'btn'; dl.textContent = 'Download';
+          if (r.error) { dl.disabled = true; }
+          else { dl.addEventListener('click', () => downloadBlob(r.text, r.name.replace(/\.[^.]+$/, '') + '.txt', 'text/plain')); }
+          row.append(nm, ct, dl); fl.appendChild(row);
+        });
+        $('filewrap').hidden = false;
+      } else {
+        $('filewrap').hidden = true;
+      }
+    }
+
     $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('out').value); $('status').textContent = 'Copied to clipboard.'; } catch { $('status').textContent = 'Copy failed — select and copy manually.'; } });
-    function download(name, type) { const blob = new Blob([$('out').value], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000); }
-    $('dltxt').addEventListener('click', () => download('extracted.txt', 'text/plain'));
-    $('dlmd').addEventListener('click', () => download('extracted.md', 'text/markdown'));
-    $('chars') && $('out').addEventListener('input', () => { $('chars').textContent = `${$('out').value.length.toLocaleString()} chars`; });
+    function downloadBlob(text, name, type) { const blob = new Blob([text], { type }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 15000); }
+    $('dltxt').addEventListener('click', () => downloadBlob($('out').value, 'extracted.txt', 'text/plain'));
+    $('dlmd').addEventListener('click', () => downloadBlob($('out').value, 'extracted.md', 'text/markdown'));
+    $('out').addEventListener('input', () => { $('chars').textContent = `${$('out').value.length.toLocaleString()} chars`; });
   </script>
 </BaseLayout>
 
@@ -137,4 +195,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
   .out { width: 100%; min-height: 320px; resize: vertical; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); color: var(--color-fg); padding: 12px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
   .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
   .btn:hover { border-color: var(--color-accent); } .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; } .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .filelist { display: flex; flex-direction: column; gap: 6px; }
+  .frow { display: flex; align-items: center; gap: 10px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; background: var(--color-bg); }
+  .frow .fn { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frow .fc { font-size: 11px; color: var(--color-fg-muted); font-family: var(--font-mono); white-space: nowrap; }
+  .frow .btn { padding: 5px 10px; font-size: 12px; }
+  .frow .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
