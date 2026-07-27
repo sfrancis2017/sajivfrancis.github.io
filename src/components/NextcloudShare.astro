@@ -1,0 +1,21 @@
+---
+/**
+ * "Share with me via Nextcloud" button — the federated-sharing widget generated
+ * by the Nextcloud personal settings page, pointing at cloud.sajivfrancis.com.
+ * Drop onto any page: import NextcloudShare and place <NextcloudShare /> where
+ * a share affordance belongs (currently: About contact strip).
+ * The logo image is hot-loaded from the Nextcloud instance's theming endpoint.
+ */
+---
+
+<a
+  target="_blank"
+  rel="noreferrer noopener"
+  href="https://nextcloud.com/sharing#sajivfrancis@cloud.sajivfrancis.com"
+  style="padding:10px;background-color:#FC1414;color:#000000;border-radius:3px;padding-inline-start:4px;"
+>
+  <span
+    style="background-image:url(https://cloud.sajivfrancis.com/apps/theming/image/logo?useSvg=1&v=23);width:50px;height:30px;position:relative;top:8px;background-size:contain;display:inline-block;background-repeat:no-repeat;background-position:center center;"
+  ></span>
+  Share with me via Nextcloud
+</a>
