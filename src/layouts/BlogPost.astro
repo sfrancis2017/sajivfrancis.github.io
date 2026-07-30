@@ -77,7 +77,15 @@ const showPdf = pdfBody.length > 40;
 const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
 ---
 
-<BaseLayout title={title} description={description} ogImage={coverImage}>
+<BaseLayout
+  title={title}
+  description={description}
+  ogImage={coverImage}
+  article={{
+    publishedTime: pubDate.toISOString(),
+    modifiedTime: (updatedDate ?? pubDate).toISOString(),
+  }}
+>
   <ReadingProgress />
   <TableOfContents headings={headings} />
 
@@ -92,6 +100,10 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
   <article class="prose dark:prose-invert max-w-none prose-headings:tracking-tight prose-headings:scroll-mt-24 prose-a:text-[var(--color-accent)] prose-a:underline prose-a:underline-offset-2 prose-img:rounded-md prose-img:border prose-img:border-[var(--color-border)] prose-pre:border prose-pre:border-[var(--color-border)] prose-code:before:content-none prose-code:after:content-none">
     <header class="not-prose mb-10 pb-8 border-b border-[var(--color-border)]">
       <div class="flex flex-wrap items-center gap-2 text-sm text-[var(--color-fg-subtle)] uppercase tracking-wider">
+        <span class="normal-case tracking-normal">
+          By <a href="/about/" class="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] underline-offset-2 hover:underline no-underline">Sajiv Francis</a>
+        </span>
+        <span aria-hidden="true">·</span>
         <time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
         {readingTime != null && <span aria-hidden="true">·</span>}
         {readingTime != null && <span>{readingTime} min read</span>}
