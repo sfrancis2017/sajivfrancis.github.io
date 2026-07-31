@@ -120,7 +120,10 @@
       // of storage, and caps the handoff at one attempt — then we render the
       // signed-out badge instead of looping.
       var _ssoTries = parseInt(new URL(location.href).searchParams.get('owner_sso') || '0', 10);
-      if (!_owner && _si > _at && _si > _so && _si > _tried && _ssoTries < 1) {
+      // Never auto-sync inside an embedded frame (e.g. Nextcloud's inline
+      // external-site view): Access refuses to render framed and the frame's
+      // storage is partitioned anyway — the redirect could only break the view.
+      if (window.self === window.top && !_owner && _si > _at && _si > _so && _si > _tried && _ssoTries < 1) {
         try { sessionStorage.setItem('owner_sync_tried', String(_si)); } catch (e) {}
         var _ret = new URL(location.href);
         _ret.searchParams.set('owner_sso', String(_ssoTries + 1));
@@ -131,6 +134,17 @@
 
     const btn = document.getElementById('owner-badge');
     if (!btn) return;
+
+    // Auth flows must run top-level: Cloudflare Access refuses to render in a
+    // frame and mobile browsers partition iframe storage. Navigating the top
+    // window on a user click is allowed cross-origin and keeps it same-tab,
+    // so Back returns to the embedding app (e.g. the cloud UI).
+    function nav(url) {
+      try {
+        if (window.top !== window.self) { window.top.location.href = url; return; }
+      } catch (e) { /* sandboxed without top-navigation — fall through */ }
+      location.href = url;
+    }
 
     function isOwner() {
       return !!(localStorage.getItem(CHAT_KEY) || localStorage.getItem(TOOLS_KEY));
@@ -151,9 +165,9 @@
         try { localStorage.removeItem(CHAT_KEY); localStorage.removeItem(TOOLS_KEY); } catch (e) {}
         bcastSignout(); // tell every other *.sajivfrancis.com surface to sign out too
         const ret = RETURN_VIA + encodeURIComponent(location.origin + location.pathname);
-        location.href = LOGOUT + encodeURIComponent(ret);
+        nav(LOGOUT + encodeURIComponent(ret));
       } else {
-        location.href = HANDOFF + encodeURIComponent(location.href);
+        nav(HANDOFF + encodeURIComponent(location.href));
       }
     });
 
