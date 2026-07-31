@@ -2,6 +2,9 @@
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/about/', label: 'About' },
+];
+
+const resourceLinks = [
   { href: '/blog/', label: 'Writing' },
   { href: 'https://docs.sajivfrancis.com/', label: 'Docs' },
   { href: 'https://chat.sajivfrancis.com/', label: 'Chat' },
@@ -16,6 +19,9 @@ const utilityLinks = [
 ];
 
 const currentPath = Astro.url.pathname;
+const isResourcesActive = resourceLinks.some(
+  ({ href }) => href.startsWith('/') && currentPath.startsWith(href)
+);
 const isUtilitiesActive = utilityLinks.some(({ href }) =>
   href === '/' ? currentPath === '/' : currentPath.startsWith(href)
 );
@@ -62,6 +68,42 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
           );
         })
       }
+
+      <div class="utilities-group relative">
+        <button
+          type="button"
+          class={`no-underline hover:no-underline transition-colors inline-flex items-center gap-1 ${
+            isResourcesActive
+              ? 'text-[var(--color-fg)] font-medium'
+              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+          }`}
+          aria-haspopup="true"
+          aria-label="Open resources menu"
+        >
+          Resources
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+
+        <div class="utilities-popover absolute right-0 mt-2 min-w-[170px] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1 shadow-lg">
+          {
+            resourceLinks.map(({ href, label }) => {
+              const isActive = href.startsWith('/') && currentPath.startsWith(href);
+              return (
+                <a
+                  href={href}
+                  class={`block px-3 py-2 no-underline hover:no-underline text-sm ${
+                    isActive
+                      ? 'text-[var(--color-fg)] font-medium'
+                      : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
+                  }`}
+                >
+                  {label}
+                </a>
+              );
+            })
+          }
+        </div>
+      </div>
 
       <div class="utilities-group relative">
         <button
@@ -179,6 +221,44 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
       <li>
         <button
           type="button"
+          id="mobile-resources-toggle"
+          aria-expanded="false"
+          aria-controls="mobile-resources-menu"
+          class={`w-full text-left py-3 no-underline hover:no-underline inline-flex items-center justify-between ${
+            isResourcesActive
+              ? 'text-[var(--color-fg)] font-medium'
+              : 'text-[var(--color-fg-muted)]'
+          }`}
+        >
+          <span>Resources</span>
+          <svg class="mobile-group-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <ul id="mobile-resources-menu" class="hidden pl-3 pb-2">
+          {
+            resourceLinks.map(({ href, label }) => {
+              const isActive = href.startsWith('/') && currentPath.startsWith(href);
+              return (
+                <li>
+                  <a
+                    href={href}
+                    class={`block py-2 no-underline hover:no-underline text-sm ${
+                      isActive
+                        ? 'text-[var(--color-fg)] font-medium'
+                        : 'text-[var(--color-fg-muted)]'
+                    }`}
+                  >
+                    {label}
+                  </a>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </li>
+
+      <li>
+        <button
+          type="button"
           id="mobile-utilities-toggle"
           aria-expanded="false"
           aria-controls="mobile-utilities-menu"
@@ -189,7 +269,7 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
           }`}
         >
           <span>Utilities</span>
-          <svg class="mobile-utilities-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <svg class="mobile-group-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <ul id="mobile-utilities-menu" class="hidden pl-3 pb-2">
           {
@@ -261,9 +341,22 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
   const mobileMenu = document.getElementById('mobile-menu');
   const menuIconOpen = document.querySelector('.menu-icon-open');
   const menuIconClose = document.querySelector('.menu-icon-close');
-  const mobileUtilitiesToggle = document.getElementById('mobile-utilities-toggle');
-  const mobileUtilitiesMenu = document.getElementById('mobile-utilities-menu');
-  const mobileUtilitiesIcon = document.querySelector('.mobile-utilities-icon');
+  // Collapsible groups inside the mobile menu (Resources, Utilities).
+  const mobileGroups = [
+    ['mobile-resources-toggle', 'mobile-resources-menu'],
+    ['mobile-utilities-toggle', 'mobile-utilities-menu'],
+  ].map(([toggleId, menuId]) => ({
+    toggle: document.getElementById(toggleId),
+    menu: document.getElementById(menuId),
+  }));
+
+  function closeMobileGroups() {
+    for (const { toggle, menu } of mobileGroups) {
+      toggle?.setAttribute('aria-expanded', 'false');
+      menu?.classList.add('hidden');
+      toggle?.querySelector('.mobile-group-icon')?.classList.remove('rotate-180');
+    }
+  }
 
   function setMenuOpen(open: boolean) {
     if (!menuToggle || !mobileMenu) return;
@@ -288,18 +381,18 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
   window.addEventListener('resize', () => {
     if (window.innerWidth >= 768) {
       setMenuOpen(false);
-      mobileUtilitiesMenu?.classList.add('hidden');
-      mobileUtilitiesToggle?.setAttribute('aria-expanded', 'false');
-      mobileUtilitiesIcon?.classList.remove('rotate-180');
+      closeMobileGroups();
     }
   });
 
-  mobileUtilitiesToggle?.addEventListener('click', () => {
-    const isOpen = mobileUtilitiesToggle.getAttribute('aria-expanded') === 'true';
-    mobileUtilitiesToggle.setAttribute('aria-expanded', String(!isOpen));
-    mobileUtilitiesMenu?.classList.toggle('hidden', isOpen);
-    mobileUtilitiesIcon?.classList.toggle('rotate-180', !isOpen);
-  });
+  for (const { toggle, menu } of mobileGroups) {
+    toggle?.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
+      menu?.classList.toggle('hidden', isOpen);
+      toggle.querySelector('.mobile-group-icon')?.classList.toggle('rotate-180', !isOpen);
+    });
+  }
 </script>
 
 <style>
@@ -342,7 +435,7 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
     display: block;
   }
 
-  .mobile-utilities-icon {
+  .mobile-group-icon {
     transition: transform 180ms ease;
   }
 </style>
