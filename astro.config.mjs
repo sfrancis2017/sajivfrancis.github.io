@@ -66,6 +66,22 @@ export default defineConfig({
     shikiConfig: {
       theme: 'github-dark-dimmed',
       wrap: true,
+      transformers: [
+        {
+          // Stamp the raw fence source onto mermaid <pre> blocks at build
+          // time. The client renderer reads data-source before falling back
+          // to reconstructing the source from Shiki's .line spans, so
+          // rendering must not depend on the DOM keeping its whitespace:
+          // the RecogitoJS annotation layer rebuilds the post body and
+          // collapses runs of spaces, which flattens indentation-sensitive
+          // diagrams (mindmaps) into "There can be only one root" failures.
+          pre(node) {
+            if (this.options.lang === 'mermaid') {
+              node.properties['data-source'] = this.source;
+            }
+          },
+        },
+      ],
     },
   },
 });
