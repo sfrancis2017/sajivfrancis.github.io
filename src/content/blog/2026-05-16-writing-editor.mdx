@@ -21,10 +21,10 @@ Here's the loop. One Cloudflare Worker — the chat-worker — handles all read/
 
 ```mermaid
 flowchart TD
-    A[/admin/write] -->|Save| B[DRAFTS_KV<br>owner-only via CHAT_TOKEN]
-    B -->|Publish| C[GitHub: src/content/blog/<br>YYYY-MM-DD-slug.mdx]
+    A["/admin/write"] -->|Save| B[DRAFTS_KV<br>owner-only via CHAT_TOKEN]
+    B -->|Publish| C["GitHub: src/content/blog/<br>YYYY-MM-DD-slug.mdx"]
     C -->|git push| D[GitHub Pages rebuild]
-    D --> E[sajivfrancis.com/blog/slug]
+    D --> E["sajivfrancis.com/blog/slug"]
 ``` 
 
 ```mermaid
