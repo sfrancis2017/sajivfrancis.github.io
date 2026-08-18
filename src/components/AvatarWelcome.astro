@@ -1,0 +1,156 @@
+---
+/**
+ * AvatarWelcome — Maya's talking welcome card, fixed bottom-right on the
+ * landing page (personal-chat plan 04 D13). A pre-rendered clip invites the
+ * visitor; the card is the next step the invitation points to: the whole
+ * card and the CTA link to chat.sajivfrancis.com, where the conversation
+ * actually happens (the in-chat tour takes over guidance there).
+ *
+ * Behavior: muted autoplay loop; tap the speaker to hear her (restarts the
+ * line); × dismisses and is remembered per device; reduced-motion visitors
+ * get the static poster. Clip + poster live in public/media/ (~1 MB total).
+ */
+---
+
+<aside id="maya-welcome" class="maya-welcome" hidden aria-label="Meet Maya — chat assistant">
+  <button type="button" id="maya-dismiss" class="maya-dismiss" aria-label="Dismiss">&times;</button>
+  <a href="https://chat.sajivfrancis.com" class="maya-media-link" aria-label="Open the chat">
+    <video
+      id="maya-video"
+      class="maya-video"
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      poster="/media/maya-welcome-poster.jpg"
+    >
+      <source src="/media/maya-welcome.webm" type="video/webm" />
+      <source src="/media/maya-welcome.mp4" type="video/mp4" />
+    </video>
+  </a>
+  <button type="button" id="maya-sound" class="maya-sound" aria-label="Hear Maya's welcome">🔇</button>
+  <a href="https://chat.sajivfrancis.com" id="maya-cta" class="maya-cta">Chat with Maya →</a>
+</aside>
+
+<style>
+  .maya-welcome {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: var(--color-bg-elevated, #fff);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
+  }
+  .maya-welcome[hidden] { display: none; }
+  .maya-media-link { display: block; line-height: 0; }
+  .maya-video {
+    display: block;
+    height: min(34vh, 300px);
+    aspect-ratio: 252 / 470;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #000;
+  }
+  .maya-dismiss {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-strong, var(--color-border));
+    background: var(--color-bg-elevated, #fff);
+    color: var(--color-fg);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .maya-sound {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.45);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .maya-cta {
+    display: block;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--color-accent);
+    color: var(--color-accent-fg, #fff);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .maya-cta:hover { text-decoration: none; }
+  /* the invitation lands: CTA emphasizes as the spoken line wraps up */
+  .maya-cta.maya-cta-pulse {
+    animation: maya-pulse 1.6s ease-in-out 2;
+  }
+  @keyframes maya-pulse {
+    0%, 100% { transform: scale(1); box-shadow: none; }
+    50% { transform: scale(1.05); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+  }
+  @media (max-width: 640px) {
+    .maya-welcome { right: 12px; bottom: 12px; padding: 8px; }
+    .maya-video { height: min(28vh, 220px); }
+  }
+</style>
+
+<script>
+  (() => {
+    const KEY = 'maya-welcome-dismissed';
+    const card = document.getElementById('maya-welcome');
+    const video = document.getElementById('maya-video') as HTMLVideoElement | null;
+    const sound = document.getElementById('maya-sound');
+    const cta = document.getElementById('maya-cta');
+    if (!card || !video || !sound || !cta) return;
+
+    try { if (localStorage.getItem(KEY) === '1') return; } catch {}
+    card.hidden = false;
+
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduced) video.play().catch(() => {});
+    // else: poster only — no motion for visitors who asked for none
+
+    document.getElementById('maya-dismiss')?.addEventListener('click', () => {
+      try { localStorage.setItem(KEY, '1'); } catch {}
+      card.remove();
+    });
+
+    sound.addEventListener('click', () => {
+      if (video.muted) {
+        video.muted = false;
+        video.currentTime = 0; // hear the welcome line from the top
+        video.play().catch(() => {});
+        sound.textContent = '🔊';
+        sound.setAttribute('aria-label', 'Mute');
+      } else {
+        video.muted = true;
+        sound.textContent = '🔇';
+        sound.setAttribute('aria-label', 'Hear Maya’s welcome');
+      }
+    });
+
+    // "Ask me" needs somewhere to land: pulse the CTA as each loop ends.
+    video.addEventListener('timeupdate', () => {
+      if (video.duration && video.duration - video.currentTime < 2.5) {
+        cta.classList.add('maya-cta-pulse');
+      }
+    });
+    video.addEventListener('seeked', () => cta.classList.remove('maya-cta-pulse'));
+  })();
+</script>
