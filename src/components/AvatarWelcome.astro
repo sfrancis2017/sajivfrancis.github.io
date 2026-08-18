@@ -118,8 +118,13 @@
     50% { transform: scale(1.05); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
   }
   @media (max-width: 640px) {
-    .maya-row { flex-direction: column; align-items: flex-start; gap: 18px; }
-    .maya-video { height: min(34vh, 260px); }
+    /* stacked layout: video centered and width-driven (vh sizing reads
+       tiny on phones), copy stays readable-left, CTA becomes a full-width
+       tappable button */
+    .maya-row { flex-direction: column; align-items: center; gap: 18px; }
+    .maya-video { height: auto; width: min(64vw, 280px); }
+    .maya-copy { align-items: stretch; width: 100%; }
+    .maya-cta { text-align: center; }
   }
 </style>
 
