@@ -7,6 +7,9 @@
  *   - procedural eyelids: the avatar's own above-eye skin stretches down,
  *     its own lash/eyeliner color rides the curved closing edge
  *   - idle sway, breathing, scheduled blinks, depth parallax
+ *   - H1 torso life: depth-gated breathing + weight shift — the FIGURE
+ *     breathes and sways while the background stays still (the package's
+ *     own depth map separates them); speech lifts the shoulders
  *
  * Design rules proven in the phase-S spike (see plan 05 build log):
  *   - texture.colorSpace = NoColorSpace (ShaderMaterial bypasses three's
@@ -43,6 +46,8 @@
     'uniform vec2 uLook, uMouth;',
     'uniform vec3 uLipCurve;',
     'uniform float uMouthHalfW, uChinV, uJawDrop;',
+    'uniform float uBreath, uSway, uShoulder;',
+    'uniform vec2 uBodyGate;',
     'varying vec2 vUv;',
     'void main() {',
     '  vUv = uv;',
@@ -56,6 +61,23 @@
     '  float below = smoothstep(lipV + m * 0.12, lipV - m * 0.18, uv.y);',
     '  float chinFade = smoothstep(uChinV - m * 1.0, uChinV - m * 0.35, uv.y);',
     '  p.y -= jawDrop * wx * below * chinFade;',
+    // H1 torso life: figure-only breathing + weight shift. `fig` gates by
+    // depth (uBodyGate from the package's own depth stats) so the
+    // background never moves; shapes are functions of distance below the
+    // chin so motion is zero AT the chin (no neck shear) and at the plane
+    // bottom (feet planted). Head-only packages have a tiny below-chin
+    // region — the whole block is naturally near-zero there.
+    '  float fig = smoothstep(uBodyGate.x, uBodyGate.y, d);',
+    '  float belowChin = smoothstep(uChinV + 0.02, uChinV - 0.10, uv.y);',
+    '  float dB = clamp((uChinV - uv.y) / max(uChinV, 0.05), 0.0, 1.0);',
+    '  float body = fig * belowChin;',
+    '  float torsoShape = smoothstep(0.02, 0.22, dB) * (1.0 - smoothstep(0.50, 0.95, dB));',
+    '  p.y += (uBreath * 0.006 + uShoulder * 0.008) * torsoShape * body;',
+    // plant: kills lateral sway at the feet (sin(pi*dB) alone still moves
+    // them ~30% of peak — reads as skating on full-body art)
+    '  float plant = 1.0 - smoothstep(0.55, 0.82, dB);',
+    '  p.x += uSway * 0.008 * sin(3.14159 * dB) * plant * body;',
+    '  p.x -= uSway * 0.002 * (1.0 - belowChin) * fig;',
     '  p.x += (d - 0.45) * uLook.x * 0.055;',
     '  p.y += (d - 0.45) * uLook.y * 0.035;',
     '  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);',
@@ -206,6 +228,31 @@
       depthTex = tex[1];
       texture.colorSpace = THREE.NoColorSpace; // exact portrait colors
 
+      // H1: depth thresholds separating figure from background so torso
+      // motion never moves the backdrop. Sampled from the depth map — a
+      // torso point just below the chin vs the two top corners (portrait
+      // background). Fallback = gate fully open (spatial mask only) when
+      // the depth image is unreadable (canvas taint) or contrast is
+      // degenerate (e.g. tight head crops where the sample misses torso).
+      var bodyGate = [-1.0, -0.5];
+      try {
+        var dc = document.createElement('canvas');
+        dc.width = 64; dc.height = 64;
+        var dg = dc.getContext('2d');
+        dg.drawImage(depthTex.image, 0, 0, 64, 64);
+        var dpx = dg.getImageData(0, 0, 64, 64).data;
+        var atD = function (u, vImg) {
+          var x = Math.max(0, Math.min(63, Math.round(u * 63)));
+          var y = Math.max(0, Math.min(63, Math.round(vImg * 63)));
+          return dpx[(y * 64 + x) * 4] / 255;
+        };
+        var torsoD = atD(mouthCU, Math.min(0.97, (1 - chin.v) + 0.12));
+        var bgD = (atD(0.04, 0.06) + atD(0.96, 0.06)) / 2;
+        if (torsoD - bgD > 0.08) {
+          bodyGate = [bgD + 0.30 * (torsoD - bgD), bgD + 0.65 * (torsoD - bgD)];
+        }
+      } catch (e) { /* keep gate-open fallback */ }
+
       var uniforms = {
         uTex:        { value: texture },
         uDepth:      { value: depthTex },
@@ -225,6 +272,10 @@
         uEyeR:       { value: new THREE.Vector2(eyeR.u, eyeR.v) },
         uEyeAxL:     { value: new THREE.Vector2(dist(uv(33), uv(133)) / 2 * 1.12, dist(uv(159), uv(145)) / 2 * 1.35) },
         uEyeAxR:     { value: new THREE.Vector2(dist(uv(362), uv(263)) / 2 * 1.12, dist(uv(386), uv(374)) / 2 * 1.35) },
+        uBreath:     { value: 0 },
+        uSway:       { value: 0 },
+        uShoulder:   { value: 0 },
+        uBodyGate:   { value: new THREE.Vector2(bodyGate[0], bodyGate[1]) },
       };
 
       var material = new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: VERT, fragmentShader: FRAG });
@@ -243,7 +294,7 @@
 
       var st = {
         jaw: 0, level: 0, blinkPhase: 0, idle: opts.idle !== false,
-        lookX: 0, lookY: 0, disposed: false,
+        lookX: 0, lookY: 0, shoulder: 0, disposed: false,
       };
       var nextBlink = performance.now() + 2000 + Math.random() * 3000;
       var raf = 0;
@@ -277,6 +328,14 @@
           ly += Math.sin(t * 0.31 + 1.7) * 0.16;
           mesh.rotation.z = Math.sin(t * 0.5) * 0.006;
           mesh.position.y = Math.sin(t * 0.8) * 0.004 + (st.level > 0.05 ? Math.sin(t * 2.2) * 0.004 : 0);
+          // H1 torso life: breath 3.2s, weight shift 8.1s (periods chosen
+          // so the combined loop never visibly repeats); speaking deepens
+          // the breath and eases the shoulders up (fast attack/slow decay)
+          var speaking = st.level > 0.05;
+          st.shoulder += ((speaking ? 1 : 0) - st.shoulder) * (speaking ? 0.06 : 0.015);
+          uniforms.uBreath.value = Math.sin(t * 1.9635) * (speaking ? 1.1 : 1.0);
+          uniforms.uSway.value = Math.sin(t * 0.7757 + 0.9);
+          uniforms.uShoulder.value = st.shoulder;
         }
         uniforms.uLook.value.set(lx, ly);
         mesh.rotation.y = lx * 0.05;
@@ -289,7 +348,15 @@
       return {
         setLevel: function (v) { st.level = Math.max(0, Math.min(1, v || 0)); },
         blink: function () { if (st.blinkPhase === 0) st.blinkPhase = 0.0001; },
-        setIdle: function (v) { st.idle = !!v; },
+        setIdle: function (v) {
+          st.idle = !!v;
+          if (!st.idle) { // freeze body at rest; tick leaves these alone when idle=off
+            st.shoulder = 0;
+            uniforms.uBreath.value = 0;
+            uniforms.uSway.value = 0;
+            uniforms.uShoulder.value = 0;
+          }
+        },
         setLook: function (x, y) { st.lookX = x || 0; st.lookY = y || 0; },
         uniforms: uniforms, // exposed for tests/tuning
         dispose: function () {
