@@ -116,12 +116,18 @@
     '  float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));',
     '  vec3 toothCol = clamp(vec3(lum * 1.2 + 0.45) * vec3(1.0, 0.975, 0.93), 0.0, 1.0);',
     '  toothCol *= 0.93 + 0.07 * cos((vUv.x - uMouth.x) / max(uMouthHalfW, 1e-4) * 20.0);',
-    '  float teethBand = smoothstep(-1.05, -0.55, dy) * (1.0 - smoothstep(-0.35, 0.0, dy));',
+    // Placement: the opening is a magnified view of the thin seam-line
+    // rows (the stretch is steepest at the seam), so upper teeth = rows a
+    // hair ABOVE the seam center (small positive dy). Negative dy renders
+    // in the lower half (read as bottom teeth on real photos); large
+    // positive dy is the unstretched upper lip (painted the lip). The
+    // gaussian band keeps the ivory inside the stretched zone.
+    '  float teethBand = smoothstep(0.02, 0.15, dy) * (1.0 - smoothstep(0.55, 0.80, dy));',
     '  float teethVis = smoothstep(0.30, 0.60, uJaw);',
     // cavity first, then teeth as their own opaque layer — blending them
     // through the cavity opacity washed them into lip gloss
     '  c.rgb = mix(c.rgb, cavityCol, cavity * 0.72);',
-    '  c.rgb = mix(c.rgb, toothCol, band * wx2 * teethBand * teethVis * 0.8);',
+    '  c.rgb = mix(c.rgb, toothCol, band * wx2 * teethBand * teethVis * 0.9);',
     '  gl_FragColor = c;',
     '}',
   ].join('\n');
