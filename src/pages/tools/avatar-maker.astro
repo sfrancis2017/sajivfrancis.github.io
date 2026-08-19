@@ -1,0 +1,327 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+// Avatar Maker (personal-chat plan 05, phase B MVP — 2026-08-18).
+// Portrait in → live talking 2.5D avatar package out, entirely in the
+// browser: MediaPipe Face Landmarker (WASM) finds the face, depth is
+// synthesized procedurally from the landmarks (a real depth model
+// arrives with the phase-E server pipeline), and avatar-engine.js
+// previews the result live before export. Export = the standard
+// avatar-package zip (texture.png + depth.png + landmarks.json +
+// config.json) consumed by the chat's expanded voice view and the
+// landing-page avatar.
+// D17: public, but the MVP is 100% client-side — no server calls, so
+// there is no abuse surface yet; monitoring lands with phase E.
+// D19 seed: consent attestation is required before processing.
+---
+
+<BaseLayout title="Avatar Maker" description="Turn a portrait into a live, talking 2.5D avatar — face detection, depth, blinks, and lip sync, entirely in your browser. Export a reusable avatar package." mainClass="max-w-4xl">
+  <article class="tool">
+    <header class="thead">
+      <p class="kick">Tools · Create</p>
+      <h1>Avatar Maker</h1>
+      <p class="sub">Upload a portrait — AI art or a photo — and get a living 2.5D avatar: it breathes, blinks, and lip-syncs. Everything runs in your browser; the image never leaves your device. Export a package you can drive with any audio.</p>
+      <a class="back" href="/tools/">Back to all tools</a>
+    </header>
+
+    <div class="drop" id="drop">
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp" />
+      <div class="dl">Select a portrait image</div>
+      <div class="ds">PNG, JPG, or WebP. Front-facing works best — head-and-shoulders or full body. Processed locally, never uploaded.</div>
+    </div>
+
+    <div class="panel" id="consentwrap" hidden>
+      <label class="f" style="flex-direction:row; align-items:flex-start; gap:10px;">
+        <input type="checkbox" id="consent" style="margin-top:4px;" />
+        <span>I have the right to use this image, and if it depicts a real person, I have their consent to create an avatar from it.</span>
+      </label>
+      <div class="row">
+        <button class="btn primary" id="go" disabled>Detect face &amp; build avatar</button>
+      </div>
+      <div class="status" id="status">Confirm the consent statement to continue.</div>
+    </div>
+
+    <div class="panel" id="preview" hidden>
+      <h2>Live preview</h2>
+      <div class="mkr-stage">
+        <canvas id="avatar-canvas" class="mkr-canvas"></canvas>
+        <div class="mkr-controls">
+          <button class="btn" id="talk">▶ Talk test</button>
+          <button class="btn" id="blink">Blink</button>
+          <label class="f"><span>Mouth</span><input type="range" id="jaw" min="0" max="1" step="0.01" value="0" /></label>
+          <label class="f"><span>Depth</span><input type="range" id="depthscale" min="0" max="0.3" step="0.005" value="0.12" /></label>
+          <div class="status" id="pstatus">Move your cursor over her for parallax. The talk test drives the mouth with a speech-like envelope — in production the jaw follows real audio.</div>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="export">Download avatar package (.zip)</button>
+      </div>
+    </div>
+  </article>
+
+  <style>
+    /* standard tool-page chrome (each tool page carries this block) */
+    .tool { max-width: 760px; margin: 0 auto; }
+    .thead { margin-bottom: 14px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+    .kick { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-fg-subtle); font-weight: 600; }
+    .thead h1 { margin-top: 4px; font-size: 28px; line-height: 1.15; }
+    .sub { margin-top: 8px; font-size: 14px; color: var(--color-fg-muted); }
+    .back { display: inline-block; margin-top: 10px; color: var(--color-fg-muted); text-decoration: none; font-size: 12px; border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; }
+    .back:hover { color: var(--color-fg); border-color: var(--color-accent); }
+    .drop { border: 2px dashed var(--color-border); border-radius: 12px; padding: 22px; text-align: center; position: relative; margin-bottom: 12px; cursor: pointer; background: var(--color-bg-elevated); }
+    .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .dl { font-size: 14px; font-weight: 600; } .ds { font-size: 12px; color: var(--color-fg-muted); }
+    .panel { background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin-bottom: 10px; }
+    .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-top: 10px; }
+    .f { display: flex; flex-direction: column; gap: 5px; } .f span { font-size: 12px; color: var(--color-fg-muted); }
+    .status { min-height: 20px; font-size: 12px; color: var(--color-fg-muted); margin-top: 8px; }
+    .btn { border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); border-radius: 8px; padding: 9px 12px; font-size: 13px; cursor: pointer; }
+    .btn:hover { border-color: var(--color-accent); }
+    .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-fg); font-weight: 600; }
+    .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .mkr-stage { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+    .mkr-canvas { display: block; height: 360px; border-radius: 12px; background: #000; border: 1px solid var(--color-border); }
+    .mkr-controls { display: flex; flex-direction: column; gap: 10px; min-width: 240px; flex: 1; }
+    @media (max-width: 640px) { .mkr-canvas { height: auto; width: 100%; max-width: 320px; margin: 0 auto; } }
+  </style>
+
+  <script src="/js/avatar-engine.js" is:inline></script>
+  <script is:inline>
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+    var img = null, imgW = 0, imgH = 0;
+    var landmarks = null, engine = null;
+    var textureBlob = null, depthBlob = null;
+    var talkTimer = 0;
+
+    $('file').addEventListener('change', function () {
+      var f = this.files && this.files[0];
+      if (!f) return;
+      var url = URL.createObjectURL(f);
+      img = new Image();
+      img.onload = function () {
+        imgW = img.naturalWidth; imgH = img.naturalHeight;
+        $('consentwrap').hidden = false;
+        $('status').textContent = imgW + '×' + imgH + ' loaded. Confirm consent to continue.';
+      };
+      img.src = url;
+    });
+    $('consent').addEventListener('change', function () { $('go').disabled = !this.checked; });
+
+    // ---- MediaPipe Face Landmarker (WASM, in-browser) --------------------
+    var lmkPromise = null;
+    function loadLandmarker() {
+      if (!lmkPromise) {
+        lmkPromise = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14')
+          .then(function (vision) {
+            return vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm')
+              .then(function (fileset) {
+                return vision.FaceLandmarker.createFromOptions(fileset, {
+                  baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task' },
+                  runningMode: 'IMAGE',
+                  numFaces: 1,
+                });
+              });
+          });
+      }
+      return lmkPromise;
+    }
+
+    function drawScaled(source, sx, sy, sw, sh, scale) {
+      var cv = document.createElement('canvas');
+      cv.width = Math.round(sw * scale); cv.height = Math.round(sh * scale);
+      cv.getContext('2d').drawImage(source, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+      return cv;
+    }
+
+    // Detection with the small-face fallback proven in the package builder:
+    // full image first, then the top crop at 3x with coordinates remapped.
+    function detectFace(lmk) {
+      var attempts = [
+        { cv: drawScaled(img, 0, 0, imgW, imgH, 1), fracY: 1 },
+        { cv: drawScaled(img, 0, 0, imgW, imgH, 2), fracY: 1 },
+        { cv: drawScaled(img, 0, 0, imgW, Math.round(imgH * 0.4), 3), fracY: 0.4 },
+        { cv: drawScaled(img, 0, 0, imgW, Math.round(imgH * 0.5), 3), fracY: 0.5 },
+      ];
+      for (var i = 0; i < attempts.length; i++) {
+        var a = attempts[i];
+        var res = lmk.detect(a.cv);
+        if (res.faceLandmarks && res.faceLandmarks.length) {
+          return res.faceLandmarks[0].map(function (p) { return [p.x, p.y * a.fracY, p.z]; });
+        }
+      }
+      return null;
+    }
+
+    // ---- Procedural depth from landmarks (MVP placeholder) ---------------
+    // Bright = near. Face gets a soft dome, the body a medium slab, the
+    // background stays far. Enough for relief + parallax; a real depth
+    // model replaces this in the phase-E pipeline.
+    function makeDepth() {
+      var cv = document.createElement('canvas');
+      cv.width = imgW; cv.height = imgH;
+      var cx = cv.getContext('2d');
+      cx.fillStyle = 'rgb(56,56,56)'; cx.fillRect(0, 0, imgW, imgH);
+      var xs = landmarks.map(function (p) { return p[0]; });
+      var ys = landmarks.map(function (p) { return p[1]; });
+      var fx0 = Math.min.apply(null, xs) * imgW, fx1 = Math.max.apply(null, xs) * imgW;
+      var fy0 = Math.min.apply(null, ys) * imgH, fy1 = Math.max.apply(null, ys) * imgH;
+      var fcx = (fx0 + fx1) / 2, fcy = (fy0 + fy1) / 2;
+      var fw = (fx1 - fx0), fh = (fy1 - fy0);
+      cx.filter = 'blur(' + Math.max(6, fw * 0.08) + 'px)';
+      // body slab below the chin
+      cx.fillStyle = 'rgb(140,140,140)';
+      cx.beginPath();
+      cx.ellipse(fcx, Math.min(imgH, fy1 + fh * 2.2), fw * 1.9, fh * 2.6, 0, 0, Math.PI * 2);
+      cx.fill();
+      // head dome (includes hair margin)
+      cx.fillStyle = 'rgb(190,190,190)';
+      cx.beginPath();
+      cx.ellipse(fcx, fcy, fw * 0.95, fh * 0.95, 0, 0, Math.PI * 2);
+      cx.fill();
+      // nose peak
+      var nose = landmarks[1];
+      cx.fillStyle = 'rgb(225,225,225)';
+      cx.beginPath();
+      cx.ellipse(nose[0] * imgW, nose[1] * imgH, fw * 0.22, fh * 0.28, 0, 0, Math.PI * 2);
+      cx.fill();
+      cx.filter = 'none';
+      return new Promise(function (resolve) { cv.toBlob(resolve, 'image/png'); });
+    }
+
+    function toPngBlob(image) {
+      var cv = document.createElement('canvas');
+      cv.width = imgW; cv.height = imgH;
+      cv.getContext('2d').drawImage(image, 0, 0);
+      return new Promise(function (resolve) { cv.toBlob(resolve, 'image/png'); });
+    }
+
+    // ---- Build + preview --------------------------------------------------
+    $('go').addEventListener('click', function () {
+      $('go').disabled = true;
+      $('status').textContent = 'Loading face model (first run downloads ~4 MB)…';
+      loadLandmarker().then(function (lmk) {
+        $('status').textContent = 'Detecting face…';
+        landmarks = detectFace(lmk);
+        if (!landmarks) {
+          $('status').textContent = 'No face found. Try a clearer, front-facing portrait.';
+          $('go').disabled = false;
+          return;
+        }
+        $('status').textContent = 'Face found (' + landmarks.length + ' landmarks). Building depth…';
+        return Promise.all([toPngBlob(img), makeDepth()]).then(function (blobs) {
+          textureBlob = blobs[0]; depthBlob = blobs[1];
+          $('status').textContent = 'Starting live preview…';
+          var canvas = $('avatar-canvas');
+          canvas.style.aspectRatio = imgW + ' / ' + imgH;
+          if (engine) { engine.dispose(); engine = null; }
+          return window.AvatarEngine.create(canvas, {
+            textureUrl: URL.createObjectURL(textureBlob),
+            depthUrl: URL.createObjectURL(depthBlob),
+            landmarks: landmarks,
+            config: { width: imgW, height: imgH },
+          }).then(function (eng) {
+            engine = eng;
+            $('preview').hidden = false;
+            $('status').textContent = 'Avatar is live below.';
+            canvas.addEventListener('pointermove', function (e) {
+              var r = canvas.getBoundingClientRect();
+              engine.setLook(((e.clientX - r.left) / r.width - 0.5) * 2, -((e.clientY - r.top) / r.height - 0.5) * 2);
+            });
+            canvas.addEventListener('pointerleave', function () { engine.setLook(0, 0); });
+          });
+        });
+      }).catch(function (e) {
+        $('status').textContent = 'Failed: ' + (e && e.message ? e.message : e);
+        $('go').disabled = false;
+      });
+    });
+
+    // ---- Preview controls -------------------------------------------------
+    $('blink').addEventListener('click', function () { if (engine) engine.blink(); });
+    $('jaw').addEventListener('input', function () { if (engine) engine.setLevel(parseFloat(this.value)); });
+    $('depthscale').addEventListener('input', function () { if (engine) engine.uniforms.uDepthScale.value = parseFloat(this.value); });
+    $('talk').addEventListener('click', function () {
+      if (!engine) return;
+      if (talkTimer) { clearInterval(talkTimer); talkTimer = 0; engine.setLevel(0); this.textContent = '▶ Talk test'; return; }
+      this.textContent = '⏸ Stop';
+      var t = 0;
+      talkTimer = setInterval(function () {
+        t += 0.06;
+        // speech-like envelope: syllable pulses with pauses between phrases
+        var phrase = (Math.sin(t * 0.7) + 1) / 2 > 0.25 ? 1 : 0;
+        var level = phrase * Math.max(0, 0.35 + 0.35 * Math.sin(t * 11) + 0.2 * Math.sin(t * 17.3));
+        engine.setLevel(level);
+      }, 33);
+    });
+
+    // ---- Export: avatar-package zip (store-only, no deps) ----------------
+    var CRC_TABLE = (function () {
+      var t = new Uint32Array(256);
+      for (var n = 0; n < 256; n++) {
+        var c = n;
+        for (var k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c >>> 0;
+      }
+      return t;
+    })();
+    function crc32(bytes) {
+      var c = 0xffffffff;
+      for (var i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+      return (c ^ 0xffffffff) >>> 0;
+    }
+    function zipStore(files) { // files: [{name, bytes: Uint8Array}]
+      var chunks = [], central = [], offset = 0;
+      var enc = new TextEncoder();
+      files.forEach(function (f) {
+        var name = enc.encode(f.name);
+        var crc = crc32(f.bytes);
+        var head = new DataView(new ArrayBuffer(30));
+        head.setUint32(0, 0x04034b50, true);
+        head.setUint16(4, 20, true);
+        head.setUint32(14, crc, true);
+        head.setUint32(18, f.bytes.length, true);
+        head.setUint32(22, f.bytes.length, true);
+        head.setUint16(26, name.length, true);
+        chunks.push(new Uint8Array(head.buffer), name, f.bytes);
+        var cd = new DataView(new ArrayBuffer(46));
+        cd.setUint32(0, 0x02014b50, true);
+        cd.setUint16(4, 20, true); cd.setUint16(6, 20, true);
+        cd.setUint32(16, crc, true);
+        cd.setUint32(20, f.bytes.length, true);
+        cd.setUint32(24, f.bytes.length, true);
+        cd.setUint16(28, name.length, true);
+        cd.setUint32(42, offset, true);
+        central.push(new Uint8Array(cd.buffer), name);
+        offset += 30 + name.length + f.bytes.length;
+      });
+      var cdSize = central.reduce(function (s, c) { return s + c.length; }, 0);
+      var end = new DataView(new ArrayBuffer(22));
+      end.setUint32(0, 0x06054b50, true);
+      end.setUint16(8, files.length, true);
+      end.setUint16(10, files.length, true);
+      end.setUint32(12, cdSize, true);
+      end.setUint32(16, offset, true);
+      return new Blob(chunks.concat(central, [new Uint8Array(end.buffer)]), { type: 'application/zip' });
+    }
+    $('export').addEventListener('click', function () {
+      if (!textureBlob || !depthBlob || !landmarks) return;
+      Promise.all([textureBlob.arrayBuffer(), depthBlob.arrayBuffer()]).then(function (bufs) {
+        var enc = new TextEncoder();
+        var zip = zipStore([
+          { name: 'texture.png', bytes: new Uint8Array(bufs[0]) },
+          { name: 'depth.png', bytes: new Uint8Array(bufs[1]) },
+          { name: 'landmarks.json', bytes: enc.encode(JSON.stringify(landmarks)) },
+          { name: 'config.json', bytes: enc.encode(JSON.stringify({ width: imgW, height: imgH })) },
+        ]);
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(zip);
+        a.download = 'avatar-package.zip';
+        a.click();
+      });
+    });
+  })();
+  </script>
+</BaseLayout>

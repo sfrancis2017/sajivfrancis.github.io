@@ -1,16 +1,18 @@
 ---
 /**
- * AvatarWelcome — "Chat with Maya" as an in-page landing section
- * (personal-chat plan 04 D13). History: fixed bottom-right overlay →
- * in-page section (overlay covered the site's own corner icons) →
- * click-to-play (founder call 2026-08-18: as page content, a looping
- * video is motion noise — the visitor opts in, and the tap gesture means
- * she plays WITH sound).
+ * AvatarWelcome — "Chat with Maya" as an in-page landing section.
+ * History: fixed overlay → in-page section → click-to-play video (plan 04
+ * D13) → LIVE 2.5D engine (plan 05 phase D, 2026-08-18): the pre-rendered
+ * welcome video is replaced by avatar-engine.js rendering the maya-full
+ * package in real time — idle sway, blinks, parallax — and the tap plays
+ * the pre-rendered Ara welcome line while her mouth follows the actual
+ * audio level. Zero runtime TTS cost: audio is a static MP3 committed
+ * with the site (plan 05 phase-D lean: page context changes only on
+ * publish, so live TTS buys nothing).
  *
- * Poster + play overlay; tap plays the welcome line unmuted with native
- * controls; when it ends it resets to the poster. The CTA pulses as the
- * clip reaches "Ask me" and links to the chat, where the in-chat tour
- * takes over. Assets in public/media/ (~1 MB).
+ * The old poster + <video> stays as the fallback whenever WebGL or the
+ * three.js CDN is unavailable (engine create() rejects → video shown).
+ * The CTA pulses as the spoken line wraps up and links to the chat.
  */
 ---
 
@@ -19,7 +21,10 @@
     Chat with Maya
   </h2>
   <div class="maya-row">
-    <div class="maya-media">
+    <div class="maya-media" id="maya-media">
+      <!-- live engine (hidden until it initializes) -->
+      <canvas id="maya-canvas" class="maya-canvas" hidden></canvas>
+      <!-- fallback: the pre-rendered clip (plan 04) -->
       <video
         id="maya-video"
         class="maya-video"
@@ -61,13 +66,17 @@
     border: 1px solid var(--color-border);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   }
-  .maya-video {
+  .maya-video,
+  .maya-canvas {
     display: block;
     height: min(38vh, 320px);
     aspect-ratio: 252 / 470;
     object-fit: cover;
     background: #000;
   }
+  .maya-canvas[hidden] { display: none; }
+  /* when the engine is live, the fallback video is out of the flow */
+  .maya-media.engine-on .maya-video { display: none; }
   .maya-play {
     position: absolute;
     inset: 0;
@@ -80,6 +89,10 @@
     transition: background 0.15s ease;
   }
   .maya-play:hover { background: rgba(0, 0, 0, 0.4); }
+  /* over the LIVE avatar the veil reads as a broken render — keep just
+     the badge, let her idle motion invite the tap */
+  .maya-media.engine-on .maya-play { background: transparent; }
+  .maya-media.engine-on .maya-play:hover { background: rgba(0, 0, 0, 0.12); }
   .maya-play span {
     display: flex;
     align-items: center;
@@ -91,6 +104,10 @@
     color: #111;
     font-size: 20px;
     padding-left: 4px; /* optical centering of the triangle */
+  }
+  .maya-media.engine-on .maya-play span {
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
   .maya-play[hidden] { display: none; }
   .maya-copy {
@@ -118,44 +135,117 @@
     50% { transform: scale(1.05); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
   }
   @media (max-width: 640px) {
-    /* stacked layout: video centered and width-driven (vh sizing reads
+    /* stacked layout: media centered and width-driven (vh sizing reads
        tiny on phones), copy stays readable-left, CTA becomes a full-width
        tappable button */
     .maya-row { flex-direction: column; align-items: center; gap: 18px; }
-    .maya-video { height: auto; width: min(64vw, 280px); }
+    .maya-video,
+    .maya-canvas { height: auto; width: min(64vw, 280px); }
     .maya-copy { align-items: stretch; width: 100%; }
     .maya-cta { text-align: center; }
   }
 </style>
 
+<script src="/js/avatar-engine.js" is:inline></script>
 <script>
   (() => {
+    const media = document.getElementById('maya-media');
+    const canvas = document.getElementById('maya-canvas') as HTMLCanvasElement | null;
     const video = document.getElementById('maya-video') as HTMLVideoElement | null;
     const play = document.getElementById('maya-play');
     const cta = document.getElementById('maya-cta');
-    if (!video || !play || !cta) return;
+    if (!media || !canvas || !video || !play || !cta) return;
 
-    play.addEventListener('click', () => {
+    const AE = (window as any).AvatarEngine;
+    let engine: any = null;
+    let audio: HTMLAudioElement | null = null;
+    let analyser: AnalyserNode | null = null;
+    let raf = 0;
+
+    // ---- live-engine path -------------------------------------------------
+    function wireAudio() {
+      if (analyser || !audio) return;
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const src = ctx.createMediaElementSource(audio);
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        src.connect(analyser);
+        analyser.connect(ctx.destination);
+      } catch (e) { /* jaw just won't move — audio still plays */ }
+    }
+
+    function jawLoop() {
+      cancelAnimationFrame(raf);
+      if (!engine || !analyser || !audio) return;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!audio || audio.paused || audio.ended) { engine.setLevel(0); return; }
+        analyser!.getByteFrequencyData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i];
+        engine.setLevel((sum / data.length / 255) * 2.5);
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+
+    function speakLive() {
+      if (!audio) audio = new Audio('/media/maya-welcome-ara.mp3');
+      wireAudio();
+      if (!audio.paused) { audio.pause(); audio.currentTime = 0; engine.setLevel(0); play.hidden = false; return; }
+      play.hidden = true;
+      audio.currentTime = 0;
+      audio.play().then(jawLoop).catch(() => { play.hidden = false; });
+      audio.onended = () => {
+        engine.setLevel(0);
+        play.hidden = false;
+        cta.classList.add('maya-cta-pulse');
+      };
+      audio.ontimeupdate = () => {
+        if (audio!.duration && audio!.duration - audio!.currentTime < 2.5) {
+          cta.classList.add('maya-cta-pulse');
+        }
+      };
+      cta.classList.remove('maya-cta-pulse');
+    }
+
+    // ---- fallback video path (plan 04 behavior, unchanged) ----------------
+    function playVideo() {
       play.hidden = true;
       video.controls = true;
       video.muted = false;
       video.play().catch(() => { play.hidden = false; });
-    });
-
+    }
     video.addEventListener('ended', () => {
-      // back to the inviting poster state, ready for a replay
       video.controls = false;
       video.currentTime = 0;
       play.hidden = false;
       cta.classList.add('maya-cta-pulse');
     });
-
-    // "Ask me" needs somewhere to land: pulse the CTA as the line wraps up.
     video.addEventListener('timeupdate', () => {
       if (video.duration && video.duration - video.currentTime < 2.5) {
         cta.classList.add('maya-cta-pulse');
       }
     });
     video.addEventListener('play', () => cta.classList.remove('maya-cta-pulse'));
+
+    play.addEventListener('click', () => (engine ? speakLive() : playVideo()));
+
+    // pointer parallax over the live avatar
+    media.addEventListener('pointermove', (e: PointerEvent) => {
+      if (!engine) return;
+      const r = media.getBoundingClientRect();
+      engine.setLook(((e.clientX - r.left) / r.width - 0.5) * 2, -((e.clientY - r.top) / r.height - 0.5) * 2);
+    });
+    media.addEventListener('pointerleave', () => engine && engine.setLook(0, 0));
+
+    if (AE) {
+      canvas.hidden = false;
+      AE.create(canvas, '/avatar/maya-full').then((eng: any) => {
+        engine = eng;
+        media.classList.add('engine-on');
+      }).catch(() => { canvas.hidden = true; /* video fallback stays */ });
+    }
   })();
 </script>
