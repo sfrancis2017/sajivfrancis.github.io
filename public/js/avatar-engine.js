@@ -109,9 +109,19 @@
     '  float band = exp(-dy * dy * 1.45) * (1.0 - smoothstep(0.8, 1.4, abs(dx)));',
     '  float cavity = band * wx2 * smoothstep(0.18, 0.55, uJaw);',
     '  vec3 cavityCol = c.rgb * vec3(0.48, 0.34, 0.36);',
-    '  float teethHint = smoothstep(-1.6, -0.9, dy) * (1.0 - smoothstep(-0.8, -0.3, dy));',
-    '  vec3 shaded = mix(cavityCol, c.rgb * vec3(1.05, 1.02, 1.0), teethHint * 0.3);',
-    '  c.rgb = mix(c.rgb, shaded, cavity * 0.68);',
+    // upper teeth: an ivory band at the top of the opening. Brightness is
+    // scaled from the LOCAL pixel's luminance (any complexion/art style
+    // gets matching teeth); faint cosine striping suggests individual
+    // teeth; they appear only once the mouth is genuinely open.
+    '  float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));',
+    '  vec3 toothCol = clamp(vec3(lum * 1.2 + 0.45) * vec3(1.0, 0.975, 0.93), 0.0, 1.0);',
+    '  toothCol *= 0.93 + 0.07 * cos((vUv.x - uMouth.x) / max(uMouthHalfW, 1e-4) * 20.0);',
+    '  float teethBand = smoothstep(-1.05, -0.55, dy) * (1.0 - smoothstep(-0.35, 0.0, dy));',
+    '  float teethVis = smoothstep(0.30, 0.60, uJaw);',
+    // cavity first, then teeth as their own opaque layer — blending them
+    // through the cavity opacity washed them into lip gloss
+    '  c.rgb = mix(c.rgb, cavityCol, cavity * 0.72);',
+    '  c.rgb = mix(c.rgb, toothCol, band * wx2 * teethBand * teethVis * 0.8);',
     '  gl_FragColor = c;',
     '}',
   ].join('\n');
