@@ -10,6 +10,9 @@
  *   - H1 torso life: depth-gated breathing + weight shift — the FIGURE
  *     breathes and sways while the background stays still (the package's
  *     own depth map separates them); speech lifts the shoulders
+ *   - package v2 (D24): when config.layers === 2 the figure renders as an
+ *     alpha cutout over a separate inpainted background plane — true
+ *     two-layer parallax, and limb motion can't tear the backdrop
  *
  * Design rules proven in the phase-S spike (see plan 05 build log):
  *   - texture.colorSpace = NoColorSpace (ShaderMaterial bypasses three's
@@ -154,6 +157,27 @@
     '}',
   ].join('\n');
 
+  // package v2 background layer: plain textured plane behind the figure,
+  // counter-shifted against uLook for true two-layer parallax. Passthrough
+  // shader (not MeshBasicMaterial) so both layers skip color management
+  // identically — exact source colors on both.
+  var BG_VERT = [
+    'uniform vec2 uLook;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '  vUv = uv;',
+    '  vec3 p = position;',
+    '  p.x -= uLook.x * 0.020;',
+    '  p.y -= uLook.y * 0.012;',
+    '  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);',
+    '}',
+  ].join('\n');
+  var BG_FRAG = [
+    'uniform sampler2D uTex;',
+    'varying vec2 vUv;',
+    'void main() { gl_FragColor = texture2D(uTex, vUv); }',
+  ].join('\n');
+
   // quadratic fit v = a·u² + b·u + c through three points (lip-seam curve)
   function fitCurve(p0, pc, p1) {
     var x0 = p0.u, y0 = p0.v, x1 = pc.u, y1 = pc.v, x2 = p1.u, y2 = p1.v;
@@ -181,10 +205,13 @@
         fetch(source + '/landmarks.json').then(function (r) { return r.json(); }),
         fetch(source + '/config.json').then(function (r) { return r.json(); }),
       ]).then(function (loaded) {
-        return build(THREE, canvas, {
-          texture: source + '/texture.png',
-          depth: source + '/depth.png',
-        }, loaded[0], loaded[1], opts);
+        var config = loaded[1];
+        var urls = { texture: source + '/texture.png', depth: source + '/depth.png' };
+        if (config.layers === 2) { // package v2: figure w/ alpha + inpainted bg
+          urls.texture = source + '/figure.png';
+          urls.background = source + '/background.png';
+        }
+        return build(THREE, canvas, urls, loaded[0], config, opts);
       });
     });
   }
@@ -220,13 +247,14 @@
     camera.position.z = (PLANE_H / 2) / Math.tan((28 / 2) * Math.PI / 180) * 1.005;
 
     var loader = new THREE.TextureLoader();
-    return Promise.all([
-      loader.loadAsync(urls.texture),
-      loader.loadAsync(urls.depth),
-    ]).then(function (tex) {
+    var loads = [loader.loadAsync(urls.texture), loader.loadAsync(urls.depth)];
+    if (urls.background) loads.push(loader.loadAsync(urls.background));
+    var bgTex = null, bgMesh = null, bgMat = null;
+    return Promise.all(loads).then(function (tex) {
       texture = tex[0];
       depthTex = tex[1];
       texture.colorSpace = THREE.NoColorSpace; // exact portrait colors
+      if (tex[2]) { bgTex = tex[2]; bgTex.colorSpace = THREE.NoColorSpace; }
 
       // H1: depth thresholds separating figure from background so torso
       // motion never moves the backdrop. Sampled from the depth map — a
@@ -278,9 +306,24 @@
         uBodyGate:   { value: new THREE.Vector2(bodyGate[0], bodyGate[1]) },
       };
 
-      var material = new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader: VERT, fragmentShader: FRAG });
+      var material = new THREE.ShaderMaterial({
+        uniforms: uniforms, vertexShader: VERT, fragmentShader: FRAG,
+        transparent: !!bgTex, // v2 figure carries an alpha cutout
+      });
       var mesh = new THREE.Mesh(new THREE.PlaneGeometry(aspect * PLANE_H, PLANE_H, 128, 160), material);
       scene.add(mesh);
+
+      if (bgTex) { // v2: background plane behind the figure, own parallax.
+        // 1.12 overscan keeps edges covered at max counter-shift.
+        bgMat = new THREE.ShaderMaterial({
+          uniforms: { uTex: { value: bgTex }, uLook: uniforms.uLook },
+          vertexShader: BG_VERT, fragmentShader: BG_FRAG,
+        });
+        bgMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(aspect * PLANE_H * 1.12, PLANE_H * 1.12), bgMat);
+        bgMesh.position.z = -0.08;
+        scene.add(bgMesh);
+      }
 
       function fitCanvas() {
         var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -366,6 +409,7 @@
           material.dispose();
           texture.dispose();
           depthTex.dispose();
+          if (bgMesh) { bgMesh.geometry.dispose(); bgMat.dispose(); bgTex.dispose(); }
           renderer.dispose();
         },
       };
