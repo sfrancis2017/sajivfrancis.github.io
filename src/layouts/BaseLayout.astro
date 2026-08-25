@@ -2,8 +2,8 @@
 import '@/styles/global.css';
 import Header from '@/components/Header.astro';
 import Footer from '@/components/Footer.astro';
-import Search from '@/components/Search.astro';
 import ChatLauncher from '@/components/ChatLauncher.astro';
+import Search from '@/components/Search.astro';
 import OwnerBadge from '@/components/OwnerBadge.astro';
 
 interface Props {
@@ -31,7 +31,7 @@ interface Props {
 
 const {
   title = 'Sajiv Francis',
-  description = 'Enterprise Architect writing about the intersection of AI and architecture practice.',
+  description = 'Enterprise Architect connecting business strategy to data, applications, technology, and AI — delivering measurable business outcomes.',
   mainClass = 'max-w-3xl',
   ogImage = '/img/og-default.png',
   article,
@@ -50,21 +50,22 @@ const personJsonLd = {
   url: 'https://sajivfrancis.com',
   jobTitle: 'Enterprise Architect',
   description:
-    'Enterprise Architect and AI platform builder — SAP S/4HANA, TOGAF, and AI-native platforms.',
+    'Enterprise Architect connecting business strategy to data, applications, technology, and AI — delivering measurable business outcomes.',
   image: new URL('/img/og-default.png', Astro.site).toString(),
   sameAs: [
-    'https://github.com/sfrancis2017',
     'https://www.linkedin.com/in/sajiv-francis',
   ],
   knowsAbout: [
-    'SAP S/4HANA',
     'Enterprise Architecture',
+    'Business Architecture',
+    'Data Architecture',
+    'Application Architecture',
+    'Technology Architecture',
+    'AI Architecture',
+    'AI Governance',
+    'SAP S/4HANA',
     'TOGAF',
-    'ArchiMate',
-    'Artificial Intelligence',
-    'AI-native platforms',
-    'Retrieval-Augmented Generation',
-    'AI platform engineering',
+    'Digital Transformation',
   ],
 };
 
@@ -193,7 +194,12 @@ const articleJsonLd = article
     </main>
     <Footer />
     <Search />
-    <ChatLauncher />
+    <!-- Chat launcher is an owner working instrument — hidden for public
+         visitors, revealed by the Header's owner-nav sync when an owner
+         token is present. -->
+    <div class="owner-only hidden">
+      <ChatLauncher />
+    </div>
     <OwnerBadge />
     <!-- Newsletter subscribe widget (popup + inline). One worker-served script,
          identical on the main site and docs, so the UI stays uniform. -->

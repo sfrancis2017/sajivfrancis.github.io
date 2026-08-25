@@ -1,30 +1,26 @@
 ---
+// Public nav is the leadership surface only (repositioning strategy,
+// 2026-08-25). The working instruments below ship in the DOM but hidden;
+// a client-side check reveals them when an owner token is present (same
+// localStorage keys OwnerBadge uses), so the owner keeps every link while
+// public visitors never see them.
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/about/', label: 'About' },
+  { href: '/blog/', label: 'Writing' },
 ];
 
-const resourceLinks = [
-  { href: '/blog/', label: 'Writing' },
+const ownerLinks = [
   { href: 'https://docs.sajivfrancis.com/', label: 'Docs' },
   { href: 'https://chat.sajivfrancis.com/', label: 'Chat' },
   { href: 'https://cloud.sajivfrancis.com/', label: 'Cloud' },
   { href: 'https://trading.sajivfrancis.com/', label: 'Trading' },
-];
-
-const utilityLinks = [
   { href: '/news/', label: 'News' },
   { href: '/lab/ea-explorer/', label: 'Lab' },
   { href: '/tools/', label: 'Tools' },
 ];
 
 const currentPath = Astro.url.pathname;
-const isResourcesActive = resourceLinks.some(
-  ({ href }) => href.startsWith('/') && currentPath.startsWith(href)
-);
-const isUtilitiesActive = utilityLinks.some(({ href }) =>
-  href === '/' ? currentPath === '/' : currentPath.startsWith(href)
-);
 ---
 
 <header
@@ -69,74 +65,27 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
         })
       }
 
-      <div class="utilities-group relative">
+      <div class="owner-only hidden utilities-group relative">
         <button
           type="button"
-          class={`no-underline hover:no-underline transition-colors inline-flex items-center gap-1 ${
-            isResourcesActive
-              ? 'text-[var(--color-fg)] font-medium'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-          }`}
+          class="no-underline hover:no-underline transition-colors inline-flex items-center gap-1 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
           aria-haspopup="true"
-          aria-label="Open resources menu"
+          aria-label="Open workbench menu (owner)"
         >
-          Resources
+          Workbench
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
 
         <div class="utilities-popover absolute right-0 mt-2 min-w-[170px] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1 shadow-lg">
           {
-            resourceLinks.map(({ href, label }) => {
-              const isActive = href.startsWith('/') && currentPath.startsWith(href);
-              return (
-                <a
-                  href={href}
-                  class={`block px-3 py-2 no-underline hover:no-underline text-sm ${
-                    isActive
-                      ? 'text-[var(--color-fg)] font-medium'
-                      : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                  }`}
-                >
-                  {label}
-                </a>
-              );
-            })
-          }
-        </div>
-      </div>
-
-      <div class="utilities-group relative">
-        <button
-          type="button"
-          class={`no-underline hover:no-underline transition-colors inline-flex items-center gap-1 ${
-            isUtilitiesActive
-              ? 'text-[var(--color-fg)] font-medium'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-          }`}
-          aria-haspopup="true"
-          aria-label="Open utilities menu"
-        >
-          Utilities
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-
-        <div class="utilities-popover absolute right-0 mt-2 min-w-[170px] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1 shadow-lg">
-          {
-            utilityLinks.map(({ href, label }) => {
-              const isActive = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
-              return (
-                <a
-                  href={href}
-                  class={`block px-3 py-2 no-underline hover:no-underline text-sm ${
-                    isActive
-                      ? 'text-[var(--color-fg)] font-medium'
-                      : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]'
-                  }`}
-                >
-                  {label}
-                </a>
-              );
-            })
+            ownerLinks.map(({ href, label }) => (
+              <a
+                href={href}
+                class="block px-3 py-2 no-underline hover:no-underline text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+              >
+                {label}
+              </a>
+            ))
           }
         </div>
       </div>
@@ -218,78 +167,29 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
         })
       }
 
-      <li>
+      <li class="owner-only hidden">
         <button
           type="button"
-          id="mobile-resources-toggle"
+          id="mobile-workbench-toggle"
           aria-expanded="false"
-          aria-controls="mobile-resources-menu"
-          class={`w-full text-left py-3 no-underline hover:no-underline inline-flex items-center justify-between ${
-            isResourcesActive
-              ? 'text-[var(--color-fg)] font-medium'
-              : 'text-[var(--color-fg-muted)]'
-          }`}
+          aria-controls="mobile-workbench-menu"
+          class="w-full text-left py-3 no-underline hover:no-underline inline-flex items-center justify-between text-[var(--color-fg-muted)]"
         >
-          <span>Resources</span>
+          <span>Workbench</span>
           <svg class="mobile-group-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
-        <ul id="mobile-resources-menu" class="hidden pl-3 pb-2">
+        <ul id="mobile-workbench-menu" class="hidden pl-3 pb-2">
           {
-            resourceLinks.map(({ href, label }) => {
-              const isActive = href.startsWith('/') && currentPath.startsWith(href);
-              return (
-                <li>
-                  <a
-                    href={href}
-                    class={`block py-2 no-underline hover:no-underline text-sm ${
-                      isActive
-                        ? 'text-[var(--color-fg)] font-medium'
-                        : 'text-[var(--color-fg-muted)]'
-                    }`}
-                  >
-                    {label}
-                  </a>
-                </li>
-              );
-            })
-          }
-        </ul>
-      </li>
-
-      <li>
-        <button
-          type="button"
-          id="mobile-utilities-toggle"
-          aria-expanded="false"
-          aria-controls="mobile-utilities-menu"
-          class={`w-full text-left py-3 no-underline hover:no-underline inline-flex items-center justify-between ${
-            isUtilitiesActive
-              ? 'text-[var(--color-fg)] font-medium'
-              : 'text-[var(--color-fg-muted)]'
-          }`}
-        >
-          <span>Utilities</span>
-          <svg class="mobile-group-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </button>
-        <ul id="mobile-utilities-menu" class="hidden pl-3 pb-2">
-          {
-            utilityLinks.map(({ href, label }) => {
-              const isActive = href === '/' ? currentPath === '/' : currentPath.startsWith(href);
-              return (
-                <li>
-                  <a
-                    href={href}
-                    class={`block py-2 no-underline hover:no-underline text-sm ${
-                      isActive
-                        ? 'text-[var(--color-fg)] font-medium'
-                        : 'text-[var(--color-fg-muted)]'
-                    }`}
-                  >
-                    {label}
-                  </a>
-                </li>
-              );
-            })
+            ownerLinks.map(({ href, label }) => (
+              <li>
+                <a
+                  href={href}
+                  class="block py-2 no-underline hover:no-underline text-sm text-[var(--color-fg-muted)]"
+                >
+                  {label}
+                </a>
+              </li>
+            ))
           }
         </ul>
       </li>
@@ -341,22 +241,6 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
   const mobileMenu = document.getElementById('mobile-menu');
   const menuIconOpen = document.querySelector('.menu-icon-open');
   const menuIconClose = document.querySelector('.menu-icon-close');
-  // Collapsible groups inside the mobile menu (Resources, Utilities).
-  const mobileGroups = [
-    ['mobile-resources-toggle', 'mobile-resources-menu'],
-    ['mobile-utilities-toggle', 'mobile-utilities-menu'],
-  ].map(([toggleId, menuId]) => ({
-    toggle: document.getElementById(toggleId),
-    menu: document.getElementById(menuId),
-  }));
-
-  function closeMobileGroups() {
-    for (const { toggle, menu } of mobileGroups) {
-      toggle?.setAttribute('aria-expanded', 'false');
-      menu?.classList.add('hidden');
-      toggle?.querySelector('.mobile-group-icon')?.classList.remove('rotate-180');
-    }
-  }
 
   function setMenuOpen(open: boolean) {
     if (!menuToggle || !mobileMenu) return;
@@ -381,18 +265,54 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
   window.addEventListener('resize', () => {
     if (window.innerWidth >= 768) {
       setMenuOpen(false);
-      closeMobileGroups();
     }
   });
 
-  for (const { toggle, menu } of mobileGroups) {
-    toggle?.addEventListener('click', () => {
-      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', String(!isOpen));
-      menu?.classList.toggle('hidden', isOpen);
-      toggle.querySelector('.mobile-group-icon')?.classList.toggle('rotate-180', !isOpen);
-    });
+  // Mobile Workbench group (owner-only) — collapsible like the old nav groups.
+  const wbToggle = document.getElementById('mobile-workbench-toggle');
+  const wbMenu = document.getElementById('mobile-workbench-menu');
+  wbToggle?.addEventListener('click', () => {
+    const isOpen = wbToggle.getAttribute('aria-expanded') === 'true';
+    wbToggle.setAttribute('aria-expanded', String(!isOpen));
+    wbMenu?.classList.toggle('hidden', isOpen);
+    wbToggle.querySelector('.mobile-group-icon')?.classList.toggle('rotate-180', !isOpen);
+  });
+
+  // Owner-only nav reveal. Public visitors never see the Workbench; the
+  // owner (write-token / tools-access-token in localStorage — the same keys
+  // OwnerBadge manages) gets every working link back. Three sync paths:
+  // initial check, cross-tab storage events, and a MutationObserver on the
+  // OwnerBadge button so a same-page SSO return reveals the nav without a
+  // reload (OwnerBadge flips its data-owner attribute after capturing the
+  // tokens from the URL fragment).
+  function isOwner() {
+    try {
+      return !!(
+        localStorage.getItem('write-token') ||
+        localStorage.getItem('tools-access-token')
+      );
+    } catch (_) {
+      return false;
+    }
   }
+  function syncOwnerNav() {
+    const owner = isOwner();
+    document
+      .querySelectorAll('.owner-only')
+      .forEach((el) => el.classList.toggle('hidden', !owner));
+  }
+  syncOwnerNav();
+  window.addEventListener('storage', syncOwnerNav);
+  window.addEventListener('DOMContentLoaded', () => {
+    syncOwnerNav();
+    const badge = document.getElementById('owner-badge');
+    if (badge) {
+      new MutationObserver(syncOwnerNav).observe(badge, {
+        attributes: true,
+        attributeFilter: ['data-owner'],
+      });
+    }
+  });
 </script>
 
 <style>
@@ -438,4 +358,5 @@ const isUtilitiesActive = utilityLinks.some(({ href }) =>
   .mobile-group-icon {
     transition: transform 180ms ease;
   }
+
 </style>

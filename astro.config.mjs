@@ -45,8 +45,13 @@ export default defineConfig({
   integrations: [
     mdx(),
     sitemap({
-      // Keep the admin surface out of the index entirely.
-      filter: (page) => !page.includes('/admin/'),
+      // Keep the admin surface and the working-instrument surfaces
+      // (news, lab, tools, margins, chat redirect) out of the index —
+      // they stay live for the owner but aren't advertised to crawlers.
+      filter: (page) =>
+        !['/admin/', '/news/', '/lab/', '/tools/', '/margins/', '/chat/'].some(
+          (p) => page.includes(p)
+        ),
       // Attach a per-post lastmod so all engines get the same freshness signal.
       serialize(item) {
         const lm = LASTMOD[item.url];

@@ -2,11 +2,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
-import { fetchFeeds, relativeTime } from '@/lib/news';
-import type { FeedItem } from '@/lib/news';
 import HeroVideo from '@/components/HeroVideo.astro';
-import DataGlobe from '@/components/DataGlobe.astro';
-import AvatarWelcome from '@/components/AvatarWelcome.astro';
 
 // Phase 0 landing teaser — paste the CDN URL from the video pipeline here.
 const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/sajivfrancis-com/1781500515279.mp4';
@@ -18,43 +14,117 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
 const shortDate = (d: Date) =>
   formatDate(d, { year: 'numeric', month: 'short', day: 'numeric' });
 
-// Top 3 news items as a landing-page tease. If the worker is briefly
-// unreachable at build time, fall back to an empty list rather than
-// failing the whole page build — the news page itself is the
-// authoritative surface and surfaces its own errors.
-let newsItems: FeedItem[] = [];
-try {
-  const { items } = await fetchFeeds();
-  newsItems = items.slice(0, 3);
-} catch (err) {
-  console.warn('[index] news worker unreachable at build time:', err);
-}
+// Leadership homepage (repositioning strategy, 2026-08-25). The value
+// proposition is the connections between domains, so the domain model and
+// the outcomes strip carry the page. Outcome figures below are verified
+// resume facts stated employer-agnostically — nothing estimated. Richer
+// scope markers land after the excavation interview.
+const domains = [
+  {
+    name: 'Business',
+    line: 'Capabilities, operating models, and transformation priorities — the problems architecture exists to serve.',
+  },
+  {
+    name: 'Data',
+    line: 'Governed platforms and AI-ready data that turn information into faster, trusted decisions.',
+  },
+  {
+    name: 'Applications',
+    line: 'ERP and enterprise application estates — S/4HANA transformation, integration, rationalization.',
+  },
+  {
+    name: 'Technology',
+    line: 'Cloud, platforms, and integration strategy with cost, resilience, and standards under control.',
+  },
+  {
+    name: 'AI',
+    line: 'Generative and agentic systems adopted with governance, observability, and measured economics.',
+  },
+];
+
+const outcomes = [
+  {
+    metric: '5 → 3 days',
+    label: 'month-end close after a general-ledger transformation',
+  },
+  {
+    metric: '30–40%',
+    label: 'faster delivery through cross-functional flash teams, without added headcount',
+  },
+  {
+    metric: '10K+ users',
+    label: 'served by a governed enterprise analytics platform',
+  },
+  {
+    metric: '−35%',
+    label: 'critical-incident resolution time under post-go-live governance',
+  },
+  {
+    metric: 'Token ROI',
+    label: 'AI economics reported at executive level — LLM observability tied to TCO',
+  },
+];
 ---
 
 <BaseLayout
   title="Sajiv Francis"
-  description="Enterprise Architect writing about the intersection of AI and architecture practice."
+  description="Enterprise Architect connecting business strategy to data, applications, technology, and AI — delivering measurable business outcomes."
 >
   <HeroVideo src={heroVideo} class="mb-8" />
 
   <section class="space-y-6">
+    <p class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">
+      Enterprise Architecture
+    </p>
     <h1 class="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
       Sajiv Francis
     </h1>
     <p class="text-lg leading-relaxed text-[var(--color-fg-muted)]">
-      Enterprise Architect at a Fortune 100 technology company, leading AI
-      programs at the intersection of enterprise systems, cloud architecture,
-      and large language models. TOGAF 10 certified, Stanford AI-Driven
-      Leadership. Background in NLP, document intelligence, and enterprise SAP
-      ecosystems.
+      Enterprise Architect — connecting business strategy to data,
+      applications, technology, and AI to deliver measurable business
+      outcomes. Currently leading architecture across a Fortune 100
+      multi-instance S/4HANA finance transformation and four enterprise AI
+      programs, governed end to end.
     </p>
     <p class="text-base text-[var(--color-fg-muted)]">
-      Writing about the future of architecture practice at the intersection of
-      AI and organizational design.
+      Canadian enterprise architect · TOGAF 10 · Stanford AI-Driven
+      Leadership · Columbia Applied Data Science
     </p>
   </section>
 
-  <AvatarWelcome />
+  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
+    <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
+      Architecture at Enterprise Scale
+    </h2>
+    <p class="text-[var(--color-fg-muted)] mb-8">
+      The value isn't in any one domain — it's in the connections: knowing
+      how a change in one propagates through the others.
+    </p>
+    <ul class="space-y-5">
+      {domains.map((d) => (
+        <li>
+          <span class="font-medium text-[var(--color-fg)]">{d.name}</span>
+          <p class="text-sm text-[var(--color-fg-muted)] mt-1">{d.line}</p>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
+    <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
+      What Architecture Makes Possible
+    </h2>
+    <ul class="space-y-4">
+      {outcomes.map((o) => (
+        <li class="flex items-baseline gap-4">
+          <span class="font-semibold text-[var(--color-fg)] tabular-nums shrink-0 w-28">
+            {o.metric}
+          </span>
+          <span class="text-[var(--color-fg-muted)]">{o.label}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
 
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
     <div class="flex items-baseline justify-between mb-6">
@@ -88,51 +158,11 @@ try {
     }
   </section>
 
-  {
-    newsItems.length > 0 && (
-      <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
-        <div class="flex items-baseline justify-between mb-6">
-          <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">
-            What I'm Reading
-          </h2>
-          <a
-            href="/news/"
-            class="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline"
-          >
-            All news →
-          </a>
-        </div>
-        <ul class="space-y-4">
-          {newsItems.map((item) => (
-            <li class="flex flex-col gap-1">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-[var(--color-fg)] no-underline hover:underline"
-              >
-                {item.title}
-              </a>
-              <span class="text-xs text-[var(--color-fg-subtle)]">
-                {item.domain} · {item.source} · {relativeTime(item.date)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
-
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
     <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
       Find Me
     </h2>
     <ul class="space-y-2 text-[var(--color-fg-muted)]">
-      <li>
-        <a href="https://github.com/sfrancis2017" target="_blank" rel="noopener noreferrer">
-          GitHub
-        </a>
-      </li>
       <li>
         <a
           href="https://www.linkedin.com/in/sajiv-francis"
@@ -143,12 +173,8 @@ try {
         </a>
       </li>
       <li>
-        <a href="https://docs.sajivfrancis.com/" target="_blank" rel="noopener noreferrer">
-          Docs (SAP &amp; engineering knowledge base)
-        </a>
+        <a href="mailto:admin@sajivfrancis.com">Email</a>
       </li>
     </ul>
   </section>
-
-  <DataGlobe />
 </BaseLayout>
