@@ -296,6 +296,11 @@ const currentPath = Astro.url.pathname;
     document
       .querySelectorAll('.owner-only')
       .forEach((el) => el.classList.toggle('hidden', !owner));
+    // Owner-gated pages (/tools/*): lift or apply the pre-paint gate set by
+    // BaseLayout so a same-page sign-in reveals the content without a reload.
+    if (/^\/tools\//.test(location.pathname)) {
+      document.documentElement.classList.toggle('owner-gated-page', !owner);
+    }
   }
   syncOwnerNav();
   window.addEventListener('storage', syncOwnerNav);

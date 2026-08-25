@@ -45,10 +45,10 @@ export default defineConfig({
   integrations: [
     mdx(),
     sitemap({
-      // Keep the admin and utility surfaces out of the index.
+      // Keep the admin and owner-only surfaces out of the index.
       filter: (page) =>
-        !['/admin/', '/news/', '/lab/', '/tools/', '/margins/', '/chat/'].some(
-          (p) => page.includes(p)
+        !['/admin/', '/tools/', '/margins/', '/chat/'].some((p) =>
+          page.includes(p)
         ),
       // Attach a per-post lastmod so all engines get the same freshness signal.
       serialize(item) {

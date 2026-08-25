@@ -180,6 +180,35 @@ const articleJsonLd = article
       })();
     </script>
 
+    <!-- Owner-gated areas (/tools/*): hide page content before first paint
+         unless an owner token is present. The Header's owner sync lifts the
+         gate in the same page load after an SSO return. -->
+    <script is:inline>
+      (function () {
+        if (!/^\/tools\//.test(location.pathname)) return;
+        var owner = false;
+        try {
+          owner = !!(
+            localStorage.getItem('write-token') ||
+            localStorage.getItem('tools-access-token')
+          );
+        } catch (e) {}
+        if (!owner) document.documentElement.classList.add('owner-gated-page');
+      })();
+    </script>
+    <style is:inline>
+      .owner-gated-page main { display: none; }
+      .owner-gate-note { display: none; }
+      .owner-gated-page .owner-gate-note {
+        display: block;
+        max-width: 28rem;
+        margin: 6rem auto;
+        padding: 0 1.5rem;
+        text-align: center;
+        color: var(--color-fg-muted);
+      }
+    </style>
+
     <!-- Analytics: GoatCounter (privacy-friendly, no cookies) -->
     <script
       is:inline
@@ -189,6 +218,13 @@ const articleJsonLd = article
   </head>
   <body class="min-h-screen flex flex-col">
     <Header />
+    <div class="owner-gate-note">
+      <p>This area is owner-only.</p>
+      <p class="mt-2 text-sm">
+        Sign in with the badge in the corner to continue, or head
+        <a href="/" class="underline">back to the site</a>.
+      </p>
+    </div>
     <main class:list={['flex-1 w-full mx-auto px-6 py-12', mainClass]}>
       <slot />
     </main>
