@@ -14,11 +14,8 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
 const shortDate = (d: Date) =>
   formatDate(d, { year: 'numeric', month: 'short', day: 'numeric' });
 
-// Leadership homepage (repositioning strategy, 2026-08-25). The value
-// proposition is the connections between domains, so the domain model and
-// the outcomes strip carry the page. Outcome figures below are verified
-// resume facts stated employer-agnostically — nothing estimated. Richer
-// scope markers land after the excavation interview.
+// Homepage sections. Outcome figures are verified facts stated
+// employer-agnostically — nothing estimated.
 const domains = [
   {
     name: 'Business',

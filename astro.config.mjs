@@ -45,9 +45,7 @@ export default defineConfig({
   integrations: [
     mdx(),
     sitemap({
-      // Keep the admin surface and the working-instrument surfaces
-      // (news, lab, tools, margins, chat redirect) out of the index —
-      // they stay live for the owner but aren't advertised to crawlers.
+      // Keep the admin and utility surfaces out of the index.
       filter: (page) =>
         !['/admin/', '/news/', '/lab/', '/tools/', '/margins/', '/chat/'].some(
           (p) => page.includes(p)

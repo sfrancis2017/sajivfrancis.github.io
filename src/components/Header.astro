@@ -1,9 +1,6 @@
 ---
-// Public nav is the leadership surface only (repositioning strategy,
-// 2026-08-25). The working instruments below ship in the DOM but hidden;
-// a client-side check reveals them when an owner token is present (same
-// localStorage keys OwnerBadge uses), so the owner keeps every link while
-// public visitors never see them.
+// Primary nav. ownerLinks below ship hidden and are revealed client-side
+// when an owner token is present (same localStorage keys OwnerBadge uses).
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/about/', label: 'About' },
@@ -278,13 +275,10 @@ const currentPath = Astro.url.pathname;
     wbToggle.querySelector('.mobile-group-icon')?.classList.toggle('rotate-180', !isOpen);
   });
 
-  // Owner-only nav reveal. Public visitors never see the Workbench; the
-  // owner (write-token / tools-access-token in localStorage — the same keys
-  // OwnerBadge manages) gets every working link back. Three sync paths:
-  // initial check, cross-tab storage events, and a MutationObserver on the
-  // OwnerBadge button so a same-page SSO return reveals the nav without a
-  // reload (OwnerBadge flips its data-owner attribute after capturing the
-  // tokens from the URL fragment).
+  // Owner-only nav reveal. Three sync paths: initial check, cross-tab
+  // storage events, and a MutationObserver on the OwnerBadge button so a
+  // same-page SSO return updates the nav without a reload (OwnerBadge flips
+  // its data-owner attribute after capturing tokens from the URL fragment).
   function isOwner() {
     try {
       return !!(
