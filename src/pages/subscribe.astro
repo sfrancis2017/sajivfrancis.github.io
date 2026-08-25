@@ -6,22 +6,39 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
 <BaseLayout
   title="Subscribe"
-  description="Get an email when new writing or docs are published on sajivfrancis.com — no spam, unsubscribe any time."
+  description="Subscriber access: new writing by email, the full field-notes library, and the research chat — free, no spam, unsubscribe any time."
 >
   <section class="sub-wrap">
-    <p class="sub-eyebrow">Newsletter</p>
-    <h1 class="sub-title">Get new posts by email</h1>
+    <p class="sub-eyebrow">Subscriber access</p>
+    <h1 class="sub-title">More than a newsletter</h1>
     <p class="sub-lede">
-      I write about enterprise architecture, AI, and how I build the things on
-      this site. Subscribe and I’ll send a short note whenever new
-      <strong>writing</strong> or <strong>docs</strong> go up — nothing else.
-      One click to confirm, one click to leave, any time.
+      Subscribing is free and unlocks the working side of this site — not just
+      an email feed:
     </p>
+    <ul class="sub-benefits">
+      <li>
+        <strong>New writing by email.</strong> A short note when something new
+        is published — nothing else, ever.
+      </li>
+      <li>
+        <strong>The field-notes library.</strong> Full access to
+        <a href="https://docs.sajivfrancis.com/">docs.sajivfrancis.com</a> —
+        the working reference behind the writing: architecture, AI systems,
+        SAP and enterprise systems, finance. Non-subscribers see each page's
+        introduction.
+      </li>
+      <li>
+        <strong>The research chat.</strong> A grounded assistant over my
+        published work at <a href="https://chat.sajivfrancis.com/">chat.sajivfrancis.com</a>
+        — 30 questions a day for subscribers (free tier: 5).
+      </li>
+    </ul>
 
-    <div data-newsletter-inline data-title="Subscribe for new posts" class="sub-form"></div>
+    <div data-newsletter-inline data-title="Subscribe for full access" class="sub-form"></div>
 
     <p class="sub-alt">
-      Prefer RSS? <a href="/rss.xml">Subscribe via your reader</a> instead.
+      One click to confirm, one click to leave, any time. Prefer RSS for the
+      writing? <a href="/rss.xml">Subscribe via your reader</a>.
     </p>
   </section>
 </BaseLayout>
@@ -33,7 +50,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 0.5rem;
   }
   .sub-title { font-size: 2rem; line-height: 1.2; margin: 0 0 1rem; letter-spacing: -0.02em; }
-  .sub-lede { font-size: 1.05rem; line-height: 1.65; color: var(--color-fg); margin: 0 0 1.75rem; }
+  .sub-lede { font-size: 1.05rem; line-height: 1.65; color: var(--color-fg); margin: 0 0 1rem; }
+  .sub-benefits { margin: 0 0 1.75rem; padding-left: 1.2rem; }
+  .sub-benefits li { margin-bottom: 0.75rem; line-height: 1.6; }
+  .sub-benefits a { color: inherit; text-decoration: underline; }
   .sub-form { margin: 0 0 1.25rem; }
   .sub-alt { font-size: 0.9rem; color: var(--color-fg-muted); }
   .sub-alt a { color: inherit; text-decoration: underline; }
