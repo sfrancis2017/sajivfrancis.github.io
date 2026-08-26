@@ -152,7 +152,7 @@
     function render() {
       const owner = isOwner();
       btn.dataset.owner = owner ? '1' : '0';
-      btn.setAttribute('aria-label', owner ? 'Owner mode — sign out' : 'Owner sign-in');
+      btn.setAttribute('aria-label', owner ? 'Owner mode: sign out' : 'Owner sign-in');
       btn.title = owner
         ? 'Signed in as owner. Click to sign out everywhere (chat, trading, tools, writing).'
         : 'Sign in with Cloudflare Access to unlock owner features (writing, PDF, tools).';

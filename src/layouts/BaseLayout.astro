@@ -31,14 +31,14 @@ interface Props {
 
 const {
   title = 'Sajiv Francis',
-  description = 'Enterprise Architect connecting business strategy to data, applications, technology, and AI — delivering measurable business outcomes.',
+  description = 'Enterprise Architect connecting business strategy to data, applications, technology, and AI to deliver measurable business outcomes.',
   mainClass = 'max-w-3xl',
   ogImage = '/img/og-default.png',
   article,
 } = Astro.props;
 const ogImageUrl = new URL(ogImage, Astro.site).toString();
 
-const fullTitle = title === 'Sajiv Francis' ? title : `${title} — Sajiv Francis`;
+const fullTitle = title === 'Sajiv Francis' ? title : `${title} · Sajiv Francis`;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site).toString();
 
 // JSON-LD Person entity. Emitted site-wide so search/AI crawlers build a
@@ -50,7 +50,7 @@ const personJsonLd = {
   url: 'https://sajivfrancis.com',
   jobTitle: 'Enterprise Architect',
   description:
-    'Enterprise Architect connecting business strategy to data, applications, technology, and AI — delivering measurable business outcomes.',
+    'Enterprise Architect connecting business strategy to data, applications, technology, and AI to deliver measurable business outcomes.',
   image: new URL('/img/og-default.png', Astro.site).toString(),
   sameAs: [
     'https://www.linkedin.com/in/sajiv-francis',

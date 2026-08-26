@@ -21,7 +21,7 @@ const counts: Record<string, number> = { All: items.length };
 for (const it of items) counts[it.domain] = (counts[it.domain] ?? 0) + 1;
 
 function shareUrls(item: { title: string; url: string; source: string }) {
-  const text = `${item.title} — via ${item.source}`;
+  const text = `${item.title} (via ${item.source})`;
   const u = encodeURIComponent(item.url);
   const t = encodeURIComponent(text);
   const tt = encodeURIComponent(item.title);
@@ -39,7 +39,7 @@ function shareUrls(item: { title: string; url: string; source: string }) {
 
 <BaseLayout
   title="News"
-  description="Curated tech news across SAP, Enterprise Architecture, AI, and Software Engineering — handpicked sources, refreshed every few hours."
+  description="Curated tech news across SAP, Enterprise Architecture, AI, and Software Engineering. Handpicked sources, refreshed every few hours."
   mainClass="max-w-3xl"
 >
   <HeroVideo src={heroVideo} class="max-w-3xl mb-8" />
@@ -485,7 +485,7 @@ function shareUrls(item: { title: string; url: string; source: string }) {
   }
 
   function shareUrls(item: { title: string; url: string; source: string }) {
-    const text = encodeURIComponent(`${item.title} — via ${item.source}`);
+    const text = encodeURIComponent(`${item.title} (via ${item.source})`);
     const u = encodeURIComponent(item.url);
     const tt = encodeURIComponent(item.title);
     const ss = encodeURIComponent(item.source);

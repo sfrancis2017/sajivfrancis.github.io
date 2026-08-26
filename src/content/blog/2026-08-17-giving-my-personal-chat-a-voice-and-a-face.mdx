@@ -1,11 +1,11 @@
 ---
 title: "Voice Is a Mode, Not a Bot"
 subtitle: "Adding speech and a live avatar to a grounded chat without changing the retrieval stack"
-description: "A speech-to-text & text-to-speech roundtrip on my personal RAG chat - Grok-first audio with Cloudflare Workers AI and self-hosted fallbacks."
+description: "A speech-to-text & text-to-speech roundtrip on my personal RAG chat: Grok-first audio with Cloudflare Workers AI and self-hosted fallbacks."
 pubDate: 2026-08-17
 updatedDate: 2026-08-22
 coverImage: "/img/banners/voice-mode-wordart.png"
-coverAlt: "Word art from the voice mode post — voice, avatar, chat, Whisper, TTS"
+coverAlt: "Word art from the voice mode post: voice, avatar, chat, Whisper, TTS"
 tags:
   - "AI"
   - "Voice"
@@ -18,9 +18,9 @@ category: software-engineering
 
 My personal chat at [chat.sajivfrancis.com](https://chat.sajivfrancis.com) can now talk to me.
 
-Tap the avatar in the corner, ask a question out loud, and the full answer appears on screen — including code, diagrams, and citations — while the avatar speaks a shorter, conversational version.
+Tap the avatar in the corner, ask a question out loud, and the full answer appears on screen with code, diagrams, and citations included, while the avatar speaks a shorter, conversational version.
 
-*Updated 2026-08-22: the audio pipeline has since moved to Grok as its primary provider, the turn-based loop became a real conversation, and the static portrait became a live 2.5D figure — this post now describes the current architecture.*
+*Updated 2026-08-22: the audio pipeline has since moved to Grok as its primary provider, the turn-based loop became a real conversation, and the static portrait became a live 2.5D figure; this post now describes the current architecture.*
 
 It started as a simple experiment: I asked an image model to illustrate a persona for my site, and Maya was the result.
 
@@ -34,15 +34,15 @@ The key decision was to make voice **a mode of the existing chat, not a separate
 
 A spoken question follows exactly the same pipeline as a typed one: transcription → existing RAG/retrieval + chat history → full answer. Nothing in the existing RAG stack needed to change.
 
-The full response is rendered normally on screen. A small model then turns it into 2–4 sentences of conversational prose, which goes through TTS.
+The full response is rendered normally on screen. A small model then turns it into 2 to 4 sentences of conversational prose, which goes through TTS.
 
 That also solves a surprisingly important problem: **the voice never reads code at you.**
 
 Rather than trying to strip Markdown, diagrams, and code from the original answer, I generate a separate response specifically designed to be spoken.
 
-Browser-side Silero VAD detects when I've stopped talking, so there's no push-to-talk. Speaking over the avatar interrupts playback — a real barge-in that cancels generation server-side, not just muted audio.
+Browser-side Silero VAD detects when I've stopped talking, so there's no push-to-talk. Speaking over the avatar interrupts playback, a real barge-in that cancels generation server-side rather than just muting the audio.
 
-Every audio primitive sits behind a **provider chain** rather than a single vendor. Grok is the primary for both directions — its STT returns word timings and accepts key-term biasing for my personal vocabulary, and its TTS (Maya speaks in the `ara` voice) streams with low first-byte latency — with Workers AI (Whisper, Deepgram Aura) as the on-stack fallback and self-hosted faster-whisper on my droplet as the always-available last resort. No key, no problem: without the Grok key the chain simply behaves like the original Workers AI build.
+Every audio primitive sits behind a **provider chain** rather than a single vendor. Grok is the primary for both directions: its STT returns word timings and accepts key-term biasing for my personal vocabulary, and its TTS (Maya speaks in the `ara` voice) streams with low first-byte latency. Workers AI (Whisper, Deepgram Aura) serves as the on-stack fallback, and self-hosted faster-whisper on my droplet is the always-available last resort. No key, no problem: without the Grok key the chain simply behaves like the original Workers AI build.
 
 ```mermaid
 flowchart TD
@@ -52,18 +52,18 @@ flowchart TD
     C -->|full answer| D[Screen: markdown,<br>code, diagrams]
     C -->|full answer| E["/api/voice/summary<br>small model distills<br>speakable sentences"]
     E -->|"sentence-chunked prose"| F["/api/voice/tts<br>Grok TTS (ara voice)"]
-    F -->|"gapless audio chunks"| G[Live 2.5D avatar speaks —<br>lip sync, blinks, breathing —<br>talk over her to interrupt]
+    F -->|"gapless audio chunks"| G[Live 2.5D avatar speaks:<br>lip sync, blinks, breathing.<br>Talk over her to interrupt]
     B -.->|fallback| H[Workers AI Whisper,<br>then droplet faster-whisper]
     F -.->|fallback| I[Deepgram Aura<br>on Workers AI]
 ```
 
-Two things in that diagram didn't exist in the first version of this post. The **conversational buffer** speaks a fresh, topic-aware bridge line the moment your question is understood ("Pulling up the order-to-cash flow — one sec") instead of dead air, then hands off to the real answer as sentence-chunked, gapless TTS. And the avatar herself is no longer a static portrait: a small WebGL engine renders her from a two-layer depth package — she breathes, blinks, shifts her weight, and lip-syncs to the audio level while speaking.
+Two things in that diagram didn't exist in the first version of this post. The **conversational buffer** speaks a fresh, topic-aware bridge line the moment your question is understood ("Pulling up the order-to-cash flow, one sec") instead of dead air, then hands off to the real answer as sentence-chunked, gapless TTS. And the avatar herself is no longer a static portrait: a small WebGL engine renders her from a two-layer depth package, so she breathes, blinks, shifts her weight, and lip-syncs to the audio level while speaking.
 
 ![The avatar docked on the live chat interface](/img/voice-mode-live.jpg)
 
 ## The pricing lesson
 
-Everything initially ran on Cloudflare Workers AI — Whisper for transcription and Deepgram Aura for TTS. I thought the free allocation would comfortably cover personal testing. It did not.
+Everything initially ran on Cloudflare Workers AI: Whisper for transcription and Deepgram Aura for TTS. I thought the free allocation would comfortably cover personal testing. It did not.
 
 I had misread the billing units by three orders of magnitude:
 
@@ -75,18 +75,18 @@ I had misread the billing units by three orders of magnitude:
 
 The result, mid-testing: `AiError 4006: daily free allocation exhausted`.
 
-Fortunately, I already had faster-whisper running on my own droplet, so I added it as a transcription fallback. I also added visible failure states to the avatar — a voice interface should never silently fail and pretend it didn't hear you.
+Fortunately, I already had faster-whisper running on my own droplet, so I added it as a transcription fallback. I also added visible failure states to the avatar, because a voice interface should never silently fail and pretend it didn't hear you.
 
-That pricing lesson is also what reshaped the architecture above: at roughly $4.20 per million characters, Grok TTS costs about a dollar a month at heavy personal use, so it became the primary provider — implemented as a chain rather than a swap, which is why the free-tier fallbacks survive as resilience instead of dead code.
+That pricing lesson is also what reshaped the architecture above: at roughly $4.20 per million characters, Grok TTS costs about a dollar a month at heavy personal use, so it became the primary provider. I implemented it as a chain rather than a swap, which is why the free-tier fallbacks survive as resilience instead of dead code.
 
 ## What's next
 
-The first version of this list said "make it feel like a real conversation" — sentence-chunked TTS, server-side barge-in, a conversational mode. Those shipped, along with the live 2.5D avatar. What's still ahead:
+The first version of this list said "make it feel like a real conversation": sentence-chunked TTS, server-side barge-in, a conversational mode. Those shipped, along with the live 2.5D avatar. What's still ahead:
 
-- **Full-duplex streaming** — Grok's WebSocket STT with `smart_turn` end-of-turn detection, replacing batch VAD → transcribe entirely.
-- **Word-timestamp lip-sync** — Grok TTS already returns word timings; the engine currently syncs to audio level.
-- **A true 3D Maya** — the current avatar is a 2.5D depth mesh built from one image. The end state: a background-free 3D figure speaking *over the page itself*, the website as her backdrop rather than a painted one.
+- **Full-duplex streaming:** Grok's WebSocket STT with `smart_turn` end-of-turn detection, replacing batch VAD → transcribe entirely.
+- **Word-timestamp lip-sync:** Grok TTS already returns word timings; the engine currently syncs to audio level.
+- **A true 3D Maya:** the current avatar is a 2.5D depth mesh built from one image. The end state is a background-free 3D figure speaking *over the page itself*, the website as her backdrop rather than a painted one.
 
 The bigger lesson for me is that a personal site is a great place to run these experiments.
 
-It's low stakes. I can try new models, discover pricing mistakes, swap providers, measure latency, and learn what actually works — then carry the useful architecture into projects where it matters.
+It's low stakes. I can try new models, discover pricing mistakes, swap providers, measure latency, and learn what actually works, then carry the useful architecture into projects where it matters.

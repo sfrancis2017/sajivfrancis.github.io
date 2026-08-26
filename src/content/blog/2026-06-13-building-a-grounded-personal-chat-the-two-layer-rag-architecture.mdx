@@ -18,13 +18,13 @@ publishMode: blog-first
 
 ## The Problem With Ingesting Everything
 
-When I first started building my personal chat interface, the instinct was straightforward — give the LLM as much context as possible. Large context
+When I first started building my personal chat interface, the instinct was straightforward: give the LLM as much context as possible. Large context
 windows made it tempting. Just send the whole document, get a great answer.
 
 It works for one-off queries. But it doesn't scale, and more importantly, it doesn't give you what you actually need from a personal knowledge system:
 grounded, citable responses tied to specific sources.
 
-The issue isn't just token cost. Across domains like SAP, finance, software architecture, and enterprise integration, the wrong grounded answer is worse than no answer at all. You need to know exactly where a claim came from — which document, which section, which concept — not just that the LLM produced something plausible.
+The issue isn't just token cost. Across domains like SAP, finance, software architecture, and enterprise integration, the wrong grounded answer is worse than no answer at all. You need to know exactly where a claim came from (which document, which section, which concept), not just that the LLM produced something plausible.
 
 That realization drove the architecture I'm building now.
 
@@ -106,7 +106,7 @@ mindmap
 
 The library and the retrieval layer serve different masters.
 
-- **Library** → an index for humans. Navigable, categorized by domain — SAP,Finance, Software Engineering, Architecture, and others. You select scope at the category or document level.
+- **Library** → an index for humans. Navigable, categorized by domain: SAP, Finance, Software Engineering, Architecture, and others. You select scope at the category or document level.
 - **Worker** → an index for the LLM. Fine-grained, topic-scoped, automated. Precision retrieval within the scope you selected.
 
 The mistake was storing entire documents as single large chunks. Selecting a category became equivalent to ingesting everything in it. The worker fixes
@@ -120,9 +120,9 @@ The library stays clean for human navigation. What changes is what actually reac
 
 The knowledge base has two tiers.
 
-Tier 1 is reference material — published documents, standards, technical guides organized by domain. High detail, authoritative, citable to section level.
+Tier 1 is reference material: published documents, standards, technical guides organized by domain. High detail, authoritative, citable to section level.
 
-Tier 2 is synthesized material — architecture notes, integration summaries, domain write-ups produced as working artifacts of the research process. High
+Tier 2 is synthesized material: architecture notes, integration summaries, domain write-ups produced as working artifacts of the research process. High
 relevance, pre-integrated, written in the framing I actually use.
 
 Both tiers go through the same embedding and retrieval pipeline. Provenance is tagged so the LLM knows the authority level of each source. The compounding
@@ -131,17 +131,17 @@ base improves with use.
 
 | Tier | Content type | Authority signal | Example |
 |------|-------------|------------------|---------|
-| 1 — Reference | Published documents, standards, technical guides | Citable to section level | SAP S/4HANA integration specs, finance standards |
-| 2 — Synthesized | Architecture notes, integration summaries, domain write-ups | Pre-integrated, author-framed | Cross-domain seam annotations, working notes |
+| 1: Reference | Published documents, standards, technical guides | Citable to section level | SAP S/4HANA integration specs, finance standards |
+| 2: Synthesized | Architecture notes, integration summaries, domain write-ups | Pre-integrated, author-framed | Cross-domain seam annotations, working notes |
 
 ---
 
 ## Cross-Domain Flow Reasoning
 
-Domains aren't isolated — they connect. Finance connects to controlling connects to integration connects to reporting. The seams between domains are
+Domains aren't isolated; they connect. Finance connects to controlling connects to integration connects to reporting. The seams between domains are
 where the most important reasoning happens, and they're the least well-represented in any single source document.
 
-The architecture handles this with a dedicated integration index — cross-domain reference chunks tagged with both source and target domain. When
+The architecture handles this with a dedicated integration index: cross-domain reference chunks tagged with both source and target domain. When
 a query spans domains, the worker retrieves from relevant namespaces and injects connection annotations between chunks in the assembled prompt. The LLM
 reasons over a coherent flow rather than isolated domain excerpts.
 
@@ -149,8 +149,8 @@ reasons over a coherent flow rather than isolated domain excerpts.
 
 ## Why Not a Commercial Solution
 
-Commercial RAG platforms trade control for convenience. For general-purpose retrieval that's often the right call. For domain-specific technical reasoning
-where chunk quality, cross-domain seams, and provenance metadata are first-class requirements — the custom approach earns its overhead.
+Commercial RAG platforms trade control for convenience. For general-purpose retrieval that's often the right call. For domain-specific technical reasoning,
+where chunk quality, cross-domain seams, and provenance metadata are first-class requirements, the custom approach earns its overhead.
 
 The pgvector stack on DigitalOcean combined with Cloudflare Workers for the retrieval layer keeps infrastructure costs low while retaining full control
 over chunking strategy, embedding model, hybrid search weighting, and prompt
@@ -210,7 +210,7 @@ flowchart TD
     C1["Semantic Search<br>OpenAI text-embedding-3-large<br>Rechunked at Section Level"]
     C2["BM25 Keyword Search<br>Hybrid Reranking"]
     C3["Integration Index<br>Cross-Domain Seam Chunks<br>Source and Target Domain Tags"]
-    D[("pgvector<br>DigitalOcean<br>Tier 1 — Reference Material<br>Tier 2 — Synthesized Docs")]
+    D[("pgvector<br>DigitalOcean<br>Tier 1: Reference Material<br>Tier 2: Synthesized Docs")]
     E["Prompt Assembly<br>Provenance-tagged Context<br>Seam Annotations Injected"]
     F["Claude<br>Grounded Reasoning<br>Citable to Source + Section"]
 
@@ -237,4 +237,4 @@ flowchart TD
     class E,F target
 
 ```
-This post documents the architecture behind chat.sajivfrancis.com. Both layers are under active development, the current-state diagram reflects what's running now and the target state is what I'm building toward.
+This post documents the architecture behind chat.sajivfrancis.com. Both layers are under active development; the current-state diagram reflects what's running now, and the target state is what I'm building toward.

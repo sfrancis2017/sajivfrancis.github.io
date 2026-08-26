@@ -43,7 +43,7 @@ const venueLabel =
 // Canonical URL for share intents — must be absolute so X / LinkedIn
 // crawl the right OG metadata.
 const postUrl = new URL(buildPostUrl(post), Astro.site).toString();
-const shareText = `${title} — by Sajiv Francis`;
+const shareText = `${title}, by Sajiv Francis`;
 const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(postUrl)}`;
 const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`;
 

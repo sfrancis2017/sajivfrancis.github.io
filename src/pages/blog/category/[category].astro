@@ -23,7 +23,7 @@ const label = categoryLabel(category);
 const sorted = posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 ---
 
-<BaseLayout title={`${label} — Writing`} description={`Writing categorized under ${label}.`}>
+<BaseLayout title={`${label} · Writing`} description={`Writing categorized under ${label}.`}>
   <header class="mb-10">
     <p class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">Category</p>
     <h1 class="mt-2 text-4xl font-semibold tracking-tight">{label}</h1>

@@ -9,7 +9,7 @@ const PLOTLY_CDN = 'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotl
 <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
   <h2 class="text-sm uppercase tracking-wide text-[var(--color-fg-muted)] mb-2">World in Data</h2>
   <p class="text-sm text-[var(--color-fg-muted)] mb-4 max-w-2xl">
-    An interactive globe — drag to spin. Defaults to <strong>R&amp;D spending</strong> (% of GDP,
+    An interactive globe. Drag to spin. Defaults to <strong>R&amp;D spending</strong> (% of GDP,
     World Bank); pick another indicator below, or drop in any <strong>country-keyed</strong>
     dataset (CSV, JSON, a GitHub raw URL, or a public Google Sheet). Built on the same chart
     engine as the <a href="/tools/chart-studio/">Chart Studio</a>.
@@ -202,10 +202,10 @@ China, 7.1"></textarea>
       byId('globeReset').hidden = false;
     } catch (e) {
       const hint = /Failed to fetch|NetworkError/i.test(e.message)
-        ? 'Network/CORS error — the source must allow cross-origin requests (GitHub raw + public Google Sheets do).'
+        ? 'Network/CORS error: the source must allow cross-origin requests (GitHub raw + public Google Sheets do).'
         : e.message;
       setError(`Couldn't load that dataset: ${hint}`);
-      setSource('Load failed — default still shown.');
+      setSource('Load failed. Default still shown.');
     }
   }
 

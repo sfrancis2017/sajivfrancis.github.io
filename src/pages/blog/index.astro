@@ -150,7 +150,7 @@ const readingTimes = new Map<string, number>(
         {archive.length > 0 && (
           <details class="pt-4 border-t border-[var(--color-border)]">
             <summary class="cursor-pointer text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]">
-              Archive — earlier projects ({archive.length})
+              Archive: earlier projects ({archive.length})
             </summary>
             <ul class="mt-6 space-y-4">
               {archive.map((post) => (
@@ -164,7 +164,7 @@ const readingTimes = new Map<string, number>(
                     </a>
                     {post.data.subtitle && (
                       <span class="text-sm text-[var(--color-fg-subtle)]">
-                        {' '}— {post.data.subtitle}
+                        {' '}· {post.data.subtitle}
                       </span>
                     )}
                   </span>

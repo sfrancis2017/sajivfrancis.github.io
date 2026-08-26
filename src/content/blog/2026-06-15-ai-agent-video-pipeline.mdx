@@ -1,11 +1,11 @@
 ---
 title: "MCP Is a Librarian, A2A Is a Relay Team"
-subtitle: What building a five-agent video pipeline taught me about how AI systems coordinate — and why the pacing gap between the two protocols is the whole point.
+subtitle: What building a five-agent video pipeline taught me about how AI systems coordinate, and why the pacing gap between the two protocols is the whole point.
 description: A small crew of AI agents fetches a page's words, writes a scene, films and publishes it. Here's how it works, why one step is slow and the mistakes that cost me a day.
 pubDate: 2026-06-15
 category: "ai"
 coverImage: /img/ai-agent-video-pipeline-wordart.png
-coverAlt: Word-cloud banner of the post's themes — video, crew, hand-off, Librarian, Filmmaker
+coverAlt: "Word-cloud banner of the post's themes: video, crew, hand-off, Librarian, Filmmaker"
 tags:
   - AI
   - Agents
@@ -34,7 +34,7 @@ Two ideas do most of the work here and each has a name the industry likes to thr
 
 The interesting thing isn't the names, it's the *pace*. The Librarian's response is instant while the relay team is more like "leave it with me, check back later." That gap turned out to be the whole point of the exercise.
 
-Fun facts: these two ideas didn't come from the same place while **MCP** was introduced by **Anthropic** — the company behind Claude and **A2A** came from **Google** — the company behind Gemini and Veo. Which is a fun coincidence here, because my little crew ends up using one model from *each* of them: Claude does the writing, and Google's Veo does the filming. Two rival labs, quietly collaborating inside my website without being asked.
+Fun facts: these two ideas didn't come from the same place. **MCP** was introduced by **Anthropic** (the company behind Claude) and **A2A** came from **Google** (the company behind Gemini and Veo). Which is a fun coincidence here, because my little crew ends up using one model from *each* of them: Claude does the writing, and Google's Veo does the filming. Two rival labs, quietly collaborating inside my website without being asked.
 
 ## Meet the crew
 
@@ -59,9 +59,9 @@ flowchart LR
     ST -.saves to.-> CDN[(Fast web host)]:::store
 ```
 
-<small>The Manager kicks things off, then the work travels down the line — each helper hands its result to the next. The dotted lines are the outside tools each one leans on.</small>
+<small>The Manager kicks things off, then the work travels down the line: each helper hands its result to the next. The dotted lines are the outside tools each one leans on.</small>
 
-The **Researcher** asks the Librarian what the page actually says. The **Writer** turns that into a short, 8-second scene — calm, cinematic, no narration, no people — using **Anthropic's Claude**. The **Filmmaker** hands that scene to **Google's Veo 3.1** and waits. The **Publisher** grabs the finished clip, drops it on a fast web host, and hands back the link. One request in, one video out.
+The **Researcher** asks the Librarian what the page actually says. The **Writer** turns that into a short, 8-second scene (calm, cinematic, no narration, no people) using **Anthropic's Claude**. The **Filmmaker** hands that scene to **Google's Veo 3.1** and waits. The **Publisher** grabs the finished clip, drops it on a fast web host, and hands back the link. One request in, one video out.
 
 ## Watch one get made
 
@@ -88,7 +88,7 @@ Here's a real run that was timed:
 
 ## And then I lost a day to a dashboard
 
-Here's the confession. The AI parts? Are they Smooth? Almost suspeciusly is the thought, however, the thing that ate a full day was the *dashboard* with a tool called **n8n** that I used to watch the crew work, so I could see each hand-off happen live.
+Here's the confession. The AI parts? Smooth, almost suspiciously so. The thing that ate a full day was the *dashboard*, a tool called **n8n** that I used to watch the crew work, so I could see each hand-off happen live.
 
 <Figure
   src="/img/n8n-pipeline-run.png"
