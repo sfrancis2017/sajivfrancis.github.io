@@ -42,6 +42,17 @@ DRAFT pending founder calls below.
   scales with the pad, so a signature drawn in the expanded pad keeps the
   same stroke weight as one drawn in the tray (`e2e-pen.mjs`: expanded/tray
   relative thickness ≈ 1.1 for thin/medium/thick, was ≈ 0.2).
+- Follow-up bug (founder on Ubuntu, same day): text still missing for some
+  forms. Reproduced: a filler that stores /V but leaves an old EMPTY
+  appearance (pdftk / older pypdf style, NeedAppearances=true) — pdf.js
+  redraws values so the preview looked right, but flattening drew the empty
+  appearance. Fix: before flattening, redraw the appearance of any text /
+  choice field whose appearance stream contains no text-show operator, or of
+  every field when NeedAppearances is set; status reports "(N redrawn)".
+  Fixtures now: pdf-lib-filled, Firefox/pdf.js-saved, stale-AP — all
+  verified with pdf.js text extraction AND poppler (`pdftotext`, Evince's
+  engine). PDFKit/Preview path could not be scripted here (swiftc module
+  error) and is not the founder's platform.
 - Known, out of scope: the site footer link row overflows by ~11 px at
   390 px viewport (site-wide, pre-existing). Rotated pages (see Risks).
 **Repos:** UI in this repo (`src/pages/tools/pdf-sign.astro`); backend in

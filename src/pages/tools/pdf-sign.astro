@@ -795,12 +795,40 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     function flattenForm(doc) {
       let acro; try { acro = doc.catalog.lookup(PDFLib.PDFName.of('AcroForm')); } catch { acro = null; }
       if (!acro) return '';
-      let form, count = 0;
-      try { form = doc.getForm(); count = form.getFields().length; } catch { return ''; }
-      if (!count) return '';
-      try { form.flatten(); return ` ${count} form field${count === 1 ? '' : 's'} flattened so typed values stay visible.`; }
+      let form, fields;
+      try { form = doc.getForm(); fields = form.getFields(); } catch { return ''; }
+      if (!fields.length) return '';
+      // NeedAppearances = the filler asks viewers to redraw values themselves (pdf.js does, pdf-lib does not)
+      let needApp = false; try { const v = acro.lookup(PDFLib.PDFName.of('NeedAppearances')); needApp = !!(v && v.asBoolean && v.asBoolean()); } catch {}
+      // does this field's stored appearance actually draw any text? (a filler may set the value but leave an old empty appearance)
+      const apShowsText = (field) => {
+        try {
+          const widgets = field.acroField.getWidgets(); if (!widgets.length) return true;
+          return widgets.every((w) => {
+            const ap = w.dict.lookup(PDFLib.PDFName.of('AP')); if (!ap) return false;
+            const n = ap.lookup(PDFLib.PDFName.of('N')); if (!n) return false;
+            if (!(n instanceof PDFLib.PDFStream)) return true;          // per-state dictionary (check boxes) — leave alone
+            const bytes = n instanceof PDFLib.PDFRawStream ? PDFLib.decodePDFRawStream(n).decode() : n.getContents();
+            let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+            return /\b(Tj|TJ)\b/.test(str);
+          });
+        } catch { return true; }
+      };
+      let regen = 0;
+      for (const f of fields) {
+        try {
+          if (f instanceof PDFLib.PDFTextField) {
+            const t = f.getText(); if (t && (needApp || !apShowsText(f))) { f.setText(t); regen++; }
+          } else if (f instanceof PDFLib.PDFDropdown || f instanceof PDFLib.PDFOptionList) {
+            const sel = f.getSelected(); if (sel.length && (needApp || !apShowsText(f))) { f.select(sel); regen++; }
+          } else if (needApp && f instanceof PDFLib.PDFCheckBox) { if (f.isChecked()) f.check(); else f.uncheck(); regen++; }
+          else if (needApp && f instanceof PDFLib.PDFRadioGroup) { const sel = f.getSelected(); if (sel) { f.select(sel); regen++; } }
+        } catch (e) { /* leave this field as-is; flatten below still keeps whatever appearance it has */ }
+      }
+      const count = fields.length, detail = regen ? ` (${regen} redrawn)` : '';
+      try { form.flatten(); return ` ${count} form field${count === 1 ? '' : 's'} flattened${detail} so typed values stay visible.`; }
       catch (e1) {
-        try { form.updateFieldAppearances(); return ' Form field appearances refreshed.'; }
+        try { form.updateFieldAppearances(); return ` Form field appearances refreshed${detail}.`; }
         catch (e2) { return ' Note: form fields could not be flattened; typed values may not show in every viewer.'; }
       }
     }
