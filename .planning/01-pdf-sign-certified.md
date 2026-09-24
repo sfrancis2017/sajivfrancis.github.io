@@ -53,6 +53,18 @@ DRAFT pending founder calls below.
   verified with pdf.js text extraction AND poppler (`pdftotext`, Evince's
   engine). PDFKit/Preview path could not be scripted here (swiftc module
   error) and is not the founder's platform.
+- Real-file case (founder's NNAS form, Ubuntu blank / Mac fine): the form
+  had **no AcroForm catalogue entry** (26 widgets only on page /Annots) and
+  its 19 filled appearances referenced fonts ("TimesNewRoman,Bold") whose
+  resource entries were not real font dictionaries. Preview and pdf.js
+  substitute a font; poppler (Evince) refuses ("No font in show") → blanks.
+  pdf-lib saw "no form", so nothing was flattened. Fixes: (1) adopt orphan
+  widgets into the AcroForm, climbing nested parents for /FT, skipping
+  /Sig; (2) redraw any text/choice field whose appearance fonts do not
+  resolve to a real font dictionary (or are unreadable). Result on the
+  real file: poppler renders 19/19 values (was 7/19), 0 warnings; status
+  line "26 form fields flattened (19 redrawn, 26 adopted)". Fixture
+  `orphan.pdf` (nested field, no AcroForm, one widget without AP) added.
 - Known, out of scope: the site footer link row overflows by ~11 px at
   390 px viewport (site-wide, pre-existing). Rotated pages (see Risks).
 **Repos:** UI in this repo (`src/pages/tools/pdf-sign.astro`); backend in

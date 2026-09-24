@@ -792,7 +792,41 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     // Preview/Chrome often stores the value without an appearance, so other viewers show blank
     // fields after we save. Flatten the form: values are drawn into the page and the fields are
     // removed, which is what a signed copy should be anyway.
+    // Some forms carry their fields only as page annotations, with no (or an incomplete) AcroForm
+    // catalogue entry. pdf.js and Preview still draw them, but pdf-lib sees "no form" and poppler
+    // viewers (Evince) show blanks where a value has no drawn appearance. Adopt those widgets into
+    // the AcroForm so they get redrawn and flattened like the rest.
+    function adoptOrphanWidgets(doc) {
+      const { PDFName, PDFDict, PDFArray, PDFRef } = PDFLib;
+      const known = new Set();
+      try { const acro = doc.catalog.lookup(PDFName.of('AcroForm')); const arr = acro && acro.lookup(PDFName.of('Fields'));
+        if (arr instanceof PDFArray) arr.asArray().forEach((r) => known.add(String(r))); } catch {}
+      const adopt = [];
+      for (const page of doc.getPages()) {
+        let annots; try { annots = page.node.Annots(); } catch { annots = null; }
+        if (!(annots instanceof PDFArray)) continue;
+        for (let i = 0; i < annots.size(); i++) {
+          let ref = annots.get(i); const dict = ref instanceof PDFRef ? doc.context.lookup(ref) : ref;
+          if (!(dict instanceof PDFDict) || dict.lookup(PDFName.of('Subtype')) !== PDFName.of('Widget')) continue;
+          if (!(ref instanceof PDFRef)) { ref = doc.context.register(dict); annots.set(i, ref); }
+          // climb to the root field; the field type (/FT) may sit on any level of a nested field
+          let topRef = ref, top = dict, guard = 0, ft = dict.lookup(PDFName.of('FT'));
+          while (guard++ < 32) { const pr = top.get(PDFName.of('Parent')); if (!(pr instanceof PDFRef)) break;
+            const pd = doc.context.lookup(pr); if (!(pd instanceof PDFDict)) break; topRef = pr; top = pd; if (!ft) ft = pd.lookup(PDFName.of('FT')); }
+          if (known.has(String(topRef))) continue;
+          if (!ft || ft === PDFName.of('Sig')) continue;                 // no field type / signature fields: leave alone
+          known.add(String(topRef)); adopt.push(topRef);
+        }
+      }
+      if (!adopt.length) return 0;
+      const acroDict = doc.getForm().acroForm.dict;                    // creates the AcroForm if missing
+      let arr = acroDict.lookup(PDFName.of('Fields'));
+      if (!(arr instanceof PDFArray)) { arr = doc.context.obj([]); acroDict.set(PDFName.of('Fields'), arr); }
+      adopt.forEach((r) => arr.push(r));
+      return adopt.length;
+    }
     function flattenForm(doc) {
+      let adopted = 0; try { adopted = adoptOrphanWidgets(doc); } catch { adopted = 0; }
       let acro; try { acro = doc.catalog.lookup(PDFLib.PDFName.of('AcroForm')); } catch { acro = null; }
       if (!acro) return '';
       let form, fields;
@@ -814,18 +848,39 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
           });
         } catch { return true; }
       };
+      // does every font the appearance uses (… /Name size Tf) exist in the stream's own resources or the
+      // form's default resources? poppler (Evince) draws nothing for an unresolved font ("No font in show"),
+      // while Preview and pdf.js quietly substitute one — a classic "blank on Linux, fine on Mac" case.
+      const isDict = (o) => o instanceof PDFLib.PDFDict;
+      const apFontsResolve = (field) => {
+        let drFonts = null; try { const dr = acro.lookup(PDFLib.PDFName.of('DR')); drFonts = isDict(dr) ? dr.lookup(PDFLib.PDFName.of('Font')) : null; } catch {}
+        let widgets; try { widgets = field.acroField.getWidgets(); } catch { return true; }
+        return widgets.every((w) => {
+          try {
+            const ap = w.dict.lookup(PDFLib.PDFName.of('AP')); const n = isDict(ap) ? ap.lookup(PDFLib.PDFName.of('N')) : null;
+            if (!(n instanceof PDFLib.PDFStream)) return true;
+            const bytes = n instanceof PDFLib.PDFRawStream ? PDFLib.decodePDFRawStream(n).decode() : n.getContents();
+            let str = ''; for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+            const used = [...str.matchAll(/\/([^\s\/\[\]()<>{}]+)\s+[\d.]+\s+Tf/g)].map((m) => m[1]);
+            if (!used.length) return true;
+            const res = n.dict.lookup(PDFLib.PDFName.of('Resources')); const fonts = isDict(res) ? res.lookup(PDFLib.PDFName.of('Font')) : null;
+            const has = (d, name) => isDict(d) && isDict(d.lookup(PDFLib.PDFName.of(name)));   // the font entry itself must be a real dictionary
+            return used.every((name) => has(fonts, name) || has(drFonts, name));
+          } catch { return false; }   // an unreadable appearance is exactly the case that needs a redraw
+        });
+      };
       let regen = 0;
       for (const f of fields) {
         try {
           if (f instanceof PDFLib.PDFTextField) {
-            const t = f.getText(); if (t && (needApp || !apShowsText(f))) { f.setText(t); regen++; }
+            const t = f.getText(); if (t && (needApp || !apShowsText(f) || !apFontsResolve(f))) { f.setText(t); regen++; }
           } else if (f instanceof PDFLib.PDFDropdown || f instanceof PDFLib.PDFOptionList) {
-            const sel = f.getSelected(); if (sel.length && (needApp || !apShowsText(f))) { f.select(sel); regen++; }
+            const sel = f.getSelected(); if (sel.length && (needApp || !apShowsText(f) || !apFontsResolve(f))) { f.select(sel); regen++; }
           } else if (needApp && f instanceof PDFLib.PDFCheckBox) { if (f.isChecked()) f.check(); else f.uncheck(); regen++; }
           else if (needApp && f instanceof PDFLib.PDFRadioGroup) { const sel = f.getSelected(); if (sel) { f.select(sel); regen++; } }
         } catch (e) { /* leave this field as-is; flatten below still keeps whatever appearance it has */ }
       }
-      const count = fields.length, detail = regen ? ` (${regen} redrawn)` : '';
+      const count = fields.length, detail = (regen || adopted) ? ` (${[regen && `${regen} redrawn`, adopted && `${adopted} adopted`].filter(Boolean).join(', ')})` : '';
       try { form.flatten(); return ` ${count} form field${count === 1 ? '' : 's'} flattened${detail} so typed values stay visible.`; }
       catch (e1) {
         try { form.updateFieldAppearances(); return ` Form field appearances refreshed${detail}.`; }
