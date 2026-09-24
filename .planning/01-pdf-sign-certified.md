@@ -26,6 +26,14 @@ DRAFT pending founder calls below.
   `display:` rule beats the `hidden` attribute — the page has a scoped
   `[hidden] { display:none !important }`; the sticky tray is a stacking
   context, so the expanded pad is re-parented to the article while open.
+- Bug fix (founder report, same day): filled-in form fields vanished from the
+  download. pdf.js draws field values itself, but forms filled in
+  Preview/Chrome carry no appearance streams, so pdf-lib's output showed
+  blank fields elsewhere. Export now flattens the AcroForm (values drawn
+  into the page, fields removed) with fallbacks to regenerating
+  appearances; regression test `e2e-form.mjs` (fixture: text fields +
+  checkbox, NeedAppearances, no AP) — input has 0 page-text values, output
+  has both values and 0 widgets.
 - Known, out of scope: the site footer link row overflows by ~11 px at
   390 px viewport (site-wide, pre-existing). Rotated pages (see Risks).
 **Repos:** UI in this repo (`src/pages/tools/pdf-sign.astro`); backend in
