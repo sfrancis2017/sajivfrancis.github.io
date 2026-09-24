@@ -34,6 +34,14 @@ DRAFT pending founder calls below.
   appearances; regression test `e2e-form.mjs` (fixture: text fields +
   checkbox, NeedAppearances, no AP) — input has 0 page-text values, output
   has both values and 0 widgets.
+- Founder checks (same day): ink colours are captured per stamp at creation
+  (signature/initials: baked into the PNG; date: stored on the placement)
+  and survive tray drag, moving and export — verified by pixel-sampling the
+  output (`e2e-color.mjs`). Added: the date controls (date, format, size,
+  ink) edit a placed date stamp while it is selected. Pen thickness now
+  scales with the pad, so a signature drawn in the expanded pad keeps the
+  same stroke weight as one drawn in the tray (`e2e-pen.mjs`: expanded/tray
+  relative thickness ≈ 1.1 for thin/medium/thick, was ≈ 0.2).
 - Known, out of scope: the site footer link row overflows by ~11 px at
   390 px viewport (site-wide, pre-existing). Rotated pages (see Risks).
 **Repos:** UI in this repo (`src/pages/tools/pdf-sign.astro`); backend in

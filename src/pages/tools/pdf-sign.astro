@@ -122,6 +122,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
             <label class="ink"><span>Ink</span><input type="color" id="date-color" value="#0b1f33" /></label>
           </div>
           <label class="check"><input type="checkbox" id="date-attach" checked /> Add the date next to each signature and initial</label>
+          <p class="help">These settings apply to new dates, and to a placed date while it is selected.</p>
           <button class="btn btn-block" id="date-add" type="button" disabled>Add a date to this page</button>
         </section>
 
@@ -227,17 +228,20 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       if (padSize && strokes.length && (padSize.w !== r.width || padSize.h !== r.height)) {
         // keep the drawing proportional when the pad changes size (expand / collapse / window resize)
         const f = Math.min(r.width / padSize.w, r.height / padSize.h);
-        strokes.forEach((s) => { s.base *= f; s.pts.forEach((p) => { p.x *= f; p.y *= f; }); });
+        strokes.forEach((s) => { s.base *= f; s.k *= f; s.pts.forEach((p) => { p.x *= f; p.y *= f; }); });
       }
       padSize = { w: r.width, h: r.height };
       const d = DPR();
       dc.width = Math.round(r.width * d); dc.height = Math.round(r.height * d);
       dctx.setTransform(d, 0, 0, d, 0, 0); redrawPad();
     }
-    const penBase = () => parseFloat($('draw-pen').value);
+    // pen width and speed thresholds are defined for the 150 px tray pad and scale with the pad,
+    // so a signature drawn in the expanded pad keeps the same stroke weight once it is saved
+    const padK = () => ((padSize && padSize.h) || 150) / 150;
+    const penBase = () => parseFloat($('draw-pen').value) * padK();
     function segWidth(a, b, s) {
       const dt = Math.max(1, b.t - a.t), dist = Math.hypot(b.x - a.x, b.y - a.y);
-      const v = dist / dt;                                   // px per ms
+      const v = dist / dt / (s.k || 1);                      // px per ms, normalised to the tray pad size
       // a mouse/trackpad moves in jerks, so vary the width less than a pen or finger would
       const lo = s.mouse ? 0.8 : 0.55, hi = s.mouse ? 1.15 : 1.35, k = s.mouse ? 0.4 : 0.9;
       const target = s.base * Math.max(lo, Math.min(hi, hi - v * k));
@@ -264,7 +268,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
     const dpos = (e) => { const r = dc.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: e.timeStamp }; };
     dc.addEventListener('pointerdown', (e) => {
       e.preventDefault(); dc.setPointerCapture(e.pointerId);
-      cur = { color: $('draw-color').value, base: penBase(), mouse: e.pointerType === 'mouse', pts: [dpos(e)] }; lastW = 0;
+      cur = { color: $('draw-color').value, base: penBase(), k: padK(), mouse: e.pointerType === 'mouse', pts: [dpos(e)] }; lastW = 0;
       strokes.push(cur); drawStroke(cur);
     });
     dc.addEventListener('pointermove', (e) => {
@@ -486,6 +490,17 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
       $('date-format').value = cur;
     }
     $('date-value').addEventListener('change', syncFormatLabels); syncFormatLabels();
+    // while a placed date stamp is selected, the date controls edit that stamp in place
+    function applyDateControlsToSelected() {
+      const p = placements.find((q) => q.id === selectedId && q.kind === 'date'); if (!p) return;
+      const text = dateText(); if (!text) return;
+      const size = +$('date-size').value || p.size, m = measureText(text, size);
+      Object.assign(p, { text, size, color: $('date-color').value, w: m.w, h: m.h }); clampTo(p);
+      renderOverlays();
+    }
+    ['date-value', 'date-format', 'date-size', 'date-color'].forEach((id) => {
+      $(id).addEventListener('input', applyDateControlsToSelected); $(id).addEventListener('change', applyDateControlsToSelected);
+    });
     const mctx = document.createElement('canvas').getContext('2d');
     function measureText(text, size) {
       mctx.font = `${size}px Helvetica, Arial, sans-serif`;
