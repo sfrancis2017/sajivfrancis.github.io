@@ -72,6 +72,8 @@ const pdfSource = {
   },
 };
 const showPdf = pdfBody.length > 40;
+// Ask-this-page (plan 08 item 2): opens the chat scoped to this post.
+const askThis = JSON.stringify({ pins: [postUrl], label: title, q: '' });
 // XSS-safe JSON data island: escape `<` so a literal "</script>" can't close
 // the tag early. JSON.parse decodes < back to <.
 const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
@@ -116,6 +118,11 @@ const pdfSourceJson = JSON.stringify(pdfSource).replace(/</g, '\\u003c');
             <span class="pdf-btn-label">PDF</span>
           </button>
         )}
+        <span aria-hidden="true">·</span>
+        <button type="button" data-ask={askThis} class="normal-case tracking-normal inline-flex items-center gap-1 hover:text-[var(--color-fg)] no-underline bg-transparent border-0 p-0 cursor-pointer" title="Ask the chat a question answered only from this post">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Ask about this post</span>
+        </button>
       </div>
 
       <h1 class="mt-4 text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1]">

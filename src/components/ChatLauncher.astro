@@ -239,10 +239,26 @@ const hide = Astro.url.pathname.startsWith('/chat');
 
         let mounted = false;
         let lastScrollY = 0;
+        const CHAT_ORIGIN = 'https://chat.sajivfrancis.com';
 
-        function openLauncher() {
-          if (!mounted) {
-            iframe.src = 'https://chat.sajivfrancis.com';
+        // Ask-this-page: any element with data-ask='{"pins":[url…],"label":…,"q":…}'
+        // or a `sajiv:open-chat` CustomEvent opens the chat scoped to those
+        // pages (the chat reads ?pin=… and restricts retrieval to them). A
+        // scoped open always reloads the iframe so a fresh thread is created.
+        type AskDetail = { pins?: string[]; label?: string; q?: string };
+        function chatUrl(detail?: AskDetail) {
+          if (!detail || !detail.pins || detail.pins.length === 0) return CHAT_ORIGIN;
+          const u = new URL(CHAT_ORIGIN + '/');
+          for (const pin of detail.pins) u.searchParams.append('pin', pin);
+          if (detail.label) u.searchParams.set('pin_label', detail.label);
+          if (detail.q) u.searchParams.set('q', detail.q);
+          return u.toString();
+        }
+
+        function openLauncher(detail?: AskDetail) {
+          const scoped = !!(detail && detail.pins && detail.pins.length);
+          if (!mounted || scoped) {
+            iframe.src = chatUrl(detail);
             mounted = true;
           }
           applyStoredSize();
@@ -374,7 +390,19 @@ const hide = Astro.url.pathname.startsWith('/chat');
           startResize('xy', e as PointerEvent)
         );
 
-        button.addEventListener('click', openLauncher);
+        button.addEventListener('click', () => openLauncher());
+        document.addEventListener('sajiv:open-chat', (e) =>
+          openLauncher((e as CustomEvent<AskDetail>).detail)
+        );
+        document.addEventListener('click', (e) => {
+          const el = (e.target as HTMLElement | null)?.closest?.('[data-ask]') as HTMLElement | null;
+          if (!el) return;
+          try {
+            openLauncher(JSON.parse(el.dataset.ask || '{}'));
+          } catch {
+            /* malformed data-ask — ignore */
+          }
+        });
         backdrop.addEventListener('click', closeLauncher);
         closeBtn.addEventListener('click', closeLauncher);
         expandBtn.addEventListener('click', toggleExpand);

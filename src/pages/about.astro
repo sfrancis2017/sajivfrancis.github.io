@@ -4,6 +4,8 @@ import HeroVideo from '@/components/HeroVideo.astro';
 
 // Phase 0 about teaser — paste the CDN URL from the video pipeline here.
 const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/about/1781500742740.mp4';
+// Ask-this-page (plan 08 item 2): chat scoped to this page.
+const askThis = JSON.stringify({ pins: [new URL('/about', Astro.site).toString()], label: 'About Sajiv Francis', q: '' });
 ---
 
 <BaseLayout
@@ -32,6 +34,10 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
         side about what AI changes in the practice of architecture
         and the leadership built on top of it.
       </p>
+      <button type="button" data-ask={askThis} class="ask-page-btn" title="Ask the chat a question answered only from this page">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        <span>Ask about this page</span>
+      </button>
     </section>
 
     <article class="prose dark:prose-invert max-w-none about-now">
@@ -720,3 +726,21 @@ const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/a
     setMeta();
   })();
 </script>
+<style>
+  .ask-page-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--color-fg-muted);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 0.28rem 0.65rem;
+    cursor: pointer;
+  }
+  .ask-page-btn:hover { color: var(--color-fg); }
+</style>
