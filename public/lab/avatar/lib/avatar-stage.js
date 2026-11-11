@@ -60,8 +60,9 @@ export function createStage(container, { background = 0xf4f4f5, controls = true,
   return {
     scene, camera, renderer, controls: orbit,
     add(obj) { scene.add(obj); },
-    // Frame the head: camera in front of the head bone, slightly above eye line.
-    frameHead(avatar, { distance = 0.62, lift = 0.02, lookDown = 0.01 } = {}) {
+    // Frame head-and-shoulders: camera in front of the head bone, slightly above eye line
+    // (distance ≈ 0.6 is a tight face crop; 0.95 shows the shoulders).
+    frameHead(avatar, { distance = 0.95, lift = 0.02, lookDown = 0.03 } = {}) {
       const head = avatar.headWorldPosition();
       camera.position.set(head.x, head.y + lift, head.z + distance);
       const target = new Vector3(head.x, head.y - lookDown, head.z);

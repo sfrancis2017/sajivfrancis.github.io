@@ -19,3 +19,17 @@ bones named `Head`, `Neck`, `Spine*`, `LeftEye`, `RightEye` (Mixamo /
 MetaPerson naming; the regexes in `avatar-loader.js` are the place to widen).
 
 Composition example: `src/pages/tools/avatar-lab.astro`.
+
+## Asset notes (`model.glb`)
+
+- MetaPerson export, optimised with `gltf-transform optimize --compress meshopt
+  --texture-compress webp --texture-size 1024` (14.3 MB → 2.36 MB; 51 ARKit
+  targets and the 73-joint rig intact).
+- The head's base-colour texture shipped with a blue tint across the neck
+  (inherited from the source photo, visible in the unlit render too). It was
+  repainted to the cheek skin tone with a cool-tint mask over the lower half of
+  the texture before the optimise pass. Re-export from MetaPerson will need the
+  same pass — check the neck in an unlit render first. Future licensed avatars
+  should be checked the same way before they are accepted.
+- Default framing in `avatar-stage.js` (`frameHead`) is head-and-shoulders
+  (distance 0.95); 0.6 is a tight face crop.

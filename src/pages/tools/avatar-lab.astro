@@ -57,6 +57,7 @@ const SAMPLE_TEXT =
         <div class="row">
           <button id="speak" class="primary" type="button">Speak</button>
           <button id="stop" type="button">Stop</button>
+          <button id="reframe" type="button" title="Reset the camera after orbiting">Reframe</button>
           <label class="check"><input id="idle" type="checkbox" checked /> Idle motion</label>
         </div>
         <p id="speak-status" class="status"></p>
@@ -104,13 +105,14 @@ const SAMPLE_TEXT =
     }
 
     // ---- Stage + avatar ------------------------------------------------------
+    const FRAMING = { distance: 0.95, lift: 0.015, lookDown: 0.03 }; // head-and-shoulders
     const stage = createStage($('stage'), { background: 0xeeeff2 });
     let avatar, idle, lips;
     try {
       const t0 = performance.now();
       avatar = await loadAvatar(MODEL_URL, { onProgress: (ev) => { if (ev.total) $('load-status').textContent = `Loading ${Math.round((ev.loaded / ev.total) * 100)}%`; } });
       stage.add(avatar.root);
-      stage.frameHead(avatar, { distance: 0.58, lift: 0.015 });
+      stage.frameHead(avatar, FRAMING);
       idle = createIdle(avatar);
       lips = createLipsync(avatar, { gain: Number($('gain').value) });
       lips.attach($('audio'));
@@ -130,6 +132,7 @@ const SAMPLE_TEXT =
     $('idle').addEventListener('change', (e) => idle?.setEnabled(e.target.checked));
     $('gain').addEventListener('input', (e) => { if (lips) lips.options.gain = Number(e.target.value); });
     $('stop').addEventListener('click', () => { const a = $('audio'); a.pause(); a.currentTime = 0; });
+    $('reframe').addEventListener('click', () => { if (avatar) stage.frameHead(avatar, FRAMING); });
 
     const voice = createVoiceClient({ endpoint: TTS_ENDPOINT, getToken });
     $('speak').addEventListener('click', async () => {
