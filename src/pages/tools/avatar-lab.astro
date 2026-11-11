@@ -1,0 +1,186 @@
+---
+// Avatar Lab — plan 08 §5a spike. Composes the portable modules in
+// /lab/avatar/lib/ (engine-neutral: loader, stage, idle, lipsync, voice) around
+// one MetaPerson GLB and the chat worker's TTS route. Owner-gated like every
+// /tools/* page. Everything site-specific lives in THIS file; the lib stays
+// portable for Gravitite.
+import BaseLayout from '@/layouts/BaseLayout.astro';
+const TTS_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/voice/tts';
+const MODEL_URL = '/lab/avatar/model.glb';
+const SAMPLE_TEXT =
+  'SAP Group Reporting, part two. The period-end close is a gated sequence: the Data Monitor owns data preparation from raw ingestion through currency translation, and the Consolidation Monitor owns elimination, adjustment and final validation through to consolidated financial release.';
+---
+<BaseLayout
+  title="Avatar Lab"
+  description="Owner-only spike: a rigged 3D avatar that idles, blinks and speaks docs summaries — the test bed for the voice tour and for Gravitite guides."
+  mainClass="max-w-6xl"
+>
+  <script type="importmap" is:inline>
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <article class="container">
+    <header class="tool-header">
+      <div class="title">
+        <h1>Avatar Lab</h1>
+        <div class="subtitle">Rigged 3D avatar + idle behaviours + audio-driven lip-sync, built from portable modules.</div>
+      </div>
+      <a class="back-link" href="/tools/">All tools</a>
+    </header>
+
+    <div class="layout">
+      <section class="panel stage-panel">
+        <div id="stage" class="stage" aria-label="3D avatar"></div>
+        <div class="stage-foot">
+          <span id="load-status">Loading model…</span>
+          <span id="fps" class="muted"></span>
+        </div>
+      </section>
+
+      <section class="panel controls">
+        <h2>Speak</h2>
+        <label class="field full">
+          <span>Text (≤ 1,500 chars)</span>
+          <textarea id="text" rows="7">{SAMPLE_TEXT}</textarea>
+        </label>
+        <div class="row">
+          <label class="field"><span>Voice</span>
+            <select id="voice"><option value="">default (eve)</option><option value="ara">ara</option><option value="leo">leo</option></select>
+          </label>
+          <label class="field"><span>Lip gain</span><input id="gain" type="range" min="0.5" max="5" step="0.1" value="2.2" /></label>
+        </div>
+        <div class="row">
+          <button id="speak" class="primary" type="button">Speak</button>
+          <button id="stop" type="button">Stop</button>
+          <label class="check"><input id="idle" type="checkbox" checked /> Idle motion</label>
+        </div>
+        <p id="speak-status" class="status"></p>
+        <audio id="audio" preload="auto"></audio>
+
+        <h2>Measurements</h2>
+        <dl class="metrics">
+          <dt>Model</dt><dd id="m-model">—</dd>
+          <dt>Load</dt><dd id="m-load">—</dd>
+          <dt>Targets / bones</dt><dd id="m-rig">—</dd>
+          <dt>TTS first byte</dt><dd id="m-ttfb">—</dd>
+          <dt>TTS total</dt><dd id="m-total">—</dd>
+          <dt>Audio</dt><dd id="m-audio">—</dd>
+          <dt>Est. cost</dt><dd id="m-cost">—</dd>
+        </dl>
+        <p class="muted small">Modules: <code>/lab/avatar/lib/</code> (loader, stage, idle, lipsync, voice). See the README there for porting.</p>
+        <p id="auth" class="status"></p>
+      </section>
+    </div>
+  </article>
+
+  <script type="module" is:inline define:vars={{ TTS_ENDPOINT, MODEL_URL }}>
+    import { loadAvatar } from '/lab/avatar/lib/avatar-loader.js';
+    import { createStage } from '/lab/avatar/lib/avatar-stage.js';
+    import { createIdle } from '/lab/avatar/lib/avatar-idle.js';
+    import { createLipsync } from '/lab/avatar/lib/avatar-lipsync.js';
+    import { createVoiceClient } from '/lab/avatar/lib/voice-client.js';
+
+    const $ = (id) => document.getElementById(id);
+    const fmtKb = (b) => (b >= 1e6 ? `${(b / 1e6).toFixed(2)} MB` : `${Math.round(b / 1e3)} KB`);
+
+    // ---- Owner token (same key + SSO handoff as /admin/write) ----------------
+    const TOKEN_KEY = 'write-token';
+    const SSO_HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff';
+    (function consumeHandoff() {
+      const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+      if (!m) return;
+      try { localStorage.setItem(TOKEN_KEY, decodeURIComponent(m[1])); } catch {}
+      history.replaceState(null, '', location.pathname + location.search);
+    })();
+    const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
+    if (!getToken()) {
+      $('auth').innerHTML = 'Speech needs the owner token. <a href="#" id="sso">Sign in with Access</a> (rendering works without it).';
+      $('sso').addEventListener('click', (e) => { e.preventDefault(); location.href = SSO_HANDOFF + '?redirect=' + encodeURIComponent(location.href); });
+    }
+
+    // ---- Stage + avatar ------------------------------------------------------
+    const stage = createStage($('stage'), { background: 0xeeeff2 });
+    let avatar, idle, lips;
+    try {
+      const t0 = performance.now();
+      avatar = await loadAvatar(MODEL_URL, { onProgress: (ev) => { if (ev.total) $('load-status').textContent = `Loading ${Math.round((ev.loaded / ev.total) * 100)}%`; } });
+      stage.add(avatar.root);
+      stage.frameHead(avatar, { distance: 0.58, lift: 0.015 });
+      idle = createIdle(avatar);
+      lips = createLipsync(avatar, { gain: Number($('gain').value) });
+      lips.attach($('audio'));
+      stage.onTick((dt, t) => { idle.tick(dt, t); lips.tick(dt); });
+      stage.start();
+      $('load-status').textContent = 'Ready';
+      $('m-model').textContent = `${fmtKb(avatar.stats.bytes)} · ${avatar.stats.meshCount} meshes`;
+      $('m-load').textContent = `${Math.round(performance.now() - t0)} ms (loader ${avatar.stats.loadMs} ms)`;
+      $('m-rig').textContent = `${avatar.stats.morphCount} targets · head ${avatar.bones.head ? '✓' : '✗'} eyes ${avatar.bones.leftEye && avatar.bones.rightEye ? '✓' : '✗'} spine ${avatar.bones.spine ? '✓' : '✗'}`;
+      setInterval(() => { $('fps').textContent = `${stage.fps} fps · ${stage.drawCalls} draw calls`; }, 1000);
+    } catch (err) {
+      $('load-status').textContent = `Model failed: ${err?.message ?? err}`;
+      console.error(err);
+    }
+
+    // ---- Controls ------------------------------------------------------------
+    $('idle').addEventListener('change', (e) => idle?.setEnabled(e.target.checked));
+    $('gain').addEventListener('input', (e) => { if (lips) lips.options.gain = Number(e.target.value); });
+    $('stop').addEventListener('click', () => { const a = $('audio'); a.pause(); a.currentTime = 0; });
+
+    const voice = createVoiceClient({ endpoint: TTS_ENDPOINT, getToken });
+    $('speak').addEventListener('click', async () => {
+      const text = $('text').value.trim();
+      if (!text) return;
+      if (!getToken()) { $('speak-status').textContent = 'Sign in first (owner token).'; return; }
+      $('speak').disabled = true; $('speak-status').textContent = 'Synthesising…';
+      try {
+        const r = await voice.speak(text, { voice: $('voice').value || undefined });
+        $('m-ttfb').textContent = `${r.ttfbMs} ms (provider ${r.providerMs} ms, ${r.provider})`;
+        $('m-total').textContent = `${r.totalMs} ms for ${r.chars} chars`;
+        $('m-audio').textContent = fmtKb(r.bytes);
+        $('m-cost').textContent = r.estCostUsd ? `$${r.estCostUsd.toFixed(5)}` : 'n/a';
+        const a = $('audio'); a.src = r.audioUrl; await a.play();
+        $('speak-status').textContent = 'Speaking.';
+        a.addEventListener('ended', () => { $('speak-status').textContent = 'Done.'; }, { once: true });
+      } catch (err) {
+        $('speak-status').textContent = err?.status === 401 ? 'Token rejected — sign in again.' : `Failed: ${err?.message ?? err}`;
+      } finally { $('speak').disabled = false; }
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .container { display: block; }
+  .tool-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+  .tool-header h1 { margin: 0; font-size: 1.75rem; }
+  .subtitle { color: var(--color-fg-muted); margin-top: 0.25rem; }
+  .back-link { font-size: 0.85rem; white-space: nowrap; }
+  .layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1.25rem; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--color-border); border-radius: 0.75rem; padding: 1rem; background: var(--color-bg); }
+  .panel h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-fg-muted); margin: 1rem 0 0.5rem; }
+  .panel h2:first-child { margin-top: 0; }
+  .stage-panel { padding: 0.5rem; }
+  .stage { width: 100%; aspect-ratio: 3 / 4; max-height: 70vh; border-radius: 0.5rem; overflow: hidden; background: #eeeff2; }
+  .stage :global(canvas) { width: 100% !important; height: 100% !important; display: block; }
+  .stage-foot { display: flex; justify-content: space-between; padding: 0.5rem 0.4rem 0.1rem; font-size: 0.8rem; }
+  .field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; flex: 1; }
+  .field.full { width: 100%; }
+  .field span { color: var(--color-fg-muted); }
+  textarea, select { font: inherit; padding: 0.5rem; border: 1px solid var(--color-border); border-radius: 0.4rem; background: var(--color-bg); color: var(--color-fg); }
+  .row { display: flex; gap: 0.75rem; align-items: center; margin-top: 0.75rem; flex-wrap: wrap; }
+  button { font: inherit; padding: 0.45rem 0.9rem; border-radius: 0.4rem; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+  button.primary { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
+  button[disabled] { opacity: 0.6; cursor: progress; }
+  .check { display: inline-flex; gap: 0.4rem; align-items: center; font-size: 0.85rem; }
+  .status { font-size: 0.85rem; min-height: 1.2em; margin: 0.5rem 0 0; color: var(--color-fg-muted); }
+  .metrics { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; font-size: 0.85rem; margin: 0; }
+  .metrics dt { color: var(--color-fg-muted); }
+  .metrics dd { margin: 0; }
+  .muted { color: var(--color-fg-muted); }
+  .small { font-size: 0.78rem; margin-top: 1rem; }
+</style>
