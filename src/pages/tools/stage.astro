@@ -2,8 +2,9 @@
 // Companion stage — plan 10 steps 2–4. One screen: a question in (voice or
 // typed), a SCENE out (layout + data + narration), rendered by the portable
 // renderer in /lab/stage/lib/stage-render.js; the avatar (lab modules) sits
-// beside the element under narration (avatar-presence.js) while the narration
-// player speaks line by line (narration-player.js → TTS route, or silent
+// in its seat beside the scene (avatar-presence.js; moving to the narrated
+// element is PARKED per plan 10 Amendment B — `?move=1` re-enables it) while
+// the narration player speaks line by line (narration-player.js → TTS route, or silent
 // timing without a token). Voice in = voice-input.js (Web Speech or VAD + the
 // worker's STT route); every turn is timed from end of speech by
 // stage-metrics.js (plan 10 §8). Owner-gated like every /tools/* page.
@@ -130,6 +131,10 @@ const MODEL_URL = '/lab/avatar/model.glb';
     const ttsEndpoint = apiBase ? `${apiBase}/api/voice/tts` : TTS_ENDPOINT;
     const sttEndpoint = apiBase ? `${apiBase}/api/voice/stt` : STT_ENDPOINT;
     const silent = params.get('silent') === '1' || !getToken();
+    const moveAvatar = params.get('move') === '1'; // Amendment B: seated by default
+    // TTS voice follows the avatar's gender (founder, 2026-11-11): this test avatar
+    // is male → Grok "leo"; a female avatar later → "ara". `?tts=<id>` overrides.
+    const ttsVoice = params.get('tts') || 'leo';
     if (!getToken()) {
       $('auth').innerHTML = 'Asking and speech need the owner token. <a href="#" id="sso">Sign in with Access</a> — or press Samples: layouts render and the avatar moves in silent mode.';
       $('sso').addEventListener('click', (e) => { e.preventDefault(); location.href = SSO_HANDOFF + '?redirect=' + encodeURIComponent(location.href); });
@@ -175,7 +180,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
     const ackCache = new Map(); let ackIdx = 0; let acksLoading = null;
     function prefetchAcks() {
       if (silent || acksLoading) return acksLoading;
-      acksLoading = Promise.all(ACKS.map((t) => voice.speak(t).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
+      acksLoading = Promise.all(ACKS.map((t) => voice.speak(t, { voice: ttsVoice }).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
       return acksLoading;
     }
     // Audible marks: the next 'playing' event on the audio element stamps the
@@ -191,11 +196,11 @@ const MODEL_URL = '/lab/avatar/model.glb';
       return true;
     }
     const spoken = []; // last few spoken texts — echo guard for Web Speech
-    const remember = (t) => { spoken.push(t); if (spoken.length > 8) spoken.shift(); };
+    const remember = (t) => { if (!t || spoken.includes(t)) return; spoken.push(t); if (spoken.length > 16) spoken.shift(); };
     const ttfbs = []; let lineOffset = 0;
     const player = createNarrationPlayer({
       audioEl,
-      speak: silent ? null : (text) => voice.speak(text),
+      speak: silent ? null : (text) => voice.speak(text, { voice: ttsVoice }),
       onLineStart: (i, line) => { setLine(i + lineOffset); remember(line.text); if (i + lineOffset === 0) { if (silent) mark('line1_ms'); else pendingMark = 'line1_ms'; } },
       onLineEnd: (i) => { if (i + lineOffset === 0 && pendingMark === 'line1_ms') pendingMark = null; },
       onMetrics: (m) => { if (m.ttfbMs != null) { ttfbs.push(m.ttfbMs); $('m-tts').textContent = `${ttfbs[0]} / ${Math.round(ttfbs.reduce((a, b) => a + b, 0) / ttfbs.length)} ms (${m.provider})`; if (turn && turn.rec.tts_ttfb_ms == null) turn.rec.tts_ttfb_ms = m.ttfbMs; } if (m.error) $('status').textContent = `TTS: ${m.error}`; },
@@ -234,6 +239,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
       presence.setSize(s.avatar?.size || 'm');
       if (!keepPlaying) presence.moveTo(null);
       $('narration').innerHTML = '';
+      s.narration.forEach((n) => remember(n.text)); // every upcoming line counts as "my own voice" for the echo guard
       s.narration.forEach((n, i) => {
         const li = document.createElement('li'); li.textContent = n.text; li.dataset.focus = n.focus || '';
         li.addEventListener('click', () => { stopSpeaking(null); setLine(i); });
@@ -269,7 +275,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
       const focus = lis[i]?.dataset.focus || '';
       const el = view?.focus(focus || null) || null;
       const anchor = el && el.ownerSVGElement ? (el.closest('svg') || el) : el; // SVG parts anchor to the chart
-      presence.moveTo(anchor);
+      presence.moveTo(moveAvatar ? anchor : null);
       $('status').textContent = focus ? `line ${i + 1} → ${focus}${el ? '' : ' (not on screen)'}` : `line ${i + 1}`;
     }
 
@@ -330,7 +336,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
           onStatus: (text) => { if (turn === my) $('status').textContent = `Thinking… (${text})`; },
           onLine: (text, atMs) => {
             if (turn !== my || my.early) return;
-            my.early = { text, atMs, audio: silent ? null : voice.speak(text) }; // TTS starts now, before the data
+            my.early = { text, atMs, audio: silent ? null : voice.speak(text, { voice: ttsVoice }) }; // TTS starts now, before the data
             rec.first_line_worker_ms = atMs;
             $('narration').innerHTML = `<li class="current early">${text.replace(/</g, '&lt;')}</li>`;
             $('status').textContent = 'First line in — speaking while the data arrives…';
@@ -392,11 +398,16 @@ const MODEL_URL = '/lab/avatar/model.glb';
 
     const overlap = (a, b) => { const A = new Set(a.toLowerCase().match(/[a-z0-9']+/g) || []); const B = b.toLowerCase().match(/[a-z0-9']+/g) || []; return B.length ? B.filter((w) => A.has(w)).length / B.length : 0; };
     const isEcho = (text) => spoken.some((s) => overlap(s, text) >= 0.6);
+    const speaking = () => player.playing || (!audioEl.paused && !audioEl.ended);
+    const bargeIn = (t) => speaking() && (t.match(/[a-z0-9']+/gi) || []).length >= 2 && !isEcho(t);
     const mic = createVoiceInput({
       engine: $('engine').value, sttEndpoint, getToken,
       onState: (s) => { $('vstate').textContent = s; $('vstate').dataset.state = s; $('mic').classList.toggle('on', s !== 'off'); },
-      onPartial: (t) => { $('q').value = t; },
-      onSpeechStart: () => { if (player.playing || (!audioEl.paused && !audioEl.ended)) stopSpeaking('Listening…'); }, // barge-in
+      // Barge-in waits for WORDS, not sound: Web Speech's speech-start fires on the
+      // avatar's own voice from the speakers, which cut lines mid-sentence (founder,
+      // 2026-11-11). Playback stops only once an interim transcript is not an echo.
+      onPartial: (t) => { $('q').value = t; if (bargeIn(t)) stopSpeaking('Listening…'); },
+      onSpeechStart: () => {},
       onFinal: (text, meta) => {
         if (isEcho(text)) { $('status').textContent = `Ignored (echo of my own line): “${text}”`; return; }
         ask(text, meta);

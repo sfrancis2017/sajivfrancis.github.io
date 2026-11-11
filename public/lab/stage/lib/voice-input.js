@@ -5,6 +5,9 @@
 //   const mic = createVoiceInput({ engine: 'webspeech' | 'vad', sttEndpoint, getToken,
 //     onState, onPartial, onFinal, onSpeechStart, onError });
 //   await mic.start(); mic.stop(); mic.simulateFinal('text');   // tests
+// onPartial(text) carries interim words — the host's barge-in should key off
+// these (words), not off onSpeechStart (any sound, including the host's own
+// playback through the speakers).
 //
 // Engines:
 //   webspeech — the browser's SpeechRecognition (Chrome: Google's recogniser,
@@ -127,6 +130,7 @@ export function createVoiceInput({ engine = 'webspeech', lang = 'en-US', sttEndp
     },
     // Tests / typed fallback: feed a transcript through the same path.
     simulateSpeechStart() { onSpeechStart?.(); },
+    simulatePartial(text) { onPartial?.(String(text)); },
     simulateFinal(text, extra = {}) { const now = performance.now(); onFinal?.(String(text), { engine: 'sim', sttMs: 0, speechEndAt: now, backend: 'sim', ...extra }); },
   };
 }
