@@ -247,8 +247,11 @@ const hide = Astro.url.pathname.startsWith('/chat');
         // scoped open always reloads the iframe so a fresh thread is created.
         type AskDetail = { pins?: string[]; label?: string; q?: string };
         function chatUrl(detail?: AskDetail) {
-          if (!detail || !detail.pins || detail.pins.length === 0) return CHAT_ORIGIN;
           const u = new URL(CHAT_ORIGIN + '/');
+          // Host page: the chat uses it as the unlock return address so a new
+          // subscriber lands back on this page with the panel reopened.
+          u.searchParams.set('host', location.origin + location.pathname + location.search);
+          if (!detail || !detail.pins || detail.pins.length === 0) return u.toString();
           for (const pin of detail.pins) u.searchParams.append('pin', pin);
           if (detail.label) u.searchParams.set('pin_label', detail.label);
           if (detail.q) u.searchParams.set('q', detail.q);
@@ -391,6 +394,12 @@ const hide = Astro.url.pathname.startsWith('/chat');
         );
 
         button.addEventListener('click', () => openLauncher());
+        // Returning from the unlock email (#chat-open): reopen the panel; the
+        // chat restores the scoped thread and resends the unanswered question.
+        if (location.hash === '#chat-open') {
+          try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ignore */ }
+          openLauncher();
+        }
         document.addEventListener('sajiv:open-chat', (e) =>
           openLauncher((e as CustomEvent<AskDetail>).detail)
         );
