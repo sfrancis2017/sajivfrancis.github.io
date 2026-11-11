@@ -1,0 +1,105 @@
+{
+  "question": "How many articles and series are in the library?",
+  "scene": {
+    "layout": "kpi-tiles",
+    "title": "Library at a glance",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "There are 136 articles in the library.",
+        "focus": "tile:articles"
+      },
+      {
+        "id": "n2",
+        "text": "10 of them are multi-part series.",
+        "focus": "tile:series"
+      },
+      {
+        "id": "n3",
+        "text": "They're spread across 26 sections.",
+        "focus": "tile:sections"
+      },
+      {
+        "id": "n4",
+        "text": "Reading all of it takes about 1,321 minutes, which is roughly 22 hours.",
+        "focus": "tile:minutes"
+      }
+    ],
+    "data": {
+      "caption": "Totals across all sections",
+      "tiles": [
+        {
+          "id": "tile:articles",
+          "label": "Articles",
+          "value": "136",
+          "delta": null
+        },
+        {
+          "id": "tile:series",
+          "label": "Series",
+          "value": "10",
+          "delta": null
+        },
+        {
+          "id": "tile:sections",
+          "label": "Sections",
+          "value": "26",
+          "delta": null
+        },
+        {
+          "id": "tile:minutes",
+          "label": "Reading minutes",
+          "value": "1,321",
+          "delta": null
+        }
+      ]
+    },
+    "avatar": {
+      "slot": "side",
+      "size": "m",
+      "near": "tile:articles"
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Show all series",
+        "kind": "query",
+        "target": "List the multi-part series"
+      }
+    ],
+    "follow_ups": [
+      "Which sections have the most articles?",
+      "What series are in Architecture?",
+      "How long is each series?"
+    ],
+    "scene_id": "s-mwc9luk1"
+  },
+  "timings": {
+    "total_ms": 6471,
+    "model_ms": 6452,
+    "tool_ms": 16,
+    "steps": 2
+  },
+  "usage": {
+    "input": 2380,
+    "output": 599,
+    "cache_read": 3247
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "library_stats",
+      "input": {},
+      "ms": 16,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "kpi-tiles"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

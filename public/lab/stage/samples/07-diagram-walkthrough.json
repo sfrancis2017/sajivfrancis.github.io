@@ -1,0 +1,156 @@
+{
+  "question": "Walk me through the period-end close cycle described in Group Reporting part 2.",
+  "scene": {
+    "layout": "diagram-walkthrough",
+    "title": "Group Reporting period-end close cycle",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "Part 2 treats the close as a chain of steps. Each step has to pass a check before the next one can run.",
+        "focus": null
+      },
+      {
+        "id": "n2",
+        "text": "First the Data Monitor collects the data. Then it carries balances forward and calculates net income.",
+        "focus": "step:collect"
+      },
+      {
+        "id": "n3",
+        "text": "Next comes a check on the reported data. That's task 1180. If it fails, someone fixes the errors and runs it again.",
+        "focus": "step:validate1"
+      },
+      {
+        "id": "n4",
+        "text": "Once that passes, currency translation runs as task 1100. Then the standardized data gets its own check.",
+        "focus": "step:translate"
+      },
+      {
+        "id": "n5",
+        "text": "After that, the Consolidation Monitor takes over. It handles intercompany elimination, adjustments and a final check before the group financials are released.",
+        "focus": "step:consmon"
+      }
+    ],
+    "data": {
+      "caption": "Based on the free preview of Part 2. The full BPMN flow is for subscribers.",
+      "steps": [
+        {
+          "id": "collect",
+          "label": "Data collection (Data Monitor)",
+          "detail": "Then balance carryforward and net income calculation"
+        },
+        {
+          "id": "validate1",
+          "label": "Reported data validation (Task 1180)",
+          "detail": "Gate: if it fails, fix the data errors and run it again"
+        },
+        {
+          "id": "translate",
+          "label": "Currency translation (Task 1100)",
+          "detail": "Runs after the reported data passes its check"
+        },
+        {
+          "id": "validate2",
+          "label": "Standardized data validation",
+          "detail": "Gate: is the standardized data valid?"
+        },
+        {
+          "id": "consmon",
+          "label": "Consolidation Monitor phase",
+          "detail": "Intercompany elimination, adjustments, final check, then release"
+        }
+      ],
+      "diagram": {
+        "mermaid": "flowchart LR\nA[Data collection] --> B[Carryforward + net income]\nB --> C{Validation 1180}\nC -- fail --> D[Resolve errors] --> C\nC -- pass --> E[Currency translation 1100]\nE --> F{Standardized valid?}\nF -- pass --> G[Consolidation Monitor: elimination, release]",
+        "src": null
+      }
+    },
+    "avatar": {
+      "slot": "floating",
+      "size": "s",
+      "near": "step:collect"
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Open part 2",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-2/"
+      },
+      {
+        "id": "a2",
+        "label": "Open part 3",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-3/"
+      }
+    ],
+    "follow_ups": [
+      "What are the four integration patterns for bringing in entity data?",
+      "How does intercompany elimination work in Group Reporting?",
+      "What does Part 3 cover on matrix consolidation?"
+    ],
+    "scene_id": "s-mwc9nrqh"
+  },
+  "timings": {
+    "total_ms": 32947,
+    "model_ms": 31743,
+    "tool_ms": 1200,
+    "steps": 6
+  },
+  "usage": {
+    "input": 8643,
+    "output": 1511,
+    "cache_read": 19482
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "list_series",
+      "input": {
+        "section": "SAP"
+      },
+      "ms": 1,
+      "ok": true
+    },
+    {
+      "name": "search",
+      "input": {
+        "query": "Group Reporting part 2 period-end close cycle",
+        "k": 5
+      },
+      "ms": 553,
+      "ok": true
+    },
+    {
+      "name": "list_series",
+      "input": {
+        "section": null
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "series_parts",
+      "input": {
+        "series_id": "sap-group-reporting"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "page_text",
+      "input": {
+        "url": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-2/"
+      },
+      "ms": 646,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "diagram-walkthrough"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

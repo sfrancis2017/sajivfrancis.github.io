@@ -1,0 +1,201 @@
+---
+// Companion stage — plan 10 step 2. One screen: a question in, a SCENE out
+// (layout + data + narration), rendered by the portable renderer in
+// /lab/stage/lib/stage-render.js. Text track always visible; avatar slot is
+// a placeholder until step 3. Owner-gated like every /tools/* page.
+// Demo mode (?demo=1) plays the saved sample scenes without calling the API.
+import BaseLayout from '@/layouts/BaseLayout.astro';
+const STAGE_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/stage/turn';
+const SAMPLES_URL = '/lab/stage/samples/index.json';
+---
+<BaseLayout
+  title="Companion Stage"
+  description="Owner-only prototype: ask the library and get a scene — a layout, the data, and the narration an avatar will speak. Test bed for the Gravitite stage."
+  mainClass="max-w-6xl"
+>
+  <article class="container">
+    <header class="tool-header">
+      <div class="title">
+        <h1>Companion Stage</h1>
+        <div class="subtitle">Ask the library. Each answer is a scene: a layout, the data, and the lines the avatar will speak.</div>
+      </div>
+      <a class="back-link" href="/tools/">All tools</a>
+    </header>
+
+    <div id="auth" class="muted small"></div>
+
+    <form id="ask" class="ask">
+      <input id="q" type="text" placeholder="e.g. How many articles and series are in the library?" autocomplete="off" />
+      <button id="send" class="primary" type="submit">Ask</button>
+      <button id="back" type="button" title="Previous scene" disabled>← Back</button>
+      <button id="demo" type="button" title="Play the saved sample scenes">Samples</button>
+    </form>
+
+    <section id="stage" class="stage" data-slot="side" data-size="m">
+      <div class="stage-title">
+        <h2 id="scene-title">Ready</h2>
+        <span id="scene-layout" class="chip"></span>
+      </div>
+      <div class="stage-body">
+        <div id="layout" class="layout" aria-live="polite"></div>
+        <aside id="avatar-slot" class="avatar-slot" aria-hidden="true"><div class="avatar-ph">avatar<br/><span id="avatar-meta">side · m</span></div></aside>
+      </div>
+      <div id="actions" class="actions"></div>
+      <div id="followups" class="followups"></div>
+    </section>
+
+    <section class="panel track">
+      <div class="track-head"><h3>Text track</h3><span id="status" class="muted small"></span></div>
+      <ol id="narration" class="narration"></ol>
+    </section>
+
+    <section class="panel measure">
+      <h3>Measurements</h3>
+      <dl class="kv">
+        <dt>Turn</dt><dd id="m-turn">—</dd>
+        <dt>Model / tools</dt><dd id="m-split">—</dd>
+        <dt>Tool calls</dt><dd id="m-tools">—</dd>
+        <dt>Tokens in / out / cached</dt><dd id="m-tok">—</dd>
+        <dt>Est. cost</dt><dd id="m-cost">—</dd>
+        <dt>Scenes this session</dt><dd id="m-count">0</dd>
+      </dl>
+    </section>
+  </article>
+
+  <script type="module" is:inline define:vars={{ STAGE_ENDPOINT, SAMPLES_URL }}>
+    import { renderScene, STAGE_CSS } from '/lab/stage/lib/stage-render.js';
+    const $ = (id) => document.getElementById(id);
+    const style = document.createElement('style'); style.textContent = STAGE_CSS; document.head.appendChild(style);
+
+    // ---- owner token (same key + SSO handoff as the other tools) -------------
+    const TOKEN_KEY = 'write-token';
+    const SSO_HANDOFF = 'https://chat.sajivfrancis.com/admin/api/sso-handoff';
+    (function consumeHandoff() {
+      const m = (location.hash || '').match(/(?:^#|&)owner-token=([^&]+)/);
+      if (!m) return;
+      try { localStorage.setItem(TOKEN_KEY, decodeURIComponent(m[1])); } catch {}
+      history.replaceState(null, '', location.pathname + location.search);
+    })();
+    const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; } };
+    const params = new URLSearchParams(location.search);
+    const endpoint = params.get('api') ? `${params.get('api').replace(/\/$/, '')}/api/stage/turn` : STAGE_ENDPOINT;
+    if (!getToken()) {
+      $('auth').innerHTML = 'Asking needs the owner token. <a href="#" id="sso">Sign in with Access</a> — or press Samples to see the layouts.';
+      $('sso').addEventListener('click', (e) => { e.preventDefault(); location.href = SSO_HANDOFF + '?redirect=' + encodeURIComponent(location.href); });
+    }
+
+    // ---- state -----------------------------------------------------------------
+    const PRICE = { 'claude-opus-5-5': [4, 20, 0.2], 'claude-sonnet-5-5': [2, 10, 0.2] };
+    const scenes = []; // history of { question, scene, timings, usage, model }
+    let view = null;
+
+    function showScene(entry) {
+      const s = entry.scene;
+      $('scene-title').textContent = s.title;
+      $('scene-layout').textContent = s.layout;
+      view = renderScene($('layout'), s);
+      const stage = $('stage');
+      stage.dataset.slot = s.avatar?.slot || 'side'; stage.dataset.size = s.avatar?.size || 'm';
+      $('avatar-meta').textContent = `${stage.dataset.slot} · ${stage.dataset.size}${s.avatar?.near ? ' · near ' + s.avatar.near : ''}`;
+      $('narration').innerHTML = '';
+      s.narration.forEach((n, i) => {
+        const li = document.createElement('li'); li.textContent = n.text; li.dataset.focus = n.focus || '';
+        li.addEventListener('click', () => setLine(i));
+        $('narration').appendChild(li);
+      });
+      $('actions').innerHTML = '';
+      for (const a of s.actions || []) {
+        const b = document.createElement(a.kind === 'pivot' ? 'a' : 'button');
+        b.className = 'action'; b.textContent = a.label;
+        if (a.kind === 'pivot') { b.href = a.target; b.target = '_blank'; b.rel = 'noopener'; }
+        else b.addEventListener('click', () => ask(a.target));
+        $('actions').appendChild(b);
+      }
+      $('followups').innerHTML = '';
+      for (const f of s.follow_ups || []) { const b = document.createElement('button'); b.className = 'chip-btn'; b.textContent = f; b.addEventListener('click', () => ask(f)); $('followups').appendChild(b); }
+      setLine(0);
+      $('back').disabled = scenes.length < 2;
+      if (entry.timings) {
+        $('m-turn').textContent = `${entry.clientMs ?? entry.timings.total_ms} ms (worker ${entry.timings.total_ms} ms)`;
+        $('m-split').textContent = `${entry.timings.model_ms} / ${entry.timings.tool_ms} ms · ${entry.timings.steps} steps`;
+        $('m-tools').textContent = (entry.tool_calls || []).map((t) => t.name + (t.ok ? '' : ' ✗')).join(', ') || '—';
+        const u = entry.usage || {}; $('m-tok').textContent = `${u.input ?? 0} / ${u.output ?? 0} / ${u.cache_read ?? 0}`;
+        const p = PRICE[entry.model] || PRICE['claude-opus-5-5'];
+        $('m-cost').textContent = `$${(((u.input ?? 0) * p[0] + (u.output ?? 0) * p[1] + (u.cache_read ?? 0) * p[2]) / 1e6).toFixed(4)}`;
+      }
+      $('m-count').textContent = String(scenes.length);
+    }
+    function setLine(i) {
+      const lis = [...$('narration').children];
+      lis.forEach((li, j) => li.classList.toggle('current', j === i));
+      const focus = lis[i]?.dataset.focus || '';
+      view?.focus(focus || null);
+      $('status').textContent = focus ? `focus → ${focus}` : '';
+    }
+
+    async function ask(question) {
+      question = String(question || '').trim(); if (!question) return;
+      if (!getToken()) { $('status').textContent = 'Sign in first (owner token).'; return; }
+      $('send').disabled = true; $('status').textContent = 'Thinking…'; $('q').value = question;
+      const t0 = performance.now();
+      try {
+        const history = scenes.slice(-6).map((e) => ({ question: e.question, title: e.scene.title, layout: e.scene.layout }));
+        const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ question, history }) });
+        const body = await r.json();
+        if (!r.ok || !body.scene) { $('status').textContent = `Failed (${r.status}): ${body?.error ?? ''} ${(body?.errors || []).join('; ')}`; return; }
+        const entry = { question, ...body, clientMs: Math.round(performance.now() - t0) };
+        scenes.push(entry); showScene(entry);
+      } catch (err) { $('status').textContent = `Error: ${err?.message ?? err}`; }
+      finally { $('send').disabled = false; }
+    }
+
+    $('ask').addEventListener('submit', (e) => { e.preventDefault(); ask($('q').value); });
+    $('back').addEventListener('click', () => { if (scenes.length > 1) { scenes.pop(); showScene(scenes[scenes.length - 1]); } });
+
+    // ---- demo: saved sample scenes (no API) --------------------------------------
+    let demoIdx = -1, samples = null;
+    $('demo').addEventListener('click', async () => {
+      if (!samples) { samples = await (await fetch(SAMPLES_URL)).json(); }
+      demoIdx = (demoIdx + 1) % samples.length;
+      const entry = await (await fetch(`/lab/stage/samples/${samples[demoIdx]}`)).json();
+      scenes.push(entry); showScene(entry);
+      $('q').value = entry.question; $('status').textContent = `sample ${demoIdx + 1}/${samples.length}`;
+    });
+    if (params.get('demo')) $('demo').click();
+    window.__stage = { ask, scenes, show: (i) => showScene(scenes[i]) };
+  </script>
+</BaseLayout>
+
+<style>
+  .container { display: block; --st-surface: var(--color-bg); --st-border: var(--color-border); --st-muted: var(--color-fg-muted); --st-fg: var(--color-fg); --st-accent: #2a78d6; }
+  .tool-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+  .tool-header h1 { margin: 0; font-size: 1.75rem; }
+  .subtitle { color: var(--color-fg-muted); margin-top: 0.25rem; }
+  .muted { color: var(--color-fg-muted); } .small { font-size: 0.85rem; }
+  .ask { display: flex; gap: 0.5rem; margin: 0.75rem 0 1rem; flex-wrap: wrap; }
+  .ask input { flex: 1 1 320px; font: inherit; padding: 0.55rem 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-bg); color: var(--color-fg); }
+  button, .action { font: inherit; padding: 0.5rem 0.9rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); cursor: pointer; text-decoration: none; }
+  button.primary { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .stage { border: 1px solid var(--color-border); border-radius: 1rem; padding: 1rem 1.25rem; min-height: 360px; display: grid; gap: 0.75rem; background: color-mix(in srgb, var(--color-bg) 92%, var(--color-fg)); }
+  .stage-title { display: flex; align-items: center; gap: 0.75rem; }
+  .stage-title h2 { margin: 0; font-size: 1.35rem; }
+  .chip { font-size: 0.75rem; border: 1px solid var(--color-border); border-radius: 999px; padding: 0.1rem 0.6rem; color: var(--color-fg-muted); }
+  .stage-body { display: grid; grid-template-columns: 1fr 160px; gap: 1rem; align-items: start; }
+  .stage[data-slot="narrator"] .stage-body { grid-template-columns: 1fr 260px; }
+  .stage[data-slot="corner"] .stage-body { grid-template-columns: 1fr 110px; }
+  .stage[data-slot="floating"] .stage-body { grid-template-columns: 1fr 130px; }
+  .layout { min-width: 0; }
+  .avatar-slot { position: sticky; top: 1rem; aspect-ratio: 3 / 4; border: 1px dashed var(--color-border); border-radius: 0.75rem; display: grid; place-items: center; color: var(--color-fg-muted); font-size: 0.8rem; text-align: center; opacity: 0.8; }
+  .actions, .followups { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip-btn { border-radius: 999px; font-size: 0.85rem; padding: 0.35rem 0.8rem; }
+  .panel { border: 1px solid var(--color-border); border-radius: 0.75rem; padding: 1rem; margin-top: 1rem; }
+  .panel h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+  .track-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .narration { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.35rem; }
+  .narration li { cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
+  .narration li.current { background: color-mix(in srgb, #2a78d6 14%, transparent); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; }
+  .kv dt { color: var(--color-fg-muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  @media (max-width: 720px) { .stage-body, .stage[data-slot] .stage-body { grid-template-columns: 1fr; } .avatar-slot { position: static; width: 96px; aspect-ratio: 1; justify-self: end; } }
+</style>

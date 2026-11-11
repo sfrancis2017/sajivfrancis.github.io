@@ -1,0 +1,129 @@
+{
+  "question": "Which SAP areas are covered, and how many papers in each?",
+  "scene": {
+    "layout": "chart",
+    "title": "SAP areas and paper counts",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "The current SAP and Enterprise Systems shelf covers twelve areas, with twenty-five papers in total.",
+        "focus": null
+      },
+      {
+        "id": "n2",
+        "text": "Project System, Material Ledger, Group Reporting and Global Trade Services have three papers each, so they're the largest.",
+        "focus": null
+      },
+      {
+        "id": "n3",
+        "text": "Financial Accounting, FSCM and Treasury, and PaPM have one paper each. The other five areas have two each.",
+        "focus": null
+      },
+      {
+        "id": "n4",
+        "text": "There's also an older SAP reference archive with forty-five more articles. Nineteen of those are on ECC and S/4HANA.",
+        "focus": null
+      }
+    ],
+    "data": {
+      "caption": "Current SAP & Enterprise Systems areas: 25 papers in total. The older SAP reference archive adds 45 more.",
+      "chart": {
+        "kind": "bar",
+        "categories": [
+          "Product Costing",
+          "Production Planning",
+          "Project System",
+          "Financial Accounting (FI)",
+          "Asset Accounting",
+          "Material Ledger",
+          "Central Finance",
+          "Group Reporting",
+          "FSCM & Treasury",
+          "PaPM",
+          "Order-to-Cash",
+          "Global Trade Services"
+        ],
+        "series": [
+          {
+            "name": "Papers",
+            "values": [
+              2,
+              2,
+              3,
+              1,
+              2,
+              3,
+              2,
+              3,
+              1,
+              1,
+              2,
+              3
+            ]
+          }
+        ]
+      }
+    },
+    "avatar": {
+      "slot": "corner",
+      "size": "s",
+      "near": null
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Open Group Reporting",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/group-reporting/"
+      },
+      {
+        "id": "a2",
+        "label": "Open SAP ERP reference",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/reference/sap-erp-s4hana/"
+      }
+    ],
+    "follow_ups": [
+      "Which SAP areas have multi-part series?",
+      "What's in the Material Ledger papers?",
+      "What does the SAP reference archive contain?"
+    ],
+    "scene_id": "s-mwc9m15d"
+  },
+  "timings": {
+    "total_ms": 8529,
+    "model_ms": 8528,
+    "tool_ms": 0,
+    "steps": 3
+  },
+  "usage": {
+    "input": 2596,
+    "output": 961,
+    "cache_read": 6494
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "library_stats",
+      "input": {},
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "list_series",
+      "input": {
+        "section": "SAP"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "chart"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

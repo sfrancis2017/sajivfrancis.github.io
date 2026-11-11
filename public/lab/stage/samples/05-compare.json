@@ -1,0 +1,153 @@
+{
+  "question": "Compare the Group Reporting series with the Material Ledger cutover series.",
+  "scene": {
+    "layout": "compare",
+    "title": "Group Reporting vs Material Ledger cutover",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "Both series have three parts, but they cover very different ground.",
+        "focus": "point:parts"
+      },
+      {
+        "id": "n2",
+        "text": "Group Reporting takes about 44 minutes to read. The Material Ledger cutover series takes 166, nearly four times as long.",
+        "focus": "point:minutes"
+      },
+      {
+        "id": "n3",
+        "text": "Group Reporting is split by topic: foundations, then the period-end close, then investments and reporting.",
+        "focus": "point:structure"
+      },
+      {
+        "id": "n4",
+        "text": "The Material Ledger series is split by migration approach instead: brownfield, greenfield and bluefield.",
+        "focus": "point:structure"
+      },
+      {
+        "id": "n5",
+        "text": "So read Group Reporting to understand how consolidation works, and Material Ledger when you're planning a move from ECC to S/4HANA.",
+        "focus": "point:use"
+      }
+    ],
+    "data": {
+      "caption": "Two three-part SAP series, compared",
+      "compare": {
+        "left": "SAP Group Reporting",
+        "right": "Material Ledger Cutover: ECC to S/4HANA",
+        "points": [
+          {
+            "id": "parts",
+            "label": "Parts",
+            "left": "3",
+            "right": "3"
+          },
+          {
+            "id": "minutes",
+            "label": "Reading time",
+            "left": "44 min (10 / 15 / 19)",
+            "right": "166 min (45 / 62 / 59)"
+          },
+          {
+            "id": "structure",
+            "label": "Organised by",
+            "left": "Topic: Foundations & Master Data → Period-End Close → Investments, Matrix Consolidation & Reporting",
+            "right": "Migration approach: Brownfield conversion → Greenfield implementation → Bluefield / Selective Data Transition"
+          },
+          {
+            "id": "focus",
+            "label": "Core focus",
+            "left": "Consolidation as a financial architecture decision; close cycle, currency translation, intercompany elimination",
+            "right": "Material Ledger as the critical path of an ECC to S/4HANA cutover; migration and reconciliation risks"
+          },
+          {
+            "id": "use",
+            "label": "Best for",
+            "left": "Learning how consolidation and reporting run, up to SAP Analytics Cloud",
+            "right": "Planning a Material Ledger cutover from ECC to S/4HANA"
+          }
+        ],
+        "verdict": "Both have three parts, but Group Reporting is a short guide to a process (44 min). The Material Ledger series is a long migration playbook (166 min), split by cutover approach."
+      }
+    },
+    "avatar": {
+      "slot": "corner",
+      "size": "s",
+      "near": "point:parts"
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Open Group Reporting part 1",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-1/"
+      },
+      {
+        "id": "a2",
+        "label": "Open Material Ledger part 1",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/material-ledger/material-ledger-cutover-sap-ecc-to-s-4hana-part-1-brownfield-system-conversion/"
+      }
+    ],
+    "follow_ups": [
+      "What is in the Material Ledger cutover series?",
+      "How does the Group Reporting period-end close work?",
+      "Which other SAP series are there?"
+    ],
+    "scene_id": "s-mwc9mu0o"
+  },
+  "timings": {
+    "total_ms": 14745,
+    "model_ms": 14738,
+    "tool_ms": 1,
+    "steps": 5
+  },
+  "usage": {
+    "input": 3875,
+    "output": 1406,
+    "cache_read": 12988
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "list_series",
+      "input": {
+        "section": "SAP"
+      },
+      "ms": 1,
+      "ok": true
+    },
+    {
+      "name": "list_series",
+      "input": {
+        "section": null
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "series_parts",
+      "input": {
+        "series_id": "sap-group-reporting"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "series_parts",
+      "input": {
+        "series_id": "material-ledger-cutover"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "compare"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

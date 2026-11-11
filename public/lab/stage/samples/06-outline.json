@@ -1,0 +1,133 @@
+{
+  "question": "How is the TOGAF ADM in Practice series organised?",
+  "scene": {
+    "layout": "outline",
+    "title": "How TOGAF ADM in Practice is organised",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "TOGAF ADM in Practice sits in the Architecture section. It has two parts and takes about 24 minutes to read in total.",
+        "focus": null
+      },
+      {
+        "id": "n2",
+        "text": "Part 1, about 10 minutes, covers the Preliminary phase and the Architecture Vision, including the trade-offs and ways things go wrong that the standard leaves out.",
+        "focus": "node:part-1"
+      },
+      {
+        "id": "n3",
+        "text": "Part 2 is the longer one at 14 minutes. It works through Phases B, C and D, turning business requirements into technology constraints.",
+        "focus": "node:part-2"
+      },
+      {
+        "id": "n4",
+        "text": "Its main goal is to bring integration complexity to the surface early, before it turns into cost.",
+        "focus": "node:part-2"
+      }
+    ],
+    "data": {
+      "caption": "2 parts · 24 minutes · Architecture section",
+      "nodes": [
+        {
+          "id": "node:part-1",
+          "title": "Part 1: Foundation and Architecture Vision (10 min)",
+          "children": [
+            {
+              "id": "p1-a",
+              "title": "Preliminary phase"
+            },
+            {
+              "id": "p1-b",
+              "title": "Architecture Vision"
+            },
+            {
+              "id": "p1-c",
+              "title": "Trade-offs and failure modes the standard omits"
+            }
+          ]
+        },
+        {
+          "id": "node:part-2",
+          "title": "Part 2: Building the Architecture — Domains and Decisions (14 min)",
+          "children": [
+            {
+              "id": "p2-a",
+              "title": "Phases B, C and D"
+            },
+            {
+              "id": "p2-b",
+              "title": "Business requirements → technology constraints"
+            },
+            {
+              "id": "p2-c",
+              "title": "Surfacing integration complexity before it becomes cost"
+            }
+          ]
+        }
+      ]
+    },
+    "avatar": {
+      "slot": "side",
+      "size": "m",
+      "near": "node:part-1"
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Open part 1",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/architecture/enterprise-architecture/togaf-adm-in-practice-part-1-foundation-and-architecture-vision/"
+      },
+      {
+        "id": "a2",
+        "label": "Open part 2",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/architecture/enterprise-architecture/togaf-adm-in-practice-part-2-building-the-architecture-domains-and-decisions/"
+      }
+    ],
+    "follow_ups": [
+      "What else is in the Enterprise Architecture with SAP series?",
+      "Compare TOGAF ADM in Practice with Enterprise Architecture with SAP.",
+      "What failure modes does Part 1 describe?"
+    ],
+    "scene_id": "s-mwc9n2b0"
+  },
+  "timings": {
+    "total_ms": 10735,
+    "model_ms": 10734,
+    "tool_ms": 0,
+    "steps": 3
+  },
+  "usage": {
+    "input": 1782,
+    "output": 1110,
+    "cache_read": 9741
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "list_series",
+      "input": {
+        "section": "Architecture"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "series_parts",
+      "input": {
+        "series_id": "togaf-adm-in-practice"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "outline"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

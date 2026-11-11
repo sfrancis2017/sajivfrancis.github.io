@@ -1,0 +1,135 @@
+{
+  "question": "Where should I start if I want to learn about building efficient AI agents?",
+  "scene": {
+    "layout": "list",
+    "title": "Start here: Building Efficient AI Agents",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "Start with the four-part Building Efficient AI Agents series. It takes about 43 minutes to read in full.",
+        "focus": null
+      },
+      {
+        "id": "n2",
+        "text": "Part 1 is the place to begin. It's a four-minute read on the mental model and core architecture.",
+        "focus": "item:part-1"
+      },
+      {
+        "id": "n3",
+        "text": "Part 2 covers choosing a stack, deployment patterns and real cost figures.",
+        "focus": "item:part-2"
+      },
+      {
+        "id": "n4",
+        "text": "Once the ideas make sense, part 3 has working ReAct agents in Python and Node.js.",
+        "focus": "item:part-3"
+      },
+      {
+        "id": "n5",
+        "text": "Finish with part 4, the longest at 19 minutes. It covers security, evaluation and running agents in production.",
+        "focus": "item:part-4"
+      }
+    ],
+    "data": {
+      "caption": "Read in order: about 43 minutes for all 4 parts",
+      "items": [
+        {
+          "id": "part-1",
+          "title": "Part 1: The Mental Model & Core Architecture",
+          "subtitle": "4 min · How agents behave predictably, plus an architecture that holds up in production",
+          "href": "https://docs.sajivfrancis.com/ai/agents-and-tools/building-efficient-ai-agents-part-1-mental-model-and-core-architecture/"
+        },
+        {
+          "id": "part-2",
+          "title": "Part 2: Technology Stack, Deployment Patterns & Cost",
+          "subtitle": "5 min · Choosing a stack and deploying it, with real cost figures",
+          "href": "https://docs.sajivfrancis.com/ai/agents-and-tools/building-efficient-ai-agents-part-2-technology-stack-and-deployment/"
+        },
+        {
+          "id": "part-3",
+          "title": "Part 3: Code Reference & Agentic Workflows",
+          "subtitle": "15 min · ReAct agents in Python and Node.js, plus multi-agent composition",
+          "href": "https://docs.sajivfrancis.com/ai/agents-and-tools/building-efficient-ai-agents-part-3-code-reference-and-agentic-workflows/"
+        },
+        {
+          "id": "part-4",
+          "title": "Part 4: Security, Evaluation & Production Operations",
+          "subtitle": "19 min · Trust boundaries, evaluation, observability",
+          "href": "https://docs.sajivfrancis.com/ai/agents-and-tools/building-efficient-ai-agents-part-4-security-evaluation-and-operations/"
+        }
+      ]
+    },
+    "avatar": {
+      "slot": "side",
+      "size": "m",
+      "near": "item:part-1"
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Open part 1",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/ai/agents-and-tools/building-efficient-ai-agents-part-1-mental-model-and-core-architecture/"
+      },
+      {
+        "id": "a2",
+        "label": "Jump to the code (part 3)",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/ai/agents-and-tools/building-efficient-ai-agents-part-3-code-reference-and-agentic-workflows/"
+      }
+    ],
+    "follow_ups": [
+      "What is the core agent architecture in part 1?",
+      "What cost figures does part 2 give?",
+      "How does part 4 handle agent security?"
+    ],
+    "scene_id": "s-mwc9o29n"
+  },
+  "timings": {
+    "total_ms": 13641,
+    "model_ms": 13365,
+    "tool_ms": 274,
+    "steps": 4
+  },
+  "usage": {
+    "input": 2508,
+    "output": 1438,
+    "cache_read": 9741
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "search",
+      "input": {
+        "query": "building efficient AI agents",
+        "k": 6
+      },
+      "ms": 274,
+      "ok": true
+    },
+    {
+      "name": "list_series",
+      "input": {
+        "section": "AI"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "series_parts",
+      "input": {
+        "series_id": "building-efficient-ai-agents"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "list"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

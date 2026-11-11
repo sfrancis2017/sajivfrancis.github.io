@@ -1,0 +1,115 @@
+{
+  "question": "What is in the Group Reporting series?",
+  "scene": {
+    "layout": "list",
+    "title": "SAP Group Reporting: three parts",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "The SAP Group Reporting series has three parts, about 44 minutes of reading in total.",
+        "focus": null
+      },
+      {
+        "id": "n2",
+        "text": "Part 1, ten minutes, covers foundations and master data. It treats consolidation as a financial architecture decision.",
+        "focus": "item:part-1"
+      },
+      {
+        "id": "n3",
+        "text": "Part 2, fifteen minutes, walks the period-end close step by step, from the Data Monitor through currency translation and intercompany elimination.",
+        "focus": "item:part-2"
+      },
+      {
+        "id": "n4",
+        "text": "Part 3 is the longest at nineteen minutes. It covers investments, matrix consolidation and the reporting stack up to SAP Analytics Cloud.",
+        "focus": "item:part-3"
+      }
+    ],
+    "data": {
+      "caption": "3 parts · 44 minutes total",
+      "items": [
+        {
+          "id": "item:part-1",
+          "title": "Part 1: Foundations & Master Data",
+          "subtitle": "Why consolidation is a financial architecture decision, plus the platform and master-data skeleton seen through a BDAT lens. 10 min",
+          "href": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-1/"
+        },
+        {
+          "id": "item:part-2",
+          "title": "Part 2: The Period-End Close Cycle",
+          "subtitle": "The close as a gated sequence: Data Monitor, currency translation, intercompany elimination, Consolidation Monitor. 15 min",
+          "href": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-2/"
+        },
+        {
+          "id": "item:part-3",
+          "title": "Part 3: Investments, Matrix Consolidation & Reporting",
+          "subtitle": "Consolidation of investments, matrix consolidation and the CDS-based reporting stack up to SAP Analytics Cloud. 19 min",
+          "href": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-3/"
+        }
+      ]
+    },
+    "avatar": {
+      "slot": "side",
+      "size": "m",
+      "near": "item:part-1"
+    },
+    "actions": [
+      {
+        "id": "a1",
+        "label": "Open part 1",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-1/"
+      },
+      {
+        "id": "a2",
+        "label": "Open part 2",
+        "kind": "pivot",
+        "target": "https://docs.sajivfrancis.com/sap/group-reporting/sap-group-reporting-part-2/"
+      }
+    ],
+    "follow_ups": [
+      "How does the period-end close cycle work?",
+      "What is matrix consolidation?",
+      "What other SAP series are there?"
+    ],
+    "scene_id": "s-mwc9mb58"
+  },
+  "timings": {
+    "total_ms": 12942,
+    "model_ms": 12940,
+    "tool_ms": 0,
+    "steps": 3
+  },
+  "usage": {
+    "input": 1340,
+    "output": 1150,
+    "cache_read": 9741
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "list_series",
+      "input": {
+        "section": "Group Reporting"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "series_parts",
+      "input": {
+        "series_id": "sap-group-reporting"
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "list"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}

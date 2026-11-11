@@ -1,0 +1,172 @@
+{
+  "question": "List all the multi-part series with their reading time.",
+  "scene": {
+    "layout": "table",
+    "title": "Multi-part series and reading time",
+    "narration": [
+      {
+        "id": "n1",
+        "text": "There are ten multi-part series, with 27 parts and 601 minutes of reading altogether.",
+        "focus": null
+      },
+      {
+        "id": "n2",
+        "text": "The longest by far is the Material Ledger cutover series: three parts and 166 minutes.",
+        "focus": "row:material-ledger-cutover"
+      },
+      {
+        "id": "n3",
+        "text": "Next is Project System at 71 minutes, then Global Trade Services at 66.",
+        "focus": "row:sap-project-system"
+      },
+      {
+        "id": "n4",
+        "text": "The shortest is TOGAF ADM in Practice: two parts and 24 minutes.",
+        "focus": "row:togaf-adm-in-practice"
+      }
+    ],
+    "data": {
+      "caption": "10 series · 27 parts · 601 minutes in total",
+      "columns": [
+        "Series",
+        "Section",
+        "Parts",
+        "Minutes"
+      ],
+      "rows": [
+        {
+          "id": "row:material-ledger-cutover",
+          "cells": [
+            "Material Ledger Cutover: ECC to S/4HANA",
+            "Material Ledger",
+            "3",
+            "166"
+          ]
+        },
+        {
+          "id": "row:sap-project-system",
+          "cells": [
+            "SAP S/4HANA Project System",
+            "Project System",
+            "3",
+            "71"
+          ]
+        },
+        {
+          "id": "row:sap-global-trade-services",
+          "cells": [
+            "SAP Global Trade Services",
+            "Global Trade Services (GTS)",
+            "3",
+            "66"
+          ]
+        },
+        {
+          "id": "row:order-to-cash-s4hana",
+          "cells": [
+            "Order-to-Cash in SAP S/4HANA",
+            "Order-to-Cash (O2C)",
+            "2",
+            "64"
+          ]
+        },
+        {
+          "id": "row:product-costing-s4hana",
+          "cells": [
+            "Product Costing in SAP S/4HANA",
+            "Product Costing",
+            "2",
+            "49"
+          ]
+        },
+        {
+          "id": "row:sap-group-reporting",
+          "cells": [
+            "SAP Group Reporting",
+            "Group Reporting",
+            "3",
+            "44"
+          ]
+        },
+        {
+          "id": "row:building-efficient-ai-agents",
+          "cells": [
+            "Building Efficient AI Agents",
+            "AI",
+            "4",
+            "43"
+          ]
+        },
+        {
+          "id": "row:production-planning-s4hana",
+          "cells": [
+            "Production Planning in SAP S/4HANA",
+            "Production Planning",
+            "2",
+            "40"
+          ]
+        },
+        {
+          "id": "row:enterprise-architecture-with-sap",
+          "cells": [
+            "Enterprise Architecture with SAP",
+            "Architecture",
+            "3",
+            "34"
+          ]
+        },
+        {
+          "id": "row:togaf-adm-in-practice",
+          "cells": [
+            "TOGAF ADM in Practice",
+            "Architecture",
+            "2",
+            "24"
+          ]
+        }
+      ]
+    },
+    "avatar": {
+      "slot": "corner",
+      "size": "s",
+      "near": null
+    },
+    "actions": [],
+    "follow_ups": [
+      "What is in the Material Ledger Cutover series?",
+      "What are the parts of Building Efficient AI Agents?",
+      "How do the two Architecture series compare?"
+    ],
+    "scene_id": "s-mwc9mimr"
+  },
+  "timings": {
+    "total_ms": 9690,
+    "model_ms": 9690,
+    "tool_ms": 0,
+    "steps": 2
+  },
+  "usage": {
+    "input": 1028,
+    "output": 1069,
+    "cache_read": 6494
+  },
+  "model": "claude-opus-5-5",
+  "tool_calls": [
+    {
+      "name": "list_series",
+      "input": {
+        "section": null
+      },
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "name": "emit_scene",
+      "input": {
+        "layout": "table"
+      },
+      "ms": 0,
+      "ok": true
+    }
+  ]
+}
