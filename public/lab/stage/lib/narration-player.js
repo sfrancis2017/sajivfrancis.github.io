@@ -7,7 +7,7 @@
 //   player.stop();                        // barge-in: cancels playback + prefetch
 //
 // `speak(text)` returns { audioUrl, ttfbMs, totalMs, provider } (voice-client)
-// or is null → silent mode: lines advance on a reading-time timer so focus and
+// or is null → silent mode; a line with `audio` (result or promise) skips speak: lines advance on a reading-time timer so focus and
 // presence can be exercised without a voice (demo/offline/tests).
 
 export function createNarrationPlayer({ audioEl, speak = null, wordsPerSecond = 2.6, minLineMs = 900, prefetch = 2, onLineStart, onLineEnd, onEnd, onMetrics } = {}) {
@@ -38,7 +38,9 @@ export function createNarrationPlayer({ audioEl, speak = null, wordsPerSecond = 
       const myRun = ++run; playing = true; index = -1;
       const t0 = performance.now();
       const fetches = new Map();
-      const getAudio = (i) => { if (!speak || !lines[i]) return null; if (!fetches.has(i)) fetches.set(i, speak(lines[i].text).catch((e) => ({ error: e }))); return fetches.get(i); };
+      // A line may carry its own audio (or a promise of it) — e.g. the first
+      // line, fetched while the model was still writing the data.
+      const getAudio = (i) => { if (!lines[i] || (!speak && !lines[i].audio)) return null; if (!fetches.has(i)) fetches.set(i, Promise.resolve(lines[i].audio ?? speak(lines[i].text)).catch((e) => ({ error: e }))); return fetches.get(i); };
       for (let i = 0; i < lines.length; i++) {
         if (run !== myRun) break;
         index = i;
@@ -46,7 +48,7 @@ export function createNarrationPlayer({ audioEl, speak = null, wordsPerSecond = 
         const line = lines[i];
         const lt0 = performance.now();
         let audio = null;
-        if (speak) { audio = await getAudio(i); if (run !== myRun) break; }
+        if (speak || line.audio) { audio = await getAudio(i); if (run !== myRun) break; }
         onLineStart?.(i, line, { waitedMs: Math.round(performance.now() - lt0) });
         if (audio && audio.audioUrl) {
           onMetrics?.({ line: i, ttfbMs: audio.ttfbMs, totalMs: audio.totalMs, provider: audio.provider, waitedMs: Math.round(performance.now() - lt0), audioStartMs: Math.round(performance.now() - t0) });

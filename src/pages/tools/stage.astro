@@ -1,14 +1,17 @@
 ---
-// Companion stage — plan 10 steps 2–3. One screen: a question in, a SCENE out
-// (layout + data + narration), rendered by the portable renderer in
-// /lab/stage/lib/stage-render.js; the avatar (lab modules) sits beside the
-// element under narration (avatar-presence.js) while the narration player
-// speaks line by line (narration-player.js → TTS route, or silent timing
-// without a token). Owner-gated like every /tools/* page.
+// Companion stage — plan 10 steps 2–4. One screen: a question in (voice or
+// typed), a SCENE out (layout + data + narration), rendered by the portable
+// renderer in /lab/stage/lib/stage-render.js; the avatar (lab modules) sits
+// beside the element under narration (avatar-presence.js) while the narration
+// player speaks line by line (narration-player.js → TTS route, or silent
+// timing without a token). Voice in = voice-input.js (Web Speech or VAD + the
+// worker's STT route); every turn is timed from end of speech by
+// stage-metrics.js (plan 10 §8). Owner-gated like every /tools/* page.
 // Demo mode (?demo=1) plays the saved sample scenes without calling the API.
 import BaseLayout from '@/layouts/BaseLayout.astro';
 const STAGE_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/stage/turn';
 const TTS_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/voice/tts';
+const STT_ENDPOINT = 'https://chat-worker.sfrancis2017.workers.dev/api/voice/stt';
 const SAMPLES_URL = '/lab/stage/samples/index.json';
 const MODEL_URL = '/lab/avatar/model.glb';
 ---
@@ -40,6 +43,12 @@ const MODEL_URL = '/lab/avatar/model.glb';
     <form id="ask" class="ask">
       <input id="q" type="text" placeholder="e.g. How many articles and series are in the library?" autocomplete="off" />
       <button id="send" class="primary" type="submit">Ask</button>
+      <button id="mic" type="button" title="Voice: listen for questions (toggle)">🎤 Voice</button>
+      <select id="engine" title="Speech recognition engine">
+        <option value="webspeech">Web Speech</option>
+        <option value="vad">VAD + STT route</option>
+      </select>
+      <span id="vstate" class="pill" data-state="off">off</span>
       <button id="back" type="button" title="Previous scene" disabled>← Back</button>
       <button id="demo" type="button" title="Play the saved sample scenes">Samples</button>
       <button id="narrate" type="button" title="Narrate this scene" disabled>▶ Narrate</button>
@@ -67,29 +76,43 @@ const MODEL_URL = '/lab/avatar/model.glb';
     </section>
 
     <section class="panel measure">
-      <h3>Measurements</h3>
+      <h3>Measurements (this turn)</h3>
       <dl class="kv">
-        <dt>Turn</dt><dd id="m-turn">—</dd>
-        <dt>Model / tools</dt><dd id="m-split">—</dd>
+        <dt>Speech → transcript (STT)</dt><dd id="m-stt">—</dd>
+        <dt>Speech → audible (filler / line 1)</dt><dd id="m-audible">—</dd>
+        <dt>Speech → scene on screen</dt><dd id="m-scene">—</dd>
+        <dt>Turn (client / worker)</dt><dd id="m-turn">—</dd>
+        <dt>Model / tools / first line</dt><dd id="m-split">—</dd>
         <dt>Tool calls</dt><dd id="m-tools">—</dd>
         <dt>Tokens in / out / cached</dt><dd id="m-tok">—</dd>
         <dt>Est. cost (model)</dt><dd id="m-cost">—</dd>
-        <dt>First line audible</dt><dd id="m-first">—</dd>
         <dt>TTS first byte (line 1 / avg)</dt><dd id="m-tts">—</dd>
         <dt>Narration total</dt><dd id="m-narr">—</dd>
         <dt>Avatar</dt><dd id="m-avatar">—</dd>
         <dt>Scenes this session</dt><dd id="m-count">0</dd>
       </dl>
     </section>
+
+    <section class="panel harness">
+      <div class="track-head">
+        <h3>Turn log (plan 10 §8)</h3>
+        <span class="row-btns"><button id="csv" type="button" class="small-btn">Export CSV</button><button id="clear-log" type="button" class="small-btn">Clear</button></span>
+      </div>
+      <p id="log-summary" class="muted small"></p>
+      <div class="scroll-x"><table id="turn-log" class="turn-log"></table></div>
+    </section>
     <audio id="audio" preload="auto"></audio>
   </article>
 
-  <script type="module" is:inline define:vars={{ STAGE_ENDPOINT, TTS_ENDPOINT, SAMPLES_URL, MODEL_URL }}>
+  <script type="module" is:inline define:vars={{ STAGE_ENDPOINT, TTS_ENDPOINT, STT_ENDPOINT, SAMPLES_URL, MODEL_URL }}>
     import { renderScene, STAGE_CSS } from '/lab/stage/lib/stage-render.js';
     import { createPresence, PRESENCE_CSS } from '/lab/stage/lib/avatar-presence.js';
     import { createNarrationPlayer } from '/lab/stage/lib/narration-player.js';
+    import { createVoiceInput, WEBSPEECH_SUPPORTED } from '/lab/stage/lib/voice-input.js';
+    import { createTurnLog, METRICS_CSS } from '/lab/stage/lib/stage-metrics.js';
     const $ = (id) => document.getElementById(id);
-    const style = document.createElement('style'); style.textContent = STAGE_CSS + PRESENCE_CSS; document.head.appendChild(style);
+    const style = document.createElement('style'); style.textContent = STAGE_CSS + PRESENCE_CSS + METRICS_CSS; document.head.appendChild(style);
+    const now = () => performance.now();
 
     // ---- owner token (same key + SSO handoff as the other tools) -------------
     const TOKEN_KEY = 'write-token';
@@ -105,6 +128,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
     const apiBase = params.get('api') ? params.get('api').replace(/\/$/, '') : null;
     const endpoint = apiBase ? `${apiBase}/api/stage/turn` : STAGE_ENDPOINT;
     const ttsEndpoint = apiBase ? `${apiBase}/api/voice/tts` : TTS_ENDPOINT;
+    const sttEndpoint = apiBase ? `${apiBase}/api/voice/stt` : STT_ENDPOINT;
     const silent = params.get('silent') === '1' || !getToken();
     if (!getToken()) {
       $('auth').innerHTML = 'Asking and speech need the owner token. <a href="#" id="sso">Sign in with Access</a> — or press Samples: layouts render and the avatar moves in silent mode.';
@@ -117,7 +141,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
     async function ensureAvatar() {
       if (avatar3d !== null) return avatar3d;
       avatar3d = false; // loading / failed sentinel
-      const t0 = performance.now();
+      const t0 = now();
       try {
         const [{ loadAvatar }, { createStage }, { createIdle }, { createLipsync }] = await Promise.all([
           import('/lab/avatar/lib/avatar-loader.js'), import('/lab/avatar/lib/avatar-stage.js'), import('/lab/avatar/lib/avatar-idle.js'), import('/lab/avatar/lib/avatar-lipsync.js'),
@@ -130,7 +154,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
         st.onTick((dt, t) => { idle.tick(dt, t); lips.tick(dt); }); st.start();
         $('avatar-fallback').remove();
         avatar3d = { stage: st, avatar: av, idle, lips };
-        $('m-avatar').textContent = `3D ready in ${Math.round(performance.now() - t0)} ms · ${av.stats.morphCount} targets`;
+        $('m-avatar').textContent = `3D ready in ${Math.round(now() - t0)} ms · ${av.stats.morphCount} targets`;
       } catch (err) {
         console.warn('avatar 3D unavailable, using fallback', err);
         $('avatar-fallback').textContent = 'SF';
@@ -141,35 +165,65 @@ const MODEL_URL = '/lab/avatar/model.glb';
       return avatar3d;
     }
 
-    // ---- voice + narration ----------------------------------------------------
+    // ---- speech out: TTS client, filler phrases, narration player -----------------
     const { createVoiceClient } = await import('/lab/avatar/lib/voice-client.js');
     const voice = createVoiceClient({ endpoint: ttsEndpoint, getToken });
-    const ttfbs = []; let firstAudibleAt = null, narrT0 = 0;
+    const audioEl = $('audio');
+    // Filler lines, prefetched once, so something is audible within the §8
+    // budget while the model works. Rotated so repeats are rare.
+    const ACKS = ['Let me look.', 'One moment.', 'Checking the library.', 'Let me check that.'];
+    const ackCache = new Map(); let ackIdx = 0; let acksLoading = null;
+    function prefetchAcks() {
+      if (silent || acksLoading) return acksLoading;
+      acksLoading = Promise.all(ACKS.map((t) => voice.speak(t).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
+      return acksLoading;
+    }
+    // Audible marks: the next 'playing' event on the audio element stamps the
+    // pending mark on the current turn record (ack_ms / line1_ms from speech end).
+    let pendingMark = null;
+    audioEl.addEventListener('playing', () => { if (pendingMark && turn) mark(pendingMark); pendingMark = null; });
+    function mark(k) { if (!turn || turn.rec[k] != null) return; turn.rec[k] = Math.round(now() - turn.t0); updateTurnPanel(); }
+    function playAck() {
+      const t = ACKS[ackIdx++ % ACKS.length]; const url = ackCache.get(t);
+      if (!url) return false;
+      player.stop(); pendingMark = 'ack_ms'; remember(t);
+      audioEl.src = url; audioEl.play().catch(() => { pendingMark = null; });
+      return true;
+    }
+    const spoken = []; // last few spoken texts — echo guard for Web Speech
+    const remember = (t) => { spoken.push(t); if (spoken.length > 8) spoken.shift(); };
+    const ttfbs = []; let lineOffset = 0;
     const player = createNarrationPlayer({
-      audioEl: $('audio'),
+      audioEl,
       speak: silent ? null : (text) => voice.speak(text),
-      onLineStart: (i, line) => { setLine(i); },
-      onLineEnd: () => {},
-      onMetrics: (m) => { if (m.ttfbMs != null) { ttfbs.push(m.ttfbMs); $('m-tts').textContent = `${ttfbs[0]} / ${Math.round(ttfbs.reduce((a, b) => a + b, 0) / ttfbs.length)} ms (${m.provider})`; } if (m.audioStartMs != null && firstAudibleAt == null) { firstAudibleAt = m.audioStartMs; $('m-first').textContent = `${firstAudibleAt} ms after narration start`; } if (m.error) $('status').textContent = `TTS: ${m.error}`; },
-      onEnd: ({ totalMs }) => { $('m-narr').textContent = `${totalMs} ms${silent ? ' (silent timing)' : ''}`; $('status').textContent = 'Narration done.'; $('narrate').disabled = false; $('stop').disabled = true; presence.moveTo(null); },
+      onLineStart: (i, line) => { setLine(i + lineOffset); remember(line.text); if (i + lineOffset === 0) { if (silent) mark('line1_ms'); else pendingMark = 'line1_ms'; } },
+      onLineEnd: (i) => { if (i + lineOffset === 0 && pendingMark === 'line1_ms') pendingMark = null; },
+      onMetrics: (m) => { if (m.ttfbMs != null) { ttfbs.push(m.ttfbMs); $('m-tts').textContent = `${ttfbs[0]} / ${Math.round(ttfbs.reduce((a, b) => a + b, 0) / ttfbs.length)} ms (${m.provider})`; if (turn && turn.rec.tts_ttfb_ms == null) turn.rec.tts_ttfb_ms = m.ttfbMs; } if (m.error) $('status').textContent = `TTS: ${m.error}`; },
+      onEnd: () => { $('m-narr').textContent = `${Math.round(now() - narrT0)} ms${silent ? ' (silent timing)' : ''}`; $('status').textContent = 'Narration done.'; $('narrate').disabled = false; $('stop').disabled = true; presence.moveTo(null); finishTurn(); },
     });
-    async function narrate(scene) {
+    let narrT0 = 0;
+    // Speak a scene's lines from `from`; the first played line may carry
+    // pre-fetched audio (the streamed first line).
+    function narrate(scene, { from = 0, firstAudio = null } = {}) {
       player.stop();
-      ttfbs.length = 0; firstAudibleAt = null; narrT0 = performance.now();
+      if (from === 0) { ttfbs.length = 0; narrT0 = now(); }
       $('narrate').disabled = true; $('stop').disabled = false; $('status').textContent = silent ? 'Narrating (silent mode)…' : 'Narrating…';
       ensureAvatar();
-      await player.play(scene.narration);
+      lineOffset = from;
+      const lines = scene.narration.slice(from).map((l, i) => (i === 0 && firstAudio ? { ...l, audio: firstAudio } : l));
+      return player.play(lines);
     }
-    $('narrate').addEventListener('click', () => { const e = scenes[scenes.length - 1]; if (e) narrate(e.scene); });
-    $('stop').addEventListener('click', () => { player.stop(); $('status').textContent = 'Stopped.'; $('narrate').disabled = false; $('stop').disabled = true; });
+    $('narrate').addEventListener('click', () => { const e = scenes[scenes.length - 1]; if (e) { narrT0 = now(); narrate(e.scene); } });
+    $('stop').addEventListener('click', () => stopSpeaking('Stopped.'));
+    function stopSpeaking(msg) { player.stop(); pendingMark = null; try { audioEl.pause(); } catch {} if (msg) $('status').textContent = msg; $('narrate').disabled = false; $('stop').disabled = true; }
 
     // ---- state -----------------------------------------------------------------
     const PRICE = { 'claude-opus-5-5': [4, 20, 0.2], 'claude-sonnet-5-5': [2, 10, 0.2] };
     const scenes = []; // history of { question, scene, timings, usage, model }
     let view = null;
 
-    function showScene(entry) {
-      player.stop();
+    function showScene(entry, { keepPlaying = false } = {}) {
+      if (!keepPlaying) player.stop();
       ensureAvatar(); // 3D loads on the first scene (lazy, non-blocking)
       const s = entry.scene;
       $('scene-title').textContent = s.title;
@@ -178,11 +232,11 @@ const MODEL_URL = '/lab/avatar/model.glb';
       const stage = $('stage');
       stage.dataset.slot = s.avatar?.slot || 'side'; stage.dataset.size = s.avatar?.size || 'm';
       presence.setSize(s.avatar?.size || 'm');
-      presence.moveTo(null);
+      if (!keepPlaying) presence.moveTo(null);
       $('narration').innerHTML = '';
       s.narration.forEach((n, i) => {
         const li = document.createElement('li'); li.textContent = n.text; li.dataset.focus = n.focus || '';
-        li.addEventListener('click', () => { player.stop(); $('narrate').disabled = false; $('stop').disabled = true; setLine(i); });
+        li.addEventListener('click', () => { stopSpeaking(null); setLine(i); });
         $('narration').appendChild(li);
       });
       $('actions').innerHTML = '';
@@ -198,17 +252,17 @@ const MODEL_URL = '/lab/avatar/model.glb';
       $('back').disabled = scenes.length < 2;
       $('narrate').disabled = false; $('stop').disabled = true;
       if (entry.timings) {
-        $('m-turn').textContent = `${entry.clientMs ?? entry.timings.total_ms} ms (worker ${entry.timings.total_ms} ms)`;
-        $('m-split').textContent = `${entry.timings.model_ms} / ${entry.timings.tool_ms} ms · ${entry.timings.steps} steps`;
+        $('m-turn').textContent = `${entry.clientMs ?? entry.timings.total_ms} / ${entry.timings.total_ms} ms`;
+        $('m-split').textContent = `${entry.timings.model_ms} / ${entry.timings.tool_ms} / ${entry.timings.first_line_ms ?? '—'} ms · ${entry.timings.steps} steps`;
         $('m-tools').textContent = (entry.tool_calls || []).map((t) => t.name + (t.ok ? '' : ' ✗')).join(', ') || '—';
         const u = entry.usage || {}; $('m-tok').textContent = `${u.input ?? 0} / ${u.output ?? 0} / ${u.cache_read ?? 0}`;
-        const p = PRICE[entry.model] || PRICE['claude-opus-5-5'];
-        $('m-cost').textContent = `$${(((u.input ?? 0) * p[0] + (u.output ?? 0) * p[1] + (u.cache_read ?? 0) * p[2]) / 1e6).toFixed(4)}`;
+        $('m-cost').textContent = `$${costOf(entry).toFixed(4)}`;
       }
       $('m-count').textContent = String(scenes.length);
-      $('m-first').textContent = '—'; $('m-tts').textContent = '—'; $('m-narr').textContent = '—';
-      if ($('auto').checked) narrate(s); else setLine(0);
+      $('m-tts').textContent = '—'; $('m-narr').textContent = '—';
+      if (!keepPlaying) { if ($('auto').checked) { narrT0 = now(); narrate(s); } else setLine(0); }
     }
+    function costOf(entry) { const u = entry.usage || {}; const p = PRICE[entry.model] || PRICE['claude-opus-5-5']; return ((u.input ?? 0) * p[0] + (u.output ?? 0) * p[1] + (u.cache_read ?? 0) * p[2]) / 1e6; }
     function setLine(i) {
       const lis = [...$('narration').children];
       lis.forEach((li, j) => li.classList.toggle('current', j === i));
@@ -219,25 +273,144 @@ const MODEL_URL = '/lab/avatar/model.glb';
       $('status').textContent = focus ? `line ${i + 1} → ${focus}${el ? '' : ' (not on screen)'}` : `line ${i + 1}`;
     }
 
-    async function ask(question) {
+    // ---- the turn: question → (streamed first line) → scene -----------------------
+    // Reads the SSE form of /api/stage/turn (status / line / scene / error);
+    // falls back to plain JSON if the worker answers that way.
+    async function fetchTurn(question, { signal, onLine, onStatus } = {}) {
+      const history = scenes.slice(-6).map((e) => ({ question: e.question, title: e.scene.title, layout: e.scene.layout }));
+      const r = await fetch(endpoint, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ question, history }) });
+      if (!(r.headers.get('content-type') || '').includes('text/event-stream')) { const body = await r.json(); return { status: r.status, body }; }
+      const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+      let final = null;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+          const ev = (chunk.match(/^event:\s*(.*)$/m) || [])[1]; const data = chunk.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim()).join('');
+          if (!ev || !data) continue;
+          const d = JSON.parse(data);
+          if (ev === 'status') onStatus?.(d.text, d.at_ms);
+          else if (ev === 'line') onLine?.(d.text, d.at_ms);
+          else if (ev === 'scene' || ev === 'error') final = { status: d.status ?? (ev === 'scene' ? 200 : 502), body: d };
+        }
+      }
+      return final || { status: 502, body: { error: 'stream ended without a scene' } };
+    }
+
+    let turn = null; // in-flight turn: { t0, rec, abort, early, earlyPlay, logged }
+    function updateTurnPanel() {
+      if (!turn) return; const r = turn.rec;
+      $('m-stt').textContent = r.stt_ms != null ? `${r.stt_ms} ms (${r.stt_backend || r.engine})` : '—';
+      const aud = [r.ack_ms != null ? `filler ${r.ack_ms}` : null, r.line1_ms != null ? `line 1 ${r.line1_ms}` : null].filter(Boolean).join(' · ');
+      $('m-audible').textContent = aud ? `${aud} ms` : '—';
+      $('m-scene').textContent = r.scene_ms != null ? `${r.scene_ms} ms` : '—';
+      if (turn.logged) turn.logged = log.update(turn.logged, r);
+    }
+    function finishTurn() { if (!turn) return; turn.logged = turn.logged ? log.update(turn.logged, turn.rec) : log.add(turn.rec); log.render($('turn-log'), $('log-summary')); }
+
+    // question → scene, timed from `speechEndAt` (end of speech, or the click)
+    async function ask(question, meta = {}) {
       question = String(question || '').trim(); if (!question) return;
       if (!getToken()) { $('status').textContent = 'Sign in first (owner token).'; return; }
+      if (turn) { if (turn.rec.scene_ms == null && !turn.rec.error) { turn.rec.valid = false; turn.rec.error = 'aborted'; } turn.abort.abort(); finishTurn(); }
+      const t0 = meta.speechEndAt ?? now();
+      const rec = { question, engine: meta.engine ?? 'typed', stt_backend: meta.backend ?? '', stt_ms: meta.sttMs ?? null, ts: new Date().toISOString() };
+      const my = turn = { t0, rec, abort: new AbortController(), early: null, earlyPlay: null, logged: null };
       $('send').disabled = true; $('status').textContent = 'Thinking…'; $('q').value = question;
-      const t0 = performance.now();
+      stopSpeaking(null); updateTurnPanel();
       ensureAvatar();
+      if (!silent) playAck();
+      const tFetch = now();
       try {
-        const history = scenes.slice(-6).map((e) => ({ question: e.question, title: e.scene.title, layout: e.scene.layout }));
-        const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ question, history }) });
-        const body = await r.json();
-        if (!r.ok || !body.scene) { $('status').textContent = `Failed (${r.status}): ${body?.error ?? ''} ${(body?.errors || []).join('; ')}`; return; }
-        const entry = { question, ...body, clientMs: Math.round(performance.now() - t0) };
-        scenes.push(entry); showScene(entry);
-      } catch (err) { $('status').textContent = `Error: ${err?.message ?? err}`; }
-      finally { $('send').disabled = false; }
+        const out = await fetchTurn(question, {
+          signal: my.abort.signal,
+          onStatus: (text) => { if (turn === my) $('status').textContent = `Thinking… (${text})`; },
+          onLine: (text, atMs) => {
+            if (turn !== my || my.early) return;
+            my.early = { text, atMs, audio: silent ? null : voice.speak(text) }; // TTS starts now, before the data
+            rec.first_line_worker_ms = atMs;
+            $('narration').innerHTML = `<li class="current early">${text.replace(/</g, '&lt;')}</li>`;
+            $('status').textContent = 'First line in — speaking while the data arrives…';
+            if (silent) { mark('line1_ms'); return; }
+            const start = () => { if (turn !== my) return; narrT0 = now(); lineOffset = 0; my.earlyPlay = player.play([{ id: 'early', text, focus: null, audio: my.early.audio }]); };
+            my.early.audio.then(() => {
+              if (turn !== my) return;
+              if (!audioEl.paused && !audioEl.ended && audioEl.src) audioEl.addEventListener('ended', start, { once: true }); // let the filler finish
+              else start();
+            }).catch(() => { my.early.failed = true; my.earlyPlay = Promise.resolve(true); }); // TTS failed → the full narration speaks it
+          },
+        });
+        if (turn !== my) return;
+        const body = out.body;
+        rec.turn_ms = Math.round(now() - tFetch);
+        if (out.status !== 200 || !body.scene) {
+          rec.valid = false; rec.error = `${body?.error ?? out.status}${body?.errors ? ': ' + body.errors.join('; ') : ''}`;
+          Object.assign(rec, timingsOf(body));
+          $('status').textContent = `Failed (${out.status}): ${rec.error}`; finishTurn(); turn = null; return;
+        }
+        const entry = { question, ...body, clientMs: rec.turn_ms };
+        Object.assign(rec, timingsOf(body), { layout: body.scene.layout, lines: body.scene.narration.length, model: body.model, cost_usd: costOf(entry) });
+        scenes.push(entry);
+        const s = body.scene;
+        const earlyMatches = !!(my.early && s.narration[0]?.text === my.early.text && $('auto').checked);
+        showScene(entry, { keepPlaying: earlyMatches });
+        rec.scene_ms = Math.round(now() - t0); updateTurnPanel();
+        if (earlyMatches) {
+          setLine(0);
+          if (silent) narrate(s, { from: 1 });
+          else {
+            // line 1 may still be fetching or playing: continue with the rest when it ends
+            const rest = () => { if (turn === my) narrate(s, { from: my.early.failed ? 0 : 1 }); };
+            const wait = () => { if (turn !== my) return; if (my.earlyPlay) my.earlyPlay.then((f) => f && rest()); else setTimeout(wait, 50); };
+            wait();
+          }
+        }
+        if (!$('auto').checked) finishTurn();
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        if (turn === my) { rec.valid = false; rec.error = String(err?.message ?? err); $('status').textContent = `Error: ${rec.error}`; finishTurn(); turn = null; }
+      } finally { $('send').disabled = false; }
     }
+    const timingsOf = (b) => ({ worker_ms: b?.timings?.total_ms, model_ms: b?.timings?.model_ms, tool_ms: b?.timings?.tool_ms, steps: b?.timings?.steps, first_line_worker_ms: b?.timings?.first_line_ms ?? undefined, tools: (b?.tool_calls || []).map((t) => t.name).join('+'), tokens_in: b?.usage?.input, tokens_out: b?.usage?.output, tokens_cached: b?.usage?.cache_read });
 
     $('ask').addEventListener('submit', (e) => { e.preventDefault(); ask($('q').value); });
     $('back').addEventListener('click', () => { if (scenes.length > 1) { scenes.pop(); showScene(scenes[scenes.length - 1]); } });
+
+    // ---- voice in --------------------------------------------------------------------
+    const log = createTurnLog();
+    log.render($('turn-log'), $('log-summary'));
+    $('csv').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([log.csv()], { type: 'text/csv' })); a.download = `stage-turns-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`; a.click(); });
+    $('clear-log').addEventListener('click', () => { log.clear(); log.render($('turn-log'), $('log-summary')); });
+
+    const ENGINE_KEY = 'stage-stt-engine';
+    try { $('engine').value = localStorage.getItem(ENGINE_KEY) || (WEBSPEECH_SUPPORTED ? 'webspeech' : 'vad'); } catch {}
+    if (!WEBSPEECH_SUPPORTED) { $('engine').querySelector('[value=webspeech]').disabled = true; if ($('engine').value === 'webspeech') $('engine').value = 'vad'; }
+    $('engine').addEventListener('change', () => { try { localStorage.setItem(ENGINE_KEY, $('engine').value); } catch {} const was = mic.active; if (was) mic.stop(); mic.setEngine($('engine').value); if (was) mic.start().catch(() => {}); });
+
+    const overlap = (a, b) => { const A = new Set(a.toLowerCase().match(/[a-z0-9']+/g) || []); const B = b.toLowerCase().match(/[a-z0-9']+/g) || []; return B.length ? B.filter((w) => A.has(w)).length / B.length : 0; };
+    const isEcho = (text) => spoken.some((s) => overlap(s, text) >= 0.6);
+    const mic = createVoiceInput({
+      engine: $('engine').value, sttEndpoint, getToken,
+      onState: (s) => { $('vstate').textContent = s; $('vstate').dataset.state = s; $('mic').classList.toggle('on', s !== 'off'); },
+      onPartial: (t) => { $('q').value = t; },
+      onSpeechStart: () => { if (player.playing || (!audioEl.paused && !audioEl.ended)) stopSpeaking('Listening…'); }, // barge-in
+      onFinal: (text, meta) => {
+        if (isEcho(text)) { $('status').textContent = `Ignored (echo of my own line): “${text}”`; return; }
+        ask(text, meta);
+      },
+      onError: (e) => { $('status').textContent = `Voice: ${e.message}`; },
+    });
+    $('mic').addEventListener('click', async () => {
+      if (mic.active) { mic.stop(); return; }
+      if (!getToken()) { $('status').textContent = 'Sign in first (owner token).'; return; }
+      ensureAvatar(); prefetchAcks();
+      try { await mic.start(); $('status').textContent = `Listening (${mic.engine})…`; } catch {}
+    });
+    if (!silent) prefetchAcks(); // fillers ready before the first question (4 short TTS calls, cached)
+    if (params.get('voice') === '1') $('mic').click();
 
     // ---- demo: saved sample scenes (no API) --------------------------------------
     let demoIdx = -1, samples = null;
@@ -249,7 +422,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
       $('q').value = entry.question;
     });
     if (params.get('demo')) $('demo').click();
-    window.__stage = { ask, scenes, show: (i) => showScene(scenes[i]), presence, player, narrate: () => { const e = scenes[scenes.length - 1]; if (e) narrate(e.scene); }, setLine };
+    window.__stage = { ask, scenes, show: (i) => showScene(scenes[i]), presence, player, mic, log, prefetchAcks, narrate: () => { const e = scenes[scenes.length - 1]; if (e) { narrT0 = now(); narrate(e.scene); } }, setLine, get turn() { return turn; } };
   </script>
 </BaseLayout>
 
@@ -260,11 +433,18 @@ const MODEL_URL = '/lab/avatar/model.glb';
   .subtitle { color: var(--color-fg-muted); margin-top: 0.25rem; }
   .muted { color: var(--color-fg-muted); } .small { font-size: 0.85rem; }
   .ask { display: flex; gap: 0.5rem; margin: 0.75rem 0 1rem; flex-wrap: wrap; align-items: center; }
-  .ask input { flex: 1 1 320px; font: inherit; padding: 0.55rem 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-bg); color: var(--color-fg); }
+  .ask input, .ask select { font: inherit; padding: 0.55rem 0.75rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-bg); color: var(--color-fg); }
+  .ask input { flex: 1 1 320px; }
   .check { font-size: 0.85rem; color: var(--color-fg-muted); display: inline-flex; gap: 0.3rem; align-items: center; }
   button, .action { font: inherit; padding: 0.5rem 0.9rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); cursor: pointer; text-decoration: none; }
   button.primary { background: var(--color-fg); color: var(--color-bg); border-color: var(--color-fg); }
   button:disabled { opacity: 0.5; cursor: default; }
+  button.on { background: #2a78d6; color: #fff; border-color: #2a78d6; }
+  .small-btn { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+  .row-btns { display: inline-flex; gap: 0.4rem; }
+  .pill { font-size: 0.75rem; border-radius: 999px; padding: 0.15rem 0.6rem; border: 1px solid var(--color-border); color: var(--color-fg-muted); }
+  .pill[data-state="listening"] { background: #1baf7a; color: #fff; border-color: #1baf7a; }
+  .pill[data-state="processing"], .pill[data-state="starting"] { background: #eda100; color: #fff; border-color: #eda100; }
   .stage { position: relative; border: 1px solid var(--color-border); border-radius: 1rem; padding: 1rem 1.25rem; min-height: 360px; display: grid; gap: 0.75rem; background: color-mix(in srgb, var(--color-bg) 92%, var(--color-fg)); overflow: hidden; }
   .stage-title { display: flex; align-items: center; gap: 0.75rem; }
   .stage-title h2 { margin: 0; font-size: 1.35rem; }
@@ -278,11 +458,13 @@ const MODEL_URL = '/lab/avatar/model.glb';
   .chip-btn { border-radius: 999px; font-size: 0.85rem; padding: 0.35rem 0.8rem; }
   .panel { border: 1px solid var(--color-border); border-radius: 0.75rem; padding: 1rem; margin-top: 1rem; }
   .panel h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-  .track-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .track-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
   .narration { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.35rem; }
   .narration li { cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
   .narration li.current { background: color-mix(in srgb, #2a78d6 14%, transparent); }
+  .narration li.early { font-style: italic; }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; }
   .kv dt { color: var(--color-fg-muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .scroll-x { overflow-x: auto; }
   @media (max-width: 720px) { .stage-body, .stage[data-size] .stage-body { grid-template-columns: 1fr; } .avatar-home { min-height: 150px; } }
 </style>
