@@ -36,3 +36,29 @@ them) and drive the page's **Samples** button without an API.
 
 Everything timed in step 3 lands in the page's Measurements and Turn log
 panels; **Export CSV** gives the §8 sheet.
+
+## Grounding, registers, modes (plan 12 — step 5a)
+
+- The worker builds an EVIDENCE SET before the model call: library pages
+  first, then passages from the topic vector stores (owner-visible corpora).
+  The scene echoes `scene.evidence[]`: `{ id: "lib:1", kind: "library",
+  title, url }` or `{ id: "vs:1", kind: "vector", label: "SAP vector store" }`
+  — a vector item NEVER carries a title or url (IP rule), only its topic's
+  label. The page's **Sources** strip renders both kinds.
+- Every narration line carries `register: "evidence" | "inference"` and
+  `cites: [ids]`; evidence lines must cite (the worker rejects a scene that
+  does not). The text track styles inference as "my read" and shows each
+  line's cites. Data items (tiles/items/rows/steps/nodes/points) may carry
+  `cites` too.
+- `scene.mode` is `lookup` (Sonnet) or `solutioning` (Opus). The page keeps a
+  sticky mode (`localStorage` `stage-mode`, `?mode=` pins it); the turn
+  payload sends `{ mode, mode_pinned }`. The worker's SSE `mode` event says
+  which mode the turn runs in; when the classifier switched an unpinned
+  mode, the page speaks "Treating this as a scenario." / "Looking that up."
+  after the filler and the switch follows. Clicking a mode pins it (manual
+  override); clicking the pinned mode again returns to auto. Spoken or typed
+  "just look it up" / "treat this as a scenario" flips + pins the mode and
+  re-asks the last question — the phrase itself is never sent.
+- `scene.no_answer` marks the "Not in the library" scene. Turn-log columns:
+  `mode, mode_suggested, grounding_ms, evidence_lib, evidence_vs, cites_ok,
+  no_answer`.

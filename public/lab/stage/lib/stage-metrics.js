@@ -15,7 +15,10 @@
 //               tool_ms, first_line_worker_ms (streamed first line, worker clock), steps
 //   tokens_in / tokens_out / tokens_cached, cost_usd, model, layout, valid, error
 
-export const COLUMNS = ['ts', 'question', 'engine', 'stt_backend', 'stt_ms', 'ack_ms', 'line1_ms', 'audible_ms', 'scene_ms', 'turn_ms', 'worker_ms', 'model_ms', 'tool_ms', 'first_line_worker_ms', 'steps', 'tools', 'layout', 'lines', 'tokens_in', 'tokens_out', 'tokens_cached', 'cost_usd', 'model', 'tts_ttfb_ms', 'valid', 'error', 'viewport', 'ua'];
+// Plan 12 columns: mode (lookup|solutioning, as run), mode_suggested (the
+// classifier's, when it differed), grounding_ms, evidence_lib / evidence_vs
+// (passages in the set), cites_ok (every cite resolved), no_answer.
+export const COLUMNS = ['ts', 'question', 'engine', 'stt_backend', 'stt_ms', 'ack_ms', 'line1_ms', 'audible_ms', 'scene_ms', 'turn_ms', 'worker_ms', 'grounding_ms', 'model_ms', 'tool_ms', 'first_line_worker_ms', 'steps', 'tools', 'layout', 'lines', 'tokens_in', 'tokens_out', 'tokens_cached', 'cost_usd', 'model', 'mode', 'mode_suggested', 'evidence_lib', 'evidence_vs', 'cites_ok', 'no_answer', 'tts_ttfb_ms', 'valid', 'error', 'viewport', 'ua'];
 
 const num = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 export function quantile(values, q) {
@@ -36,9 +39,11 @@ export function createTurnLog({ storageKey = 'stage-turns', thresholds = { audib
     return {
       ts: r.ts || new Date().toISOString(), question: String(r.question ?? ''), engine: r.engine ?? '', stt_backend: r.stt_backend ?? '',
       stt_ms: num(r.stt_ms), ack_ms: ack, line1_ms: line1, audible_ms: audible, scene_ms: num(r.scene_ms), turn_ms: num(r.turn_ms),
-      worker_ms: num(r.worker_ms), model_ms: num(r.model_ms), tool_ms: num(r.tool_ms), first_line_worker_ms: num(r.first_line_worker_ms), steps: num(r.steps),
+      worker_ms: num(r.worker_ms), grounding_ms: num(r.grounding_ms), model_ms: num(r.model_ms), tool_ms: num(r.tool_ms), first_line_worker_ms: num(r.first_line_worker_ms), steps: num(r.steps),
       tools: r.tools ?? '', layout: r.layout ?? '', lines: num(r.lines), tokens_in: num(r.tokens_in), tokens_out: num(r.tokens_out), tokens_cached: num(r.tokens_cached),
-      cost_usd: num(r.cost_usd), model: r.model ?? '', tts_ttfb_ms: num(r.tts_ttfb_ms), valid: r.valid !== false, error: r.error ?? '',
+      cost_usd: num(r.cost_usd), model: r.model ?? '', mode: r.mode ?? '', mode_suggested: r.mode_suggested ?? '', evidence_lib: num(r.evidence_lib), evidence_vs: num(r.evidence_vs),
+      cites_ok: r.cites_ok == null ? null : r.cites_ok === true || r.cites_ok === 'true', no_answer: r.no_answer == null ? null : r.no_answer === true || r.no_answer === 'true',
+      tts_ttfb_ms: num(r.tts_ttfb_ms), valid: r.valid !== false, error: r.error ?? '',
       viewport: r.viewport ?? (typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : ''), ua: r.ua ?? (typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 80) : ''),
     };
   }
@@ -72,7 +77,7 @@ export function createTurnLog({ storageKey = 'stage-turns', thresholds = { audib
         : 'No turns yet.';
     }
     if (tableEl) {
-      const cols = ['ts', 'engine', 'stt_ms', 'ack_ms', 'line1_ms', 'scene_ms', 'turn_ms', 'model_ms', 'tool_ms', 'steps', 'layout', 'cost_usd', 'valid'];
+      const cols = ['ts', 'engine', 'stt_ms', 'ack_ms', 'line1_ms', 'scene_ms', 'turn_ms', 'model_ms', 'tool_ms', 'steps', 'layout', 'mode', 'evidence_lib', 'evidence_vs', 'cost_usd', 'valid'];
       const rows = turns.slice(-last).reverse();
       tableEl.innerHTML = `<thead><tr>${cols.map((c) => `<th>${c.replace(/_ms$/, '')}</th>`).join('')}<th>question</th></tr></thead><tbody>${rows.map((r) => `<tr class="${r.valid ? '' : 'invalid'}${r.audible_ms != null && r.audible_ms > thresholds.audible_ms ? ' slow-audible' : ''}${r.scene_ms != null && r.scene_ms > thresholds.scene_ms ? ' slow-scene' : ''}">${cols.map((c) => `<td>${c === 'ts' ? r.ts.slice(11, 19) : c === 'cost_usd' ? (r.cost_usd == null ? '—' : r.cost_usd.toFixed(3)) : c === 'valid' ? (r.valid ? '✓' : `✗ ${r.error}`) : fmt(r[c])}</td>`).join('')}<td class="q">${r.question.replace(/</g, '&lt;')}</td></tr>`).join('')}</tbody>`;
     }

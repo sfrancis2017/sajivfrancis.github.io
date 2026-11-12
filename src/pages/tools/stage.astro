@@ -55,12 +55,21 @@ const MODEL_URL = '/lab/avatar/model.glb';
       <button id="narrate" type="button" title="Narrate this scene" disabled>▶ Narrate</button>
       <button id="stop" type="button" title="Stop narration" disabled>■</button>
       <label class="check"><input id="auto" type="checkbox" checked /> Auto-narrate</label>
+      <!-- Mode (plan 12 §3): the stage's sticky mode. The classifier may propose
+           the other mode and the page announces it; clicking a mode PINS it
+           (manual override); clicking the pinned mode again returns to auto. -->
+      <span id="mode-switch" class="mode-switch" role="group" aria-label="Mode" data-mode="lookup" data-pinned="0">
+        <button type="button" class="mode" data-mode="lookup" title="Find, summarise, list what is published">Lookup</button>
+        <button type="button" class="mode" data-mode="solutioning" title="Apply a scenario to a standard architecture; options, position">Solutioning</button>
+        <span id="mode-pin" class="pin" title="Pinned: the classifier may not switch modes" hidden>📌</span>
+      </span>
     </form>
 
     <section id="stage" class="stage" data-slot="side" data-size="m">
       <div class="stage-title">
         <h2 id="scene-title">Ready</h2>
         <span id="scene-layout" class="chip"></span>
+        <span id="scene-mode" class="chip mode-chip" hidden></span>
       </div>
       <div class="stage-body">
         <div id="layout" class="layout" aria-live="polite"></div>
@@ -68,6 +77,9 @@ const MODEL_URL = '/lab/avatar/model.glb';
       </div>
       <div id="actions" class="actions"></div>
       <div id="followups" class="followups"></div>
+      <!-- Sources strip (plan 12 §4): library pages as links; vector-store
+           passages as topic chips ("SAP vector store") — never a title. -->
+      <div id="sources" class="sources" hidden></div>
       <div id="avatar-layer" class="avatar-layer" aria-hidden="true"><div class="avatar-fallback" id="avatar-fallback">…</div></div>
     </section>
 
@@ -182,21 +194,74 @@ const MODEL_URL = '/lab/avatar/model.glb';
     const LATE = 'Still searching the library.';          // spoken once if the first line is slow (multi-step turns)
     const LATE_AFTER_MS = 7000;
     const LOST = 'Sorry, I lost the connection. Ask me again.';
+    // Mode announcements (plan 12 §3): spoken when the classifier switched the
+    // mode the page asked for — so the switch is never silent.
+    const MODE_ANNOUNCE = { solutioning: 'Treating this as a scenario.', lookup: 'Looking that up.' };
     const ackCache = new Map(); let ackIdx = 0; let acksLoading = null;
     function prefetchAcks() {
       if (silent || acksLoading) return acksLoading;
-      acksLoading = Promise.all([...ACKS, LATE, LOST].map((t) => voice.speak(t, { voice: ttsVoice }).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
+      acksLoading = Promise.all([...ACKS, LATE, LOST, ...Object.values(MODE_ANNOUNCE)].map((t) => voice.speak(t, { voice: ttsVoice }).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
       return acksLoading;
+    }
+    // Play a filler after whatever is audible now ends (or at once when nothing is).
+    function queueFiller(t, stillWanted = () => true) {
+      if (silent) return;
+      fillerDone = fillerDone.then(() => { if (stillWanted()) playFiller(t); return fillerDone; });
+    }
+
+    // ---- mode (plan 12 §3): sticky per session, classifier may propose, user may pin ----
+    const MODE_KEY = 'stage-mode';
+    let sessionMode = 'lookup', modePinned = false, lastQuestion = '';
+    try { const saved = JSON.parse(localStorage.getItem(MODE_KEY) || 'null'); if (saved && ['lookup', 'solutioning'].includes(saved.mode)) { sessionMode = saved.mode; modePinned = !!saved.pinned; } } catch {}
+    if (['lookup', 'solutioning'].includes(params.get('mode'))) { sessionMode = params.get('mode'); modePinned = true; }
+    function renderMode() {
+      const sw = $('mode-switch'); sw.dataset.mode = sessionMode; sw.dataset.pinned = modePinned ? '1' : '0';
+      sw.querySelectorAll('.mode').forEach((b) => b.classList.toggle('on', b.dataset.mode === sessionMode));
+      $('mode-pin').hidden = !modePinned;
+      try { localStorage.setItem(MODE_KEY, JSON.stringify({ mode: sessionMode, pinned: modePinned })); } catch {}
+    }
+    function setMode(mode, { pinned = modePinned } = {}) { sessionMode = mode; modePinned = pinned; renderMode(); }
+    $('mode-switch').querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => {
+      const m = b.dataset.mode;
+      if (m === sessionMode && modePinned) setMode(m, { pinned: false });  // second click on the pinned mode → auto
+      else setMode(m, { pinned: true });                                   // a click is the manual override
+      $('status').textContent = `Mode: ${sessionMode}${modePinned ? ' (pinned)' : ' (auto)'}`;
+    }));
+    renderMode();
+    // Spoken/typed corrections: flip the mode and re-ask the last question —
+    // no model call for the phrase itself (plan 12 §3).
+    const CORRECTIONS = [
+      [/^(?:no[, ]+)?(?:just |please )?(?:look (?:it|that|this) up|look up(?: the data)?|only the (?:library|facts))\.?$/i, 'lookup'],
+      [/^(?:no[, ]+)?(?:treat|take) (?:this|that|it) as a scenario\.?$|^(?:make|as) (?:it |this )?a scenario\.?$|^(?:solution|scenario) mode\.?$/i, 'solutioning'],
+    ];
+    function correction(text) {
+      const t = String(text || '').trim();
+      for (const [re, mode] of CORRECTIONS) if (re.test(t)) return mode;
+      return null;
+    }
+    function applyCorrection(mode, meta) {
+      setMode(mode, { pinned: true });
+      if (!lastQuestion) { $('status').textContent = `Mode: ${mode} (pinned) — ask a question.`; return true; }
+      $('status').textContent = `Mode: ${mode} (pinned) — asking again…`;
+      ask(lastQuestion, { ...meta, correction: mode });
+      return true;
     }
     // Audible marks: the next 'playing' event on the audio element stamps the
     // pending mark on the current turn record (ack_ms / line1_ms from speech end).
     let pendingMark = null;
     audioEl.addEventListener('playing', () => { if (pendingMark && turn) mark(pendingMark); pendingMark = null; });
     function mark(k) { if (!turn || turn.rec[k] != null) return; turn.rec[k] = Math.round(now() - turn.t0); updateTurnPanel(); }
+    // `fillerDone` resolves when the filler now audible ends (or is cut), so
+    // queued fillers and the streamed first line play strictly one after another.
+    let fillerDone = Promise.resolve();
     function playFiller(t) {
       const url = ackCache.get(t);
       if (!url) return false;
       player.stop(); pendingMark = 'ack_ms'; remember(t);
+      fillerDone = new Promise((res) => {
+        const done = () => { for (const e of ['ended', 'pause', 'error', 'emptied']) audioEl.removeEventListener(e, done); res(); };
+        for (const e of ['ended', 'pause', 'error', 'emptied']) audioEl.addEventListener(e, done);
+      });
       audioEl.src = url; audioEl.play().catch(() => { pendingMark = null; });
       return true;
     }
@@ -239,6 +304,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
       const s = entry.scene;
       $('scene-title').textContent = s.title;
       $('scene-layout').textContent = s.layout;
+      const modeChip = $('scene-mode'); modeChip.hidden = !s.mode; modeChip.textContent = s.mode || ''; modeChip.dataset.mode = s.mode || '';
       view = renderScene($('layout'), s);
       const stage = $('stage');
       stage.dataset.slot = s.avatar?.slot || 'side'; stage.dataset.size = s.avatar?.size || 'm';
@@ -246,11 +312,26 @@ const MODEL_URL = '/lab/avatar/model.glb';
       if (!keepPlaying) presence.moveTo(null);
       $('narration').innerHTML = '';
       s.narration.forEach((n) => remember(n.text)); // every upcoming line counts as "my own voice" for the echo guard
+      // Registers (plan 12): evidence lines carry a small marker with their
+      // citations; inference lines render in the "my read" style.
       s.narration.forEach((n, i) => {
         const li = document.createElement('li'); li.textContent = n.text; li.dataset.focus = n.focus || '';
+        if (n.register) { li.dataset.register = n.register; li.classList.add(n.register); }
+        if (Array.isArray(n.cites) && n.cites.length) { const c = document.createElement('small'); c.className = 'cites'; c.textContent = n.cites.join(' '); c.title = 'Evidence cited'; li.appendChild(c); }
         li.addEventListener('click', () => { stopSpeaking(null); setLine(i); });
         $('narration').appendChild(li);
       });
+      const src = $('sources'); src.innerHTML = '';
+      const ev = Array.isArray(s.evidence) ? s.evidence : [];
+      src.hidden = ev.length === 0;
+      if (ev.length) {
+        const lab = document.createElement('span'); lab.className = 'src-label'; lab.textContent = 'Sources'; src.appendChild(lab);
+        const seenLabel = new Set();
+        for (const e of ev) {
+          if (e.kind === 'library') { const a = document.createElement(e.url ? 'a' : 'span'); a.className = 'src lib'; a.textContent = e.title || e.id; if (e.url) { a.href = e.url; a.target = '_blank'; a.rel = 'noopener'; } a.title = e.id; src.appendChild(a); }
+          else { const label = e.label || 'vector store'; if (seenLabel.has(label)) continue; seenLabel.add(label); const sp = document.createElement('span'); sp.className = 'src vs'; sp.textContent = label; sp.title = ev.filter((x) => x.kind === 'vector' && (x.label || 'vector store') === label).map((x) => x.id).join(' '); src.appendChild(sp); }
+        }
+      }
       $('actions').innerHTML = '';
       for (const a of s.actions || []) {
         const b = document.createElement(a.kind === 'pivot' ? 'a' : 'button');
@@ -288,9 +369,9 @@ const MODEL_URL = '/lab/avatar/model.glb';
     // ---- the turn: question → (streamed first line) → scene -----------------------
     // Reads the SSE form of /api/stage/turn (status / line / scene / error);
     // falls back to plain JSON if the worker answers that way.
-    async function fetchTurn(question, { signal, onLine, onStatus } = {}) {
+    async function fetchTurn(question, { signal, onLine, onStatus, onMode } = {}) {
       const history = scenes.slice(-6).map((e) => ({ question: e.question, title: e.scene.title, layout: e.scene.layout }));
-      const r = await fetch(endpoint, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ question, history }) });
+      const r = await fetch(endpoint, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ question, history, mode: sessionMode, mode_pinned: modePinned }) });
       if (!(r.headers.get('content-type') || '').includes('text/event-stream')) { const body = await r.json(); return { status: r.status, body }; }
       const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
       let final = null;
@@ -305,6 +386,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
           if (!ev || !data) continue;
           const d = JSON.parse(data);
           if (ev === 'status') onStatus?.(d.text, d.at_ms);
+          else if (ev === 'mode') onMode?.(d);
           else if (ev === 'line') onLine?.(d.text, d.at_ms);
           else if (ev === 'scene' || ev === 'error') final = { status: d.status ?? (ev === 'scene' ? 200 : 502), body: d };
         }
@@ -327,9 +409,12 @@ const MODEL_URL = '/lab/avatar/model.glb';
     async function ask(question, meta = {}) {
       question = String(question || '').trim(); if (!question) return;
       if (!getToken()) { $('status').textContent = 'Sign in first (owner token).'; return; }
+      // A correction phrase is not a question: flip the mode, re-ask the last one.
+      if (!meta.correction) { const m = correction(question); if (m) { stopSpeaking(null); applyCorrection(m, meta); return; } }
+      lastQuestion = question;
       if (turn) { if (turn.rec.scene_ms == null && !turn.rec.error) { turn.rec.valid = false; turn.rec.error = 'aborted'; } turn.abort.abort(); finishTurn(); }
       const t0 = meta.speechEndAt ?? now();
-      const rec = { question, engine: meta.engine ?? 'typed', stt_backend: meta.backend ?? '', stt_ms: meta.sttMs ?? null, ts: new Date().toISOString() };
+      const rec = { question, engine: meta.engine ?? 'typed', stt_backend: meta.backend ?? '', stt_ms: meta.sttMs ?? null, ts: new Date().toISOString(), mode: sessionMode, mode_pinned: modePinned, corrected: meta.correction || '' };
       const my = turn = { t0, rec, abort: new AbortController(), early: null, earlyPlay: null, logged: null };
       $('send').disabled = true; $('status').textContent = 'Thinking…'; $('q').value = question;
       stopSpeaking(null); updateTurnPanel();
@@ -343,6 +428,14 @@ const MODEL_URL = '/lab/avatar/model.glb';
         const opts = {
           signal: my.abort.signal,
           onStatus: (text) => { if (turn === my) $('status').textContent = `Thinking… (${text})`; },
+          // Grounding done: the worker tells us the mode it runs in. A switch
+          // the page did not ask for is announced (after the filler) and
+          // becomes the sticky mode; a pinned mode is never switched.
+          onMode: (d) => {
+            if (turn !== my) return;
+            rec.mode = d.mode; rec.mode_suggested = d.suggested || ''; rec.evidence_lib = d.lib; rec.evidence_vs = d.vs;
+            if (d.mode !== sessionMode && !modePinned) { setMode(d.mode); rec.mode_switched = true; queueFiller(MODE_ANNOUNCE[d.mode], () => turn === my); $('status').textContent = `Thinking… (${d.mode}: ${MODE_ANNOUNCE[d.mode]})`; }
+          },
           onLine: (text, atMs) => {
             if (turn !== my || my.early) return;
             clearTimeout(lateTimer);
@@ -354,8 +447,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
             const start = () => { if (turn !== my) return; narrT0 = now(); lineOffset = 0; my.earlyPlay = player.play([{ id: 'early', text, focus: null, audio: my.early.audio }]); };
             my.early.audio.then(() => {
               if (turn !== my) return;
-              if (!audioEl.paused && !audioEl.ended && audioEl.src) audioEl.addEventListener('ended', start, { once: true }); // let the filler finish
-              else start();
+              fillerDone.then(() => { if (turn === my) start(); }); // let the filler (and a queued mode announcement) finish
             }).catch(() => { my.early.failed = true; my.earlyPlay = Promise.resolve(true); }); // TTS failed → the full narration speaks it
           },
         };
@@ -376,7 +468,10 @@ const MODEL_URL = '/lab/avatar/model.glb';
           $('status').textContent = `Failed (${out.status}): ${rec.error}`; finishTurn(); turn = null; return;
         }
         const entry = { question, ...body, clientMs: rec.turn_ms };
-        Object.assign(rec, timingsOf(body), { layout: body.scene.layout, lines: body.scene.narration.length, model: body.model, cost_usd: costOf(entry) });
+        // Register honesty, recorded per turn: every cite resolves to the echoed evidence set.
+        const evIds = new Set((body.scene.evidence || []).map((e) => e.id));
+        const cites = body.scene.narration.flatMap((n) => n.cites || []);
+        Object.assign(rec, timingsOf(body), { layout: body.scene.layout, lines: body.scene.narration.length, model: body.model, cost_usd: costOf(entry), mode: body.mode || rec.mode, evidence_lib: body.grounding?.lib ?? rec.evidence_lib, evidence_vs: body.grounding?.vs ?? rec.evidence_vs, cites_ok: cites.every((c) => evIds.has(c)), no_answer: !!body.scene.no_answer, grounding_ms: body.timings?.grounding_ms });
         scenes.push(entry);
         const s = body.scene;
         const earlyMatches = !!(my.early && s.narration[0]?.text === my.early.text && $('auto').checked);
@@ -399,7 +494,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
         if (turn === my) { rec.valid = false; rec.error = String(err?.message ?? err); $('status').textContent = `Error: ${rec.error}`; finishTurn(); turn = null; if (!silent) playFiller(LOST); }
       } finally { $('send').disabled = false; }
     }
-    const timingsOf = (b) => ({ worker_ms: b?.timings?.total_ms, model_ms: b?.timings?.model_ms, tool_ms: b?.timings?.tool_ms, steps: b?.timings?.steps, first_line_worker_ms: b?.timings?.first_line_ms ?? undefined, tools: (b?.tool_calls || []).map((t) => t.name).join('+'), tokens_in: b?.usage?.input, tokens_out: b?.usage?.output, tokens_cached: b?.usage?.cache_read });
+    const timingsOf = (b) => ({ worker_ms: b?.timings?.total_ms, grounding_ms: b?.timings?.grounding_ms, model_ms: b?.timings?.model_ms, tool_ms: b?.timings?.tool_ms, steps: b?.timings?.steps, first_line_worker_ms: b?.timings?.first_line_ms ?? undefined, tools: (b?.tool_calls || []).map((t) => t.name).join('+'), tokens_in: b?.usage?.input, tokens_out: b?.usage?.output, tokens_cached: b?.usage?.cache_read });
 
     $('ask').addEventListener('submit', (e) => { e.preventDefault(); ask($('q').value); });
     $('back').addEventListener('click', () => { if (scenes.length > 1) { scenes.pop(); showScene(scenes[scenes.length - 1]); } });
@@ -428,6 +523,8 @@ const MODEL_URL = '/lab/avatar/model.glb';
       onPartial: (t) => { $('q').value = t; if (bargeIn(t)) stopSpeaking('Listening…'); },
       onSpeechStart: () => {},
       onFinal: (text, meta) => {
+        const m = correction(text); // "just look it up" / "treat this as a scenario" — never an echo
+        if (m) { stopSpeaking(null); applyCorrection(m, meta); return; }
         if (isEcho(text)) { $('status').textContent = `Ignored (echo of my own line): “${text}”`; return; }
         ask(text, meta);
       },
@@ -452,7 +549,7 @@ const MODEL_URL = '/lab/avatar/model.glb';
       $('q').value = entry.question;
     });
     if (params.get('demo')) $('demo').click();
-    window.__stage = { ask, scenes, show: (i) => showScene(scenes[i]), presence, player, mic, log, prefetchAcks, narrate: () => { const e = scenes[scenes.length - 1]; if (e) { narrT0 = now(); narrate(e.scene); } }, setLine, get turn() { return turn; } };
+    window.__stage = { ask, scenes, show: (i) => showScene(scenes[i]), presence, player, mic, log, prefetchAcks, narrate: () => { const e = scenes[scenes.length - 1]; if (e) { narrT0 = now(); narrate(e.scene); } }, setLine, setMode, correction, ackUrl: (t) => ackCache.get(t), MODE_ANNOUNCE, get mode() { return { mode: sessionMode, pinned: modePinned, lastQuestion }; }, get turn() { return turn; } };
   </script>
 </BaseLayout>
 
@@ -490,11 +587,39 @@ const MODEL_URL = '/lab/avatar/model.glb';
   .panel h3 { margin: 0 0 0.5rem; font-size: 1rem; }
   .track-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
   .narration { margin: 0; padding-left: 1.4rem; display: grid; gap: 0.35rem; }
-  .narration li { cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
-  .narration li.current { background: color-mix(in srgb, #2a78d6 14%, transparent); }
-  .narration li.early { font-style: italic; }
+  /* Mode switch + chips */
+  .mode-switch { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--color-border); border-radius: 999px; overflow: hidden; }
+  .mode-switch .mode { border: 0; border-radius: 0; padding: 0.35rem 0.75rem; font-size: 0.85rem; }
+  .mode-switch .mode.on { background: #2a78d6; color: #fff; }
+  .mode-switch[data-mode="solutioning"] .mode.on { background: #7a3fb3; }
+  .mode-switch .pin { padding: 0 0.45rem; font-size: 0.8rem; }
+  .mode-chip[data-mode="solutioning"] { border-color: #7a3fb3; color: #7a3fb3; }
+  .mode-chip[data-mode="lookup"] { border-color: #2a78d6; color: #2a78d6; }
+  /* Sources strip (container; the chips are global rules below) */
+  .sources { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.8rem; border-top: 1px dashed var(--color-border); padding-top: 0.5rem; }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0; }
   .kv dt { color: var(--color-fg-muted); } .kv dd { margin: 0; font-variant-numeric: tabular-nums; }
   .scroll-x { overflow-x: auto; }
   @media (max-width: 720px) { .stage-body, .stage[data-size] .stage-body { grid-template-columns: 1fr; } .avatar-home { min-height: 150px; } }
+</style>
+
+<!-- Elements the page CREATES (narration lines, actions, follow-ups, source
+     chips) never carry Astro's scope attribute, so their rules must be global.
+     (Found while building plan 12: the current-line highlight and the action
+     buttons had been unstyled since step 2.) -->
+<style is:global>
+  .stage .actions .action, .stage .followups .chip-btn { font: inherit; padding: 0.5rem 0.9rem; border-radius: 0.5rem; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-fg); cursor: pointer; text-decoration: none; }
+  .stage .followups .chip-btn { border-radius: 999px; font-size: 0.85rem; padding: 0.35rem 0.8rem; }
+  .track .narration li { cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
+  .track .narration li.current { background: color-mix(in srgb, #2a78d6 14%, transparent); }
+  .track .narration li.early { font-style: italic; }
+  /* Registers (plan 12): inference = "my read" in a second style; evidence lines carry their cites. */
+  .track .narration li.inference { color: color-mix(in srgb, var(--color-fg) 78%, var(--color-fg-muted)); border-left: 3px solid #c9a227; padding-left: 0.6rem; }
+  .track .narration li.inference::before { content: 'my read · '; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: #a4841a; }
+  .track .narration li.evidence { border-left: 3px solid #2a78d6; padding-left: 0.6rem; }
+  .track .narration .cites { margin-left: 0.5rem; font-size: 0.7rem; color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+  .stage .sources .src-label { color: var(--color-fg-muted); margin-right: 0.2rem; }
+  .stage .sources .src { border: 1px solid var(--color-border); border-radius: 999px; padding: 0.15rem 0.6rem; text-decoration: none; color: var(--color-fg); }
+  .stage .sources .src.lib { border-color: #2a78d6; }
+  .stage .sources .src.vs { border-style: dashed; color: var(--color-fg-muted); }
 </style>
