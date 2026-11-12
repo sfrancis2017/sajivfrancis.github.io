@@ -151,14 +151,16 @@ const MODEL_URL = '/lab/avatar/model.glb';
         const [{ loadAvatar }, { createStage }, { createIdle }, { createLipsync }] = await Promise.all([
           import('/lab/avatar/lib/avatar-loader.js'), import('/lab/avatar/lib/avatar-stage.js'), import('/lab/avatar/lib/avatar-idle.js'), import('/lab/avatar/lib/avatar-lipsync.js'),
         ]);
+        const { createTalk } = await import('/lab/avatar/lib/avatar-talk.js'); // talking motion (plan 11 v2): sway/nods with the voice, brows, glances at the scene
         const holder = $('avatar-layer');
         const st = createStage(holder, { transparent: true, controls: false, pixelRatioCap: 1.5 });
         const av = await loadAvatar(MODEL_URL);
         st.add(av.root); st.frameHead(av, { distance: 0.95, lift: 0.015, lookDown: 0.03 });
         const idle = createIdle(av); const lips = createLipsync(av, { gain: 2.2 }); lips.attach($('audio'));
-        st.onTick((dt, t) => { idle.tick(dt, t); lips.tick(dt); }); st.start();
+        const talk = createTalk(av, lips, { glanceDir: -1, glanceYawDeg: 6 }); // the scene sits to the avatar's left
+        st.onTick((dt, t) => { idle.tick(dt, t); lips.tick(dt); talk.tick(dt, t); }); st.start();
         $('avatar-fallback').remove();
-        avatar3d = { stage: st, avatar: av, idle, lips };
+        avatar3d = { stage: st, avatar: av, idle, lips, talk };
         $('m-avatar').textContent = `3D ready in ${Math.round(now() - t0)} ms · ${av.stats.morphCount} targets`;
       } catch (err) {
         console.warn('avatar 3D unavailable, using fallback', err);

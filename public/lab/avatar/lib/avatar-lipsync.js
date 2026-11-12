@@ -37,6 +37,7 @@ export function createLipsync(avatar, opts = {}) {
       audioEl.addEventListener('play', () => { speaking = true; ctx.resume(); });
       const stop = () => { speaking = false; };
       audioEl.addEventListener('pause', stop); audioEl.addEventListener('ended', stop);
+      if (!audioEl.paused && !audioEl.ended) { speaking = true; ctx.resume(); } // attached mid-playback (e.g. the reader avatar loads after the clip starts)
     },
     detach() {
       try { source?.disconnect(); analyser?.disconnect(); } catch { /* ignore */ }
