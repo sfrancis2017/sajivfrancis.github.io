@@ -40,7 +40,10 @@ panels; **Export CSV** gives the §8 sheet.
 ## Grounding, registers, modes (plan 12 — step 5a)
 
 - The worker builds an EVIDENCE SET before the model call: library pages
-  first, then passages from the topic vector stores (owner-visible corpora).
+  first, then passages from the topic vector stores (professional corpora
+  only — personal stores such as a reading list are never retrieved or
+  named). Pages the model reads mid-turn (`search`, `page_text`) join the
+  set with their own `lib:n` id, so they are citable too.
   The scene echoes `scene.evidence[]`: `{ id: "lib:1", kind: "library",
   title, url }` or `{ id: "vs:1", kind: "vector", label: "SAP vector store" }`
   — a vector item NEVER carries a title or url (IP rule), only its topic's
