@@ -59,7 +59,7 @@ export function createVoiceInput({ engine = 'webspeech', lang = 'en-US', sttEndp
     const make = () => {
       const r = new SR(); r.lang = lang; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
       r.onstart = () => setState('listening');
-      r.onspeechstart = () => { sawSpeech = true; onSpeechStart?.(); };
+      r.onspeechstart = () => { speechEndAt = 0; sawSpeech = true; onSpeechStart?.(); }; // a resumed utterance restarts the clock (t₀ = the LAST end of speech)
       r.onspeechend = () => { speechEndAt = performance.now(); setState('processing'); };
       r.onresult = (ev) => {
         let interim = '';

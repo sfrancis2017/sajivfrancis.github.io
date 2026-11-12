@@ -177,10 +177,13 @@ const MODEL_URL = '/lab/avatar/model.glb';
     // Filler lines, prefetched once, so something is audible within the §8
     // budget while the model works. Rotated so repeats are rare.
     const ACKS = ['Let me look.', 'One moment.', 'Checking the library.', 'Let me check that.'];
+    const LATE = 'Still searching the library.';          // spoken once if the first line is slow (multi-step turns)
+    const LATE_AFTER_MS = 7000;
+    const LOST = 'Sorry, I lost the connection. Ask me again.';
     const ackCache = new Map(); let ackIdx = 0; let acksLoading = null;
     function prefetchAcks() {
       if (silent || acksLoading) return acksLoading;
-      acksLoading = Promise.all(ACKS.map((t) => voice.speak(t, { voice: ttsVoice }).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
+      acksLoading = Promise.all([...ACKS, LATE, LOST].map((t) => voice.speak(t, { voice: ttsVoice }).then((r) => ackCache.set(t, r.audioUrl)).catch((e) => console.warn('ack prefetch failed', e))));
       return acksLoading;
     }
     // Audible marks: the next 'playing' event on the audio element stamps the
@@ -188,13 +191,14 @@ const MODEL_URL = '/lab/avatar/model.glb';
     let pendingMark = null;
     audioEl.addEventListener('playing', () => { if (pendingMark && turn) mark(pendingMark); pendingMark = null; });
     function mark(k) { if (!turn || turn.rec[k] != null) return; turn.rec[k] = Math.round(now() - turn.t0); updateTurnPanel(); }
-    function playAck() {
-      const t = ACKS[ackIdx++ % ACKS.length]; const url = ackCache.get(t);
+    function playFiller(t) {
+      const url = ackCache.get(t);
       if (!url) return false;
       player.stop(); pendingMark = 'ack_ms'; remember(t);
       audioEl.src = url; audioEl.play().catch(() => { pendingMark = null; });
       return true;
     }
+    const playAck = () => playFiller(ACKS[ackIdx++ % ACKS.length]);
     const spoken = []; // last few spoken texts — echo guard for Web Speech
     const remember = (t) => { if (!t || spoken.includes(t)) return; spoken.push(t); if (spoken.length > 16) spoken.shift(); };
     const ttfbs = []; let lineOffset = 0;
@@ -329,13 +333,17 @@ const MODEL_URL = '/lab/avatar/model.glb';
       stopSpeaking(null); updateTurnPanel();
       ensureAvatar();
       if (!silent) playAck();
+      // A slow first line (tool round-trips) gets one more spoken filler so the
+      // silence never reads as a dead turn.
+      let lateTimer = silent ? null : setTimeout(() => { if (turn === my && !my.early && !speaking()) playFiller(LATE); }, LATE_AFTER_MS);
       const tFetch = now();
       try {
-        const out = await fetchTurn(question, {
+        const opts = {
           signal: my.abort.signal,
           onStatus: (text) => { if (turn === my) $('status').textContent = `Thinking… (${text})`; },
           onLine: (text, atMs) => {
             if (turn !== my || my.early) return;
+            clearTimeout(lateTimer);
             my.early = { text, atMs, audio: silent ? null : voice.speak(text, { voice: ttsVoice }) }; // TTS starts now, before the data
             rec.first_line_worker_ms = atMs;
             $('narration').innerHTML = `<li class="current early">${text.replace(/</g, '&lt;')}</li>`;
@@ -348,7 +356,15 @@ const MODEL_URL = '/lab/avatar/model.glb';
               else start();
             }).catch(() => { my.early.failed = true; my.earlyPlay = Promise.resolve(true); }); // TTS failed → the full narration speaks it
           },
+        };
+        // One retry on a network failure ("Failed to fetch": CORS-less edge error,
+        // dropped connection) — seen once in the founder's 2026-11-12 run.
+        const out = await fetchTurn(question, opts).catch((e) => {
+          if (e?.name === 'AbortError' || turn !== my || my.early) throw e;
+          rec.retried = true; $('status').textContent = `Connection dropped (${e?.message ?? e}) — retrying…`;
+          return fetchTurn(question, opts);
         });
+        clearTimeout(lateTimer);
         if (turn !== my) return;
         const body = out.body;
         rec.turn_ms = Math.round(now() - tFetch);
@@ -376,8 +392,9 @@ const MODEL_URL = '/lab/avatar/model.glb';
         }
         if (!$('auto').checked) finishTurn();
       } catch (err) {
+        clearTimeout(lateTimer);
         if (err?.name === 'AbortError') return;
-        if (turn === my) { rec.valid = false; rec.error = String(err?.message ?? err); $('status').textContent = `Error: ${rec.error}`; finishTurn(); turn = null; }
+        if (turn === my) { rec.valid = false; rec.error = String(err?.message ?? err); $('status').textContent = `Error: ${rec.error}`; finishTurn(); turn = null; if (!silent) playFiller(LOST); }
       } finally { $('send').disabled = false; }
     }
     const timingsOf = (b) => ({ worker_ms: b?.timings?.total_ms, model_ms: b?.timings?.model_ms, tool_ms: b?.timings?.tool_ms, steps: b?.timings?.steps, first_line_worker_ms: b?.timings?.first_line_ms ?? undefined, tools: (b?.tool_calls || []).map((t) => t.name).join('+'), tokens_in: b?.usage?.input, tokens_out: b?.usage?.output, tokens_cached: b?.usage?.cache_read });
