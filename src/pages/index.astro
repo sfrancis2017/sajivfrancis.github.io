@@ -246,15 +246,28 @@ const outcomes = [
           stage.add(avatar.root);
           // Frame the POSED body: skinned meshes cache their bind-pose (T-pose) box,
           // so recompute each one with the current bones before taking the union.
-          const box = new Box3();
-          avatar.root.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); box.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
-          if (box.isEmpty()) box.setFromObject(avatar.root);
+          const posedBox = () => {
+            avatar.root.updateMatrixWorld(true);
+            const b = new Box3();
+            avatar.root.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); b.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+            if (b.isEmpty()) b.setFromObject(avatar.root);
+            return b;
+          };
+          const box = posedBox();
           const size = new Vector3(), center = new Vector3();
           box.getSize(size); box.getCenter(center);
           // A presenting gesture with the right arm (the side nearest the text):
           // eased in, held, eased out. Fired once on arrival, then whenever a
           // feature row is hovered or focused, and now and then on its own.
-          const GESTURE = { u: -0.35, f: -1.3, neck: 0.22 };
+          const GESTURE = { u: -0.28, f: -1.25, neck: 0.22 };
+          // Bounds at the gesture's peak: the camera eases toward this framing
+          // as the arm rises, so the hand never leaves the frame.
+          if (arms.ru) arms.ru.rotation.x += GESTURE.u; if (arms.rf) arms.rf.rotation.x += GESTURE.f;
+          const boxG = posedBox().union(box);
+          if (arms.ru) arms.ru.rotation.x -= GESTURE.u; if (arms.rf) arms.rf.rotation.x -= GESTURE.f;
+          avatar.root.updateMatrixWorld(true);
+          const sizeG = new Vector3(), centerG = new Vector3();
+          boxG.getSize(sizeG); boxG.getCenter(centerG);
           let gest = 0, gestTarget = 0, gestHold = 0, idleGestAt = 9;
           const present = () => { gestTarget = 1; gestHold = 1.6; };
           for (const row of document.querySelectorAll('.sub-feature')) { row.addEventListener('pointerenter', present); row.addEventListener('focusin', present); }
@@ -268,9 +281,9 @@ const outcomes = [
             if (arms.neck) arms.neck.rotation.y = restNeck + GESTURE.neck * k;
           };
           const cam = stage.camera;
-          const distance = () => {
+          const distance = (sz) => {
             const vf = (cam.fov * Math.PI) / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * cam.aspect);
-            return Math.max(((size.y / 2) * 1.08) / Math.tan(vf / 2), ((size.x / 2) * 1.15) / Math.tan(hf / 2));
+            return Math.max(((sz.y / 2) * 1.08) / Math.tan(vf / 2), ((sz.x / 2) * 1.12) / Math.tan(hf / 2));
           };
           // Gentle life: the lab's idle (breathing, head sway, blinks, glances),
           // a slow camera drift so the depth reads, and a small turn toward the pointer.
@@ -288,9 +301,12 @@ const outcomes = [
             applyGesture();
             turn += (pointer * 0.22 - turn) * Math.min(1, dt * 2.5);
             avatar.root.rotation.y = turn;
-            const yaw = 0.35 + Math.sin(t * 0.25) * 0.06, d = distance();
-            cam.position.set(center.x + Math.sin(yaw) * d, center.y + size.y * 0.02, center.z + Math.cos(yaw) * d);
-            cam.lookAt(center.x, center.y, center.z);
+            const k = ease(gest);
+            const yaw = 0.35 + Math.sin(t * 0.25) * 0.06;
+            const d = distance(size) + (distance(sizeG) * 1.04 - distance(size)) * k;
+            const cx = center.x + (centerG.x - center.x) * k, cy = center.y + (centerG.y - center.y) * k, cz = center.z + (centerG.z - center.z) * k;
+            cam.position.set(cx + Math.sin(yaw) * d, cy + size.y * 0.02, cz + Math.cos(yaw) * d);
+            cam.lookAt(cx, cy, cz);
           });
           stage.start();
           requestAnimationFrame(() => requestAnimationFrame(() => { host.style.opacity = '1'; stageEl.classList.add('is-live'); }));
