@@ -11,6 +11,21 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
   .slice(0, 5);
 
+// Subscriber banner figures. Read from the library's build-time index when
+// reachable (gated in production: the build token is not available here),
+// otherwise the last known totals — kept current by hand on each library release.
+const LIB_FALLBACK = { articles: 136, series: 10, sections: 26, minutes: 1321 };
+let lib = LIB_FALLBACK;
+try {
+  const r = await fetch('https://docs.sajivfrancis.com/library-index.json', { signal: AbortSignal.timeout(4000) });
+  if (r.ok) {
+    const j = await r.json();
+    const t = j?.totals;
+    if (t && t.articles > 0 && t.series > 0 && t.sections > 0) lib = { articles: t.articles, series: t.series, sections: t.sections, minutes: t.minutes || LIB_FALLBACK.minutes };
+  }
+} catch {}
+const libHours = Math.round(lib.minutes / 60);
+
 const shortDate = (d: Date) =>
   formatDate(d, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -95,6 +110,207 @@ const outcomes = [
     </p>
   </section>
 
+  <!-- Subscriber banner: the working side of the site, as an invitation.
+       Figures come from the library index at build time (see frontmatter).
+       The presenter is the site's 3D reader avatar: a still as the poster,
+       and — once the banner is in view — the live model with its idle
+       behaviours (lab modules in public/lab/avatar/lib/, three.js via the
+       same import map the lab and stage pages use). -->
+  <script type="importmap" is:inline>
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <section class="sub-banner mt-16" aria-labelledby="sub-banner-title">
+    <div class="sub-banner-inner">
+      <div class="sub-banner-main">
+        <header class="sub-banner-head">
+          <p class="sub-banner-eyebrow">Subscriber access · free</p>
+          <h2 id="sub-banner-title" class="sub-banner-title">Read it. Hear it. Ask it.</h2>
+          <p class="sub-banner-lede">
+            Subscribing unlocks the working side of this site: a field-notes
+            library of {lib.articles} papers, narrated section by section in
+            the site's own voice, and a research assistant grounded in all of it.
+          </p>
+        </header>
+
+        <ul class="sub-features" role="list">
+          <li class="sub-feature">
+            <span class="sub-feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5V5.5"/><path d="M8 7h8M8 11h8"/></svg>
+            </span>
+            <div>
+              <h3>The field-notes library</h3>
+              <p>
+                Architecture, AI systems, SAP and enterprise systems, finance:
+                {lib.series} multi-part series across {lib.sections} sections,
+                about {libHours} hours of reading. Visitors see each paper's
+                introduction and summary; subscribers read the whole thing.
+              </p>
+            </div>
+          </li>
+          <li class="sub-feature">
+            <span class="sub-feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><path d="M4 14h3v6H5a1 1 0 0 1-1-1z"/><path d="M20 14h-3v6h2a1 1 0 0 0 1-1z"/></svg>
+            </span>
+            <div>
+              <h3>Listen, section by section</h3>
+              <p>
+                Press Listen on a paper and pick the section you want
+                explained, or play the whole paper in order. The page scrolls
+                with the voice, and a seated reader avatar follows along.
+              </p>
+            </div>
+          </li>
+          <li class="sub-feature">
+            <span class="sub-feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H6a2 2 0 0 1-2-2z"/><path d="M8 9h8M8 12h5"/></svg>
+            </span>
+            <div>
+              <h3>Ask the research chat</h3>
+              <p>
+                A grounded assistant over the published work, with the pages it
+                drew on under every answer. Ask about the paper you are reading,
+                a series, or the library at large. Thirty questions a day for
+                subscribers, five without an account.
+              </p>
+            </div>
+          </li>
+        </ul>
+
+        <div class="sub-banner-foot">
+          <a href="/subscribe/" class="sub-cta">Subscribe, it's free</a>
+          <a href="https://docs.sajivfrancis.com/" class="sub-cta-alt">Preview the library →</a>
+          <p class="sub-banner-fine">
+            New writing by email, nothing else. One click to confirm, one click
+            to leave.
+          </p>
+        </div>
+      </div>
+
+      <figure class="sub-avatar">
+        <div class="sub-avatar-stage">
+          <img
+            src="/avatar/reader-avatar.webp"
+            width="720"
+            height="1802"
+            alt="Mason, the site's 3D reader avatar: a man in glasses and a green shirt, standing."
+            loading="lazy"
+            decoding="async"
+          />
+          <span class="sub-avatar-badge">Sample<span class="sub-avatar-badge-more"> · in progress</span></span>
+        </div>
+        <figcaption>
+          <strong>Mason</strong>, a sample of the site's 3D reader, who sits
+          beside each paper and reads it aloud. Improvements are in progress:
+          look, voice, gestures.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+  <script type="module" is:inline>
+    (() => {
+      const stageEl = document.querySelector('.sub-avatar-stage');
+      if (!stageEl || !('IntersectionObserver' in window)) return;
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const saveData = !!(navigator.connection && navigator.connection.saveData);
+      if (reduce || saveData) return; // the still is the whole experience here
+      const host = document.createElement('div');
+      host.className = 'sub-avatar-live';
+      // Geometry inline: elements made in JS never receive Astro's scoped styles.
+      host.style.cssText = 'position:absolute;inset:0;opacity:0;transition:opacity 700ms ease';
+      stageEl.appendChild(host);
+      let started = false, stage = null, visible = false;
+
+      async function boot() {
+        started = true;
+        try {
+          const [{ createStage }, { loadAvatar }, { createIdle }, { Vector3, Box3 }] = await Promise.all([
+            import('/lab/avatar/lib/avatar-stage.js'),
+            import('/lab/avatar/lib/avatar-loader.js'),
+            import('/lab/avatar/lib/avatar-idle.js'),
+            import('three'),
+          ]);
+          stage = createStage(host, { transparent: true, controls: false, pixelRatioCap: 2 });
+          const avatar = await loadAvatar('/lab/avatar/model.glb');
+          // Arms down from the rig's T-pose (the same pose as the poster still).
+          const bone = (re) => { let b = null; avatar.root.traverse((o) => { if (!b && o.isBone && re.test(o.name)) b = o; }); return b; };
+          const arms = { lu: bone(/^LeftArm$/), ru: bone(/^RightArm$/), lf: bone(/^LeftForeArm$/), rf: bone(/^RightForeArm$/), neck: avatar.bones.neck };
+          const REST = { u: 1.15, f: 0.2 };
+          for (const b of [arms.lu, arms.ru]) if (b) b.rotation.x += REST.u;
+          for (const b of [arms.lf, arms.rf]) if (b) b.rotation.x += REST.f;
+          avatar.root.updateMatrixWorld(true);
+          stage.add(avatar.root);
+          // Frame the POSED body: skinned meshes cache their bind-pose (T-pose) box,
+          // so recompute each one with the current bones before taking the union.
+          const box = new Box3();
+          avatar.root.traverse((o) => { if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); box.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+          if (box.isEmpty()) box.setFromObject(avatar.root);
+          const size = new Vector3(), center = new Vector3();
+          box.getSize(size); box.getCenter(center);
+          // A presenting gesture with the right arm (the side nearest the text):
+          // eased in, held, eased out. Fired once on arrival, then whenever a
+          // feature row is hovered or focused, and now and then on its own.
+          const GESTURE = { u: -0.35, f: -1.3, neck: 0.22 };
+          let gest = 0, gestTarget = 0, gestHold = 0, idleGestAt = 9;
+          const present = () => { gestTarget = 1; gestHold = 1.6; };
+          for (const row of document.querySelectorAll('.sub-feature')) { row.addEventListener('pointerenter', present); row.addEventListener('focusin', present); }
+          setTimeout(present, 1200);
+          const ease = (x) => x * x * (3 - 2 * x);
+          const restRu = arms.ru ? arms.ru.rotation.x : 0, restRf = arms.rf ? arms.rf.rotation.x : 0, restNeck = arms.neck ? arms.neck.rotation.y : 0;
+          const applyGesture = () => {
+            const k = ease(gest);
+            if (arms.ru) arms.ru.rotation.x = restRu + GESTURE.u * k;
+            if (arms.rf) arms.rf.rotation.x = restRf + GESTURE.f * k;
+            if (arms.neck) arms.neck.rotation.y = restNeck + GESTURE.neck * k;
+          };
+          const cam = stage.camera;
+          const distance = () => {
+            const vf = (cam.fov * Math.PI) / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * cam.aspect);
+            return Math.max(((size.y / 2) * 1.08) / Math.tan(vf / 2), ((size.x / 2) * 1.15) / Math.tan(hf / 2));
+          };
+          // Gentle life: the lab's idle (breathing, head sway, blinks, glances),
+          // a slow camera drift so the depth reads, and a small turn toward the pointer.
+          let pointer = 0, turn = 0;
+          addEventListener('pointermove', (e) => {
+            const r = stageEl.getBoundingClientRect();
+            pointer = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (innerWidth / 2)));
+          }, { passive: true });
+          const idle = createIdle(avatar);
+          stage.onTick((dt, t) => {
+            idle.tick(dt, t);
+            if (gestTarget === 1) { gestHold -= dt; if (gestHold <= 0) gestTarget = 0; }
+            else { idleGestAt -= dt; if (idleGestAt <= 0) { present(); idleGestAt = 12 + Math.random() * 6; } }
+            gest += (gestTarget - gest) * Math.min(1, dt * (gestTarget ? 3.2 : 2.2));
+            applyGesture();
+            turn += (pointer * 0.22 - turn) * Math.min(1, dt * 2.5);
+            avatar.root.rotation.y = turn;
+            const yaw = 0.35 + Math.sin(t * 0.25) * 0.06, d = distance();
+            cam.position.set(center.x + Math.sin(yaw) * d, center.y + size.y * 0.02, center.z + Math.cos(yaw) * d);
+            cam.lookAt(center.x, center.y, center.z);
+          });
+          stage.start();
+          requestAnimationFrame(() => requestAnimationFrame(() => { host.style.opacity = '1'; stageEl.classList.add('is-live'); }));
+          if (!visible) stage.stop();
+        } catch (e) {
+          host.remove(); // keep the still
+          console.warn('reader avatar: still only', e);
+        }
+      }
+      const io = new IntersectionObserver((entries) => {
+        for (const en of entries) {
+          visible = en.isIntersecting;
+          if (visible && !started) boot();
+          else if (stage) { if (visible) stage.start(); else stage.stop(); }
+        }
+      }, { rootMargin: '160px' });
+      io.observe(stageEl);
+    })();
+  </script>
+
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
     <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
       Architecture at Enterprise Scale
@@ -162,27 +378,6 @@ const outcomes = [
   </section>
 
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
-    <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-3">
-      Subscriber Access
-    </h2>
-    <p class="text-[var(--color-fg-muted)] mb-4">
-      Subscribing is free and unlocks the working side of this site: new
-      writing by email, full access to the
-      <a href="https://docs.sajivfrancis.com/">field-notes library</a>, and the
-      <a href="https://chat.sajivfrancis.com/">research chat</a>, a grounded
-      assistant over my published work.
-    </p>
-    <p>
-      <a
-        href="/subscribe/"
-        class="text-[var(--color-fg)] underline hover:no-underline"
-      >
-        Subscribe →
-      </a>
-    </p>
-  </section>
-
-  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
     <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
       Find Me
     </h2>
@@ -202,3 +397,114 @@ const outcomes = [
     </ul>
   </section>
 </BaseLayout>
+
+<style>
+  /* ---- Subscriber banner ------------------------------------------------ */
+  .sub-banner {
+    position: relative;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background:
+      radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 70%),
+      var(--color-bg-elevated);
+    overflow: hidden;
+  }
+  .sub-banner::before {
+    content: '';
+    position: absolute; inset: 0 0 auto 0; height: 3px;
+    background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 25%, transparent));
+  }
+  .sub-banner-inner {
+    display: grid; grid-template-columns: minmax(0, 1fr) 13.5rem; gap: 1.75rem;
+    align-items: stretch;
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+  }
+  .sub-banner-main { min-width: 0; display: flex; flex-direction: column; }
+  .sub-banner-eyebrow {
+    margin: 0 0 0.6rem; font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent);
+  }
+  .sub-banner-title {
+    margin: 0 0 0.6rem; font-size: clamp(1.7rem, 3.2vw, 2.25rem);
+    line-height: 1.1; letter-spacing: -0.02em; font-weight: 600; color: var(--color-fg);
+  }
+  .sub-banner-lede { margin: 0; font-size: 1rem; line-height: 1.55; color: var(--color-fg-muted); }
+
+  .sub-features {
+    list-style: none; margin: 1.4rem 0 0; padding: 0;
+    display: flex; flex-direction: column; gap: 0.9rem;
+  }
+  .sub-feature { display: flex; gap: 0.85rem; align-items: flex-start; }
+  .sub-feature-icon {
+    display: inline-flex; flex: none; width: 2.1rem; height: 2.1rem;
+    align-items: center; justify-content: center; border-radius: 0.55rem;
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+  .sub-feature-icon svg { width: 1.15rem; height: 1.15rem; }
+  .sub-feature h3 { margin: 0 0 0.2rem; font-size: 0.95rem; font-weight: 600; color: var(--color-fg); }
+  .sub-feature p { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--color-fg-muted); }
+
+  .sub-banner-foot {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem;
+    margin-top: auto; padding-top: 1.5rem;
+  }
+  .sub-cta {
+    display: inline-block; padding: 0.65rem 1.15rem; border-radius: 0.6rem;
+    background: var(--color-accent); color: var(--color-accent-fg);
+    font-weight: 600; font-size: 0.95rem; text-decoration: none;
+  }
+  .sub-cta:hover { text-decoration: none; filter: brightness(1.06); }
+  .sub-cta-alt { font-size: 0.95rem; color: var(--color-fg); text-decoration: none; }
+  .sub-cta-alt:hover { text-decoration: underline; }
+  .sub-banner-fine { flex-basis: 100%; margin: 0.1rem 0 0; font-size: 0.78rem; color: var(--color-fg-subtle); }
+
+  /* The presenter: full figure (transparent cutout) standing on a backdrop. */
+  .sub-avatar { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+  .sub-avatar-stage { width: 100%; }
+  .sub-avatar figcaption { text-align: center; }
+  .sub-avatar-stage {
+    position: relative; flex: 1 1 auto; min-height: 22rem;
+    border-radius: 0.9rem; overflow: hidden;
+    border: 1px solid var(--color-border);
+    background:
+      radial-gradient(80% 55% at 50% 100%, color-mix(in srgb, var(--color-accent) 22%, transparent), transparent 70%),
+      linear-gradient(180deg, color-mix(in srgb, var(--color-fg) 4%, var(--color-bg)) 0%, color-mix(in srgb, var(--color-fg) 10%, var(--color-bg)) 100%);
+  }
+  .sub-avatar-stage img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: contain; object-position: 50% 50%;
+    padding: 0.9rem 0.6rem;
+    filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.28));
+    transition: opacity 700ms ease;
+  }
+  .sub-avatar-stage.is-live img { opacity: 0; }
+  .sub-avatar-badge {
+    position: absolute; top: 0.7rem; left: 0.7rem;
+    font-size: 0.64rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.3rem 0.55rem; border-radius: 999px; white-space: nowrap;
+    background: var(--color-bg-elevated); color: var(--color-fg);
+    border: 1px solid var(--color-border-strong);
+  }
+  .sub-avatar figcaption { font-size: 0.76rem; line-height: 1.45; color: var(--color-fg-subtle); }
+  .sub-avatar figcaption strong { color: var(--color-fg); font-weight: 600; }
+
+  @media (max-width: 860px) {
+    .sub-banner-inner { grid-template-columns: minmax(0, 1fr) 11rem; gap: 1.25rem; }
+  }
+  @media (max-width: 640px) {
+    .sub-banner { border-radius: 0.75rem; }
+    .sub-banner-inner { grid-template-columns: 1fr; }
+    .sub-avatar { align-items: center; }
+    .sub-avatar-stage { width: min(100%, 13rem); min-height: 19rem; }
+    .sub-avatar figcaption { max-width: 22rem; }
+    .sub-avatar-badge-more { display: none; }
+    .sub-banner-foot { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+    .sub-cta { text-align: center; }
+    .sub-cta-alt { text-align: center; }
+  }
+</style>
+<style is:global>
+  /* The live avatar's canvas is created by three.js at runtime, outside Astro's scoping. */
+  .sub-avatar-live canvas { display: block; width: 100% !important; height: 100% !important; }
+</style>
