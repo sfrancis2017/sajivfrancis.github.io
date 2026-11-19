@@ -218,13 +218,18 @@ const articleJsonLd = article
   </head>
   <body class="min-h-screen flex flex-col">
     <Header />
-    <div class="owner-gate-note">
-      <p>This area is owner-only.</p>
-      <p class="mt-2 text-sm">
-        Sign in with the badge in the corner to continue, or head
-        <a href="/" class="underline">back to the site</a>.
-      </p>
-    </div>
+    {
+      /* Rendered only on owner-gated routes, so public pages never carry it. */
+      /^\/tools(\/|$)/.test(Astro.url.pathname) && (
+        <div class="owner-gate-note">
+          <p>This area is owner-only.</p>
+          <p class="mt-2 text-sm">
+            Sign in with the badge in the corner to continue, or head
+            <a href="/" class="underline">back to the site</a>.
+          </p>
+        </div>
+      )
+    }
     <main class:list={['flex-1 w-full mx-auto px-6 py-12', mainClass]}>
       <slot />
     </main>

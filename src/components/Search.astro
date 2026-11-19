@@ -24,10 +24,15 @@
     </button>
   </form>
   <div id="pagefind-root" class="p-4 pt-0">
-    <div id="pagefind-fallback" class="text-sm text-[var(--color-fg-muted)] hidden">
-      Search index not available (this is normal in <code>npm run dev</code>;
-      run <code>npm run build &amp;&amp; npm run preview</code> to test locally).
-    </div>
+    {
+      /* Dev-only notice: the index exists only in production builds. */
+      import.meta.env.DEV && (
+        <div id="pagefind-fallback" class="text-sm text-[var(--color-fg-muted)] hidden">
+          Search index not available (this is normal in <code>npm run dev</code>;
+          run <code>npm run build &amp;&amp; npm run preview</code> to test locally).
+        </div>
+      )
+    }
   </div>
 </dialog>
 

@@ -3,13 +3,14 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { buildPostUrl, formatDate } from '@/lib/utils';
 import HeroVideo from '@/components/HeroVideo.astro';
+import { categoryLabel } from '@/lib/categories';
 
 // Phase 0 landing teaser — paste the CDN URL from the video pipeline here.
 const heroVideo = 'https://sajiv-videos.sfo3.cdn.digitaloceanspaces.com/videos/sajivfrancis-com/1781500515279.mp4';
 
 const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
-  .slice(0, 5);
+  .slice(0, 6);
 
 // Subscriber banner figures. Read from the library's build-time index when
 // reachable (gated in production: the build token is not available here),
@@ -94,8 +95,8 @@ const outcomes = [
     <p class="text-lg leading-relaxed text-[var(--color-fg-muted)]">
       An enterprise architect connecting business strategy to data,
       applications, technology, and AI to deliver measurable business
-      outcomes. Currently leading architecture across a Fortune 100
-      multi-instance S/4HANA finance transformation and four enterprise AI
+      outcomes. Architecture leadership at Fortune 100 scale:
+      multi-instance S/4HANA finance transformation and enterprise AI
       programs, governed end to end.
     </p>
     <p class="text-base text-[var(--color-fg-muted)]">
@@ -108,6 +109,64 @@ const outcomes = [
       TOGAF 10 · Stanford AI-Driven Leadership · Columbia Applied Data
       Science
     </p>
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-3 pt-1">
+      <a href="mailto:admin@sajivfrancis.com" class="sub-cta">Get in touch</a>
+      <a href="/blog/" class="sub-cta-alt">Read my writing →</a>
+    </div>
+  </section>
+
+  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
+    <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
+      What Architecture Makes Possible
+    </h2>
+    <ul class="space-y-4">
+      {outcomes.map((o) => (
+        <li class="flex items-baseline gap-4">
+          <span class="font-semibold text-[var(--color-fg)] tabular-nums shrink-0 w-28">
+            {o.metric}
+          </span>
+          <span class="text-[var(--color-fg-muted)]">{o.label}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
+    <div class="flex items-baseline justify-between mb-6">
+      <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">
+        Recent Writing
+      </h2>
+      <a href="/blog/" class="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline">
+        All writing →
+      </a>
+    </div>
+    {
+      posts.length === 0 ? (
+        <p class="text-[var(--color-fg-muted)]">Posts coming soon.</p>
+      ) : (
+        <ul class="space-y-7">
+          {posts.map((post) => (
+            <li>
+              <a href={buildPostUrl(post)} class="writing-card block no-underline hover:no-underline">
+                <p class="text-xs uppercase tracking-widest text-[var(--color-fg-subtle)]">
+                  {post.data.category && (
+                    <span class="text-[var(--color-accent)] font-semibold">{categoryLabel(post.data.category)}</span>
+                  )}
+                  {post.data.category && <span aria-hidden="true"> · </span>}
+                  <time datetime={post.data.pubDate.toISOString()}>{shortDate(post.data.pubDate)}</time>
+                </p>
+                <h3 class="writing-card-title mt-1 text-lg font-medium leading-snug text-[var(--color-fg)]">
+                  {post.data.title}
+                </h3>
+                <p class="mt-1 text-sm leading-relaxed text-[var(--color-fg-muted)]">
+                  {post.data.description}
+                </p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
   </section>
 
   <!-- Subscriber banner: the working side of the site, as an invitation.
@@ -201,12 +260,11 @@ const outcomes = [
             loading="lazy"
             decoding="async"
           />
-          <span class="sub-avatar-badge">Sample<span class="sub-avatar-badge-more"> · in progress</span></span>
+          <span class="sub-avatar-badge">Preview</span>
         </div>
         <figcaption>
-          <strong>Mason</strong>, a sample of the site's 3D reader, who sits
-          beside each paper and reads it aloud. Improvements are in progress:
-          look, voice, gestures.
+          <strong>Mason</strong>, a preview of the site's 3D reader, who sits
+          beside each paper and reads it aloud.
         </figcaption>
       </figure>
     </div>
@@ -347,54 +405,6 @@ const outcomes = [
 
   <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
     <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
-      What Architecture Makes Possible
-    </h2>
-    <ul class="space-y-4">
-      {outcomes.map((o) => (
-        <li class="flex items-baseline gap-4">
-          <span class="font-semibold text-[var(--color-fg)] tabular-nums shrink-0 w-28">
-            {o.metric}
-          </span>
-          <span class="text-[var(--color-fg-muted)]">{o.label}</span>
-        </li>
-      ))}
-    </ul>
-  </section>
-
-  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
-    <div class="flex items-baseline justify-between mb-6">
-      <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)]">
-        Recent Writing
-      </h2>
-      <a href="/blog/" class="text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] no-underline">
-        Archive →
-      </a>
-    </div>
-    {
-      posts.length === 0 ? (
-        <p class="text-[var(--color-fg-muted)]">Posts coming soon.</p>
-      ) : (
-        <ul class="space-y-5">
-          {posts.map((post) => (
-            <li class="flex items-baseline justify-between gap-4">
-              <a
-                href={buildPostUrl(post)}
-                class="text-[var(--color-fg)] no-underline hover:underline truncate"
-              >
-                {post.data.title}
-              </a>
-              <time class="text-sm text-[var(--color-fg-subtle)] tabular-nums shrink-0">
-                {shortDate(post.data.pubDate)}
-              </time>
-            </li>
-          ))}
-        </ul>
-      )
-    }
-  </section>
-
-  <section class="mt-16 pt-12 border-t border-[var(--color-border)]">
-    <h2 class="text-sm uppercase tracking-widest text-[var(--color-fg-subtle)] mb-6">
       Find Me
     </h2>
     <ul class="space-y-2 text-[var(--color-fg-muted)]">
@@ -473,6 +483,7 @@ const outcomes = [
   .sub-cta:hover { text-decoration: none; filter: brightness(1.06); }
   .sub-cta-alt { font-size: 0.95rem; color: var(--color-fg); text-decoration: none; }
   .sub-cta-alt:hover { text-decoration: underline; }
+  .writing-card:hover .writing-card-title { text-decoration: underline; }
   .sub-banner-fine { flex-basis: 100%; margin: 0.1rem 0 0; font-size: 0.78rem; color: var(--color-fg-subtle); }
 
   /* The presenter: full figure (transparent cutout) standing on a backdrop. */
@@ -514,7 +525,6 @@ const outcomes = [
     .sub-avatar { align-items: center; }
     .sub-avatar-stage { width: min(100%, 13rem); min-height: 19rem; }
     .sub-avatar figcaption { max-width: 22rem; }
-    .sub-avatar-badge-more { display: none; }
     .sub-banner-foot { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
     .sub-cta { text-align: center; }
     .sub-cta-alt { text-align: center; }
